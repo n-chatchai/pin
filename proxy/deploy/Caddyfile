@@ -1,0 +1,24 @@
+# ปิ่น proxy + admin — Caddy reverse proxy with automatic TLS.
+# Replace the domain; point DNS at the VPS. Caddy fetches/renews Let's Encrypt.
+#
+#   caddy run --config deploy/Caddyfile
+#
+# Device endpoints (/infer /tool /embed /catalog /schedule) and the admin UI
+# (/admin) share one origin; admin is gated by its own login (admin.py), the
+# device endpoints by the bearer token. Bind the app to localhost so only Caddy
+# faces the internet.
+
+proxy.tokens2.io {
+	encode zstd gzip
+
+	# Admin backoffice — owner login (cookie). Optional: add IP allowlist.
+	@admin path /admin*
+	handle @admin {
+		reverse_proxy 127.0.0.1:8088
+	}
+
+	# Device API (bearer-authenticated inside the app).
+	handle {
+		reverse_proxy 127.0.0.1:8088
+	}
+}

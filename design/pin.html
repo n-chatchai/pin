@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ปิ่น · Palette &amp; Conversation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FAF8F2;--white:#FFF;
+    --green:#34B06A;--green-d:#1C7A48;--green-dd:#2C9D5C;--green-pale:#E4EFDE;--green-card:#E9F1E6;--green-av:#DBEDD7;
+    --ink:#2A2A26;--ink2:#6B6B62;--ink3:#A0A096;--line:#E6E1D5;
+    --cardsh:0 1px 2px rgba(40,40,34,.05),0 3px 9px rgba(40,40,34,.045);
+    /* design tokens: ปรับที่นี่คุมทั้งระบบ */
+    --r:6px;--gut:15px;--hair:rgba(0,0,0,.07);--pos:#2E9E63;--neg:#C2503A;
+    --nira:'IBM Plex Sans Thai','Sarabun',sans-serif;--sans:'Sarabun','Leelawadee UI','Tahoma',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 1px 1px,rgba(0,0,0,.022) 1px,transparent 0);background-size:24px 24px;}
+  .wrap{max-width:720px;margin:0 auto;padding:42px 26px 80px;}
+
+  .brand{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;}
+  .brand h1{font-family:var(--nira);font-size:30px;font-weight:600;}
+  .brand .rom{font-size:12px;color:var(--ink3);letter-spacing:2px;}
+
+  .themebar{display:flex;align-items:center;gap:10px;margin:16px 0 8px;padding:13px 16px;background:#fff;border:1px solid var(--line);border-radius:16px;flex-wrap:wrap;box-shadow:var(--cardsh);}
+  .themebar .tlab{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);}
+  .themebtn{width:30px;height:30px;border-radius:50%;border:2px solid transparent;background:var(--c);cursor:pointer;padding:0;transition:transform .12s;}
+  .themebtn:hover{transform:scale(1.09);}.themebtn.on{border-color:var(--ink);}
+  .tname{font-size:14px;color:var(--ink2);margin-left:auto;}.tname b{color:var(--ink);}
+
+  section{margin-top:40px;}
+  h2{font-size:12px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--green-d);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  .muted{color:var(--ink2);}
+  .vision{font-family:var(--nira);font-size:21px;font-weight:500;line-height:1.45;}
+  .vision b{color:var(--green-d);}
+  .leadtag{display:inline-block;background:var(--green);color:#fff;font-size:14px;font-weight:600;border-radius:22px;padding:7px 16px;margin-top:12px;}
+  .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:13px;margin-top:18px;}
+  .vcard{background:#fff;border-radius:var(--r);box-shadow:var(--cardsh);padding:15px 16px;}
+  .vcard .t{font-family:var(--nira);font-weight:600;font-size:15px;margin-bottom:5px;}
+  .vcard p{font-size:13.5px;color:var(--ink2);line-height:1.5;}
+  .namebox{background:var(--green-pale);border-radius:var(--r);padding:16px 18px;margin-top:16px;font-size:14.5px;line-height:1.55;}
+  .namebox b{color:var(--green-d);}
+  .subh{font-family:var(--nira);font-size:16px;font-weight:600;margin:24px 0 6px;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+  .box{background:#fff;border-radius:var(--r);box-shadow:var(--cardsh);padding:15px 16px;}
+  .box .bt{font-size:13px;font-weight:700;margin-bottom:9px;}.box.do .bt{color:var(--green-d);}.box.dont .bt{color:#C2503A;}
+  .box ul{list-style:none;}.box li{font-size:13.5px;padding:4px 0 4px 18px;position:relative;line-height:1.45;}
+  .box.do li:before{content:'✓';position:absolute;left:0;color:var(--green);font-weight:700;}
+  .box.dont li:before{content:'×';position:absolute;left:0;color:#C2503A;font-weight:700;}
+  .quote{font-family:var(--nira);background:#fff;border-left:3px solid var(--green);border-radius:0 8px 8px 0;padding:10px 15px;margin-top:8px;font-size:15.5px;box-shadow:var(--cardsh);}
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .chip{font-size:13.5px;background:var(--green-pale);color:var(--green-d);border-radius:18px;padding:6px 13px;font-weight:500;}
+  .doline{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  .doline:last-child{border-bottom:none;}.doline .k{flex:0 0 84px;font-weight:600;color:var(--green-d);}.doline .v{flex:1;color:var(--ink);}
+
+  .sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:13px;}
+  .chip-c{border-radius:var(--r);overflow:hidden;background:var(--white);box-shadow:var(--cardsh);}
+  .chip-c .fill{height:60px;}.chip-c .meta{padding:9px 11px;}
+  .chip-c .nm{font-size:13px;font-weight:600;}.chip-c .hex{font-size:11.5px;color:var(--ink3);font-family:ui-monospace,monospace;}
+  .chip-c .role{font-size:11px;color:var(--ink2);margin-top:2px;}
+
+  .phonewrap{display:flex;justify-content:center;}
+  .phone{width:336px;background:var(--cream);border:1px solid var(--line);border-radius:32px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.14);}
+  .pt{display:flex;align-items:center;gap:10px;padding:14px 15px;border-bottom:1px solid var(--line);}
+  .pt .av{width:36px;height:36px;border-radius:50%;background:var(--green-av);display:flex;align-items:center;justify-content:center;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:18px;}
+  .pt b{font-size:15px;}.pt em{font-size:11px;color:var(--ink3);font-style:normal;display:block;line-height:1;margin-top:2px;}
+  .navlabel{font-family:var(--nira);font-size:13px;font-weight:600;color:var(--green-d);text-align:center;margin-bottom:10px;}
+  .navcap{font-size:11.5px;color:var(--ink2);text-align:center;max-width:300px;margin:10px auto 0;line-height:1.5;}
+  .kebab{margin-left:auto;display:inline-flex;flex-direction:column;gap:3px;cursor:pointer;padding:5px 3px;}
+  .kebab i{width:4px;height:4px;border-radius:50%;background:var(--ink3);}
+  .navmenu{position:absolute;top:56px;right:13px;width:192px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(40,40,34,.17);padding:6px;z-index:6;}
+  .navmenu .ni{display:flex;align-items:center;gap:11px;padding:10px 11px;font-size:13.5px;color:var(--ink);border-radius:8px;}
+  .navmenu .ni svg{width:18px;height:18px;stroke:var(--green-d);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}
+  .navmenu .sep{height:1px;background:var(--line);margin:5px 8px;}
+  .navmenu.lefty{left:16px;right:auto;top:62px;}
+  .fab-glass{position:absolute;top:14px;height:40px;border-radius:20px;background:#fff;border:1px solid var(--line);box-shadow:0 3px 12px rgba(40,40,34,.10);display:flex;align-items:center;z-index:7;color:var(--green-d);cursor:pointer;}
+  .fab-glass svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}
+  .fab-now{left:14px;width:44px;justify-content:center;padding:0;}
+  .fab-now svg{width:20px;height:20px;stroke-width:2.3;}
+  .fab-cluster{right:14px;padding:0;}
+  .fab-cluster .ci{position:relative;display:flex;align-items:center;justify-content:center;width:44px;height:40px;}
+  .fab-cluster .ci svg{width:21px;height:21px;}
+  .srchbar{display:flex;align-items:center;gap:9px;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--cream);}
+  .srchbar .field{flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 11px;}
+  .srchbar .field svg{width:16px;height:16px;stroke:var(--ink3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}
+  .srchbar .field .q{flex:1;font-size:13.5px;color:var(--ink);}
+  .srchbar .field .x{width:18px;height:18px;border-radius:50%;background:var(--green-pale);display:flex;align-items:center;justify-content:center;color:var(--green-d);flex:0 0 auto;}
+  .srchbar .field .x svg{width:11px;height:11px;stroke:currentColor;}
+  .scount{font-size:11px;color:var(--ink3);padding:10px 16px 3px;}
+  .sresitem{display:flex;gap:10px;padding:11px 16px;border-bottom:1px solid var(--hair);cursor:pointer;}
+  .sresitem:last-child{border-bottom:none;}
+  .sresitem .sa{width:26px;height:26px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:var(--nira);font-weight:600;font-size:10px;}
+  .sresitem .sa.pin{background:var(--green-av);color:var(--green-d);}
+  .sresitem .sa.me{background:var(--green);color:#fff;}
+  .sresitem .sb{flex:1;min-width:0;}
+  .sresitem .stext{font-size:13px;color:var(--ink2);line-height:1.45;}
+  .sresitem .smeta{font-size:11px;color:var(--ink3);margin-top:4px;}
+  mark{background:rgba(52,176,106,.20);color:var(--green-d);font-weight:600;border-radius:3px;padding:0 2px;}
+  .jbar{display:flex;align-items:center;gap:6px;padding:9px 13px;background:var(--green-card);border-bottom:1px solid var(--line);font-size:11.5px;color:var(--green-d);font-weight:600;}
+  .jbar .jnav{margin-left:auto;display:flex;gap:6px;}
+  .jbar .jnav span{width:23px;height:23px;border-radius:7px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--green-d);}
+  .jbar .jnav svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+  .ku.hit .b,.me.hit .b{box-shadow:0 0 0 2px var(--green-dd),0 0 0 7px rgba(52,176,106,.16);}
+  .takebox{display:flex;gap:10px;background:var(--green-card);border-radius:14px;padding:14px 15px;}
+  .takebox .a{width:26px;height:26px;border-radius:50%;background:var(--green-av);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:12px;}
+  .takebox .tk{font-size:13.5px;line-height:1.55;color:var(--ink);}
+  .nowcard{background:#fff;border-radius:14px;box-shadow:var(--cardsh);padding:4px 14px;}
+  .nowrow{display:flex;gap:9px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair);}
+  .nowrow:last-child{border-bottom:none;}
+  .nowrow .c{flex:0 0 auto;min-width:50px;text-align:center;font-size:9px;font-weight:600;letter-spacing:.3px;color:var(--green-d);background:var(--green-pale);border-radius:5px;padding:3px 6px;}
+  .nowrow .t{flex:1;font-size:13px;color:var(--ink);}
+  .nowrow .m{font-size:10.5px;color:var(--ink3);flex:0 0 auto;}
+  .nowrow .m.due{color:#C2503A;}
+  .nowbtn{width:100%;height:46px;border-radius:12px;background:var(--green);color:#fff;border:none;font-family:var(--nira);font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .nowbtn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .ndot{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:9px;background:#E8674F;color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--cream);box-shadow:0 1px 3px rgba(40,40,34,.25);}
+  .comp{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid var(--line);border-radius:27px;padding:8px 9px;box-shadow:var(--cardsh);margin:6px 10px 12px;}
+  .comp .cic{display:inline-flex;color:var(--green-d);flex:0 0 auto;}
+  .comp .cic svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .comp .cinput{flex:1;font-size:15px;color:var(--ink3);}
+  .comp .cmic{width:42px;height:42px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .comp .cmic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .comp .cic.act{color:#fff;background:var(--green);border-radius:50%;width:34px;height:34px;align-items:center;justify-content:center;}
+  .attach{position:absolute;left:16px;bottom:84px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 30px rgba(40,40,34,.18);padding:9px;width:240px;z-index:8;}
+  .attach .ai{display:flex;align-items:center;gap:13px;padding:9px 8px;font-size:15px;color:var(--ink);}
+  .attach .ac{width:42px;height:42px;border-radius:50%;background:var(--green-pale);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .attach .ac svg{width:21px;height:21px;stroke:var(--green-d);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .floatpill{position:absolute;left:50%;transform:translateX(-50%);bottom:80px;background:var(--green-d);color:#fff;border-radius:22px;padding:9px 15px;font-size:12.5px;font-weight:600;box-shadow:0 6px 18px rgba(40,40,34,.22);display:inline-flex;align-items:center;gap:8px;z-index:6;}
+  .floatpill .pc{background:rgba(255,255,255,.25);border-radius:12px;padding:1px 7px;font-size:11px;}
+  .floatpill svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .pthread{padding:15px 13px 16px;display:flex;flex-direction:column;gap:8px;}
+  .day{align-self:center;font-size:10.5px;color:#fff;background:#B7B3A6;border-radius:20px;padding:3px 12px;margin:5px 0;}
+  .ku{align-self:flex-start;max-width:88%;display:flex;gap:7px;align-items:flex-end;}
+  .ku .a{width:23px;height:23px;border-radius:50%;background:var(--green-av);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:11px;}
+  .ku .b{display:inline-block;background:#fff;border-radius:16px 16px 16px 5px;padding:9px 12px;font-size:13.5px;line-height:1.45;box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .me{align-self:flex-end;max-width:80%;}.me .b{display:inline-block;background:var(--green);color:#fff;border-radius:16px 16px 5px 16px;padding:9px 13px;font-size:13.5px;line-height:1.4;}
+  .lc{align-self:flex-start;max-width:90%;margin-left:30px;border-radius:var(--r);background:var(--green-card);box-shadow:var(--cardsh);overflow:hidden;}
+  .ch{display:flex;align-items:center;gap:8px;padding:13px var(--gut) 0;}
+  .ch .ci{display:inline-flex;color:var(--green-d);}
+  .ch .ci svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .ch b{font-size:14.5px;}
+  .ch .hm{margin-left:auto;font-size:11px;color:var(--ink2);font-weight:600;}
+  .cd{padding:3px var(--gut) 11px;font-size:11.5px;color:var(--ink2);}
+  .cc{padding:12px var(--gut);background:#fff;flex:1 1 auto;}
+  .cc p{font-size:13.5px;line-height:1.5;color:var(--ink);}
+  .cf{padding:9px var(--gut);background:#fff;border-top:1px solid var(--hair);font-size:11.5px;color:var(--ink2);display:flex;align-items:center;gap:7px;}
+  .cf svg{width:14px;height:14px;stroke:var(--green-d);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}
+  .pit{display:flex;gap:9px;align-items:center;padding:5px 0;}
+  .pit .c{flex:0 0 auto;min-width:54px;text-align:center;font-size:9px;font-weight:600;letter-spacing:.3px;color:var(--green-d);background:var(--green-pale);border-radius:5px;padding:3px 7px;}
+  .pit .t{font-size:13px;}
+  .nt{align-self:center;font-size:10.5px;color:var(--ink3);font-style:italic;margin:2px 0;text-align:center;max-width:90%;}
+  .sdk{position:relative;outline:1.5px dashed var(--ink3);outline-offset:-3px;}
+  .sdk-note{max-width:360px;margin:14px auto 0;font-size:12px;color:var(--ink2);text-align:center;line-height:1.55;}
+  .sdk-note b{color:var(--ink);}
+  .authscreen{padding:40px 22px 24px;display:flex;flex-direction:column;min-height:572px;}
+  .auth-brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:11px;margin:14px 0 6px;}
+  .auth-icon{width:74px;height:74px;border-radius:18px;background:var(--green);display:flex;align-items:center;justify-content:center;font-family:var(--nira);font-weight:700;color:#fff;font-size:30px;box-shadow:var(--cardsh);}
+  .auth-brand h3{font-family:var(--nira);font-size:24px;font-weight:600;}
+  .auth-brand p{font-size:13px;color:var(--ink2);max-width:210px;line-height:1.5;}
+  .auth-btns{display:flex;flex-direction:column;gap:10px;margin-top:auto;}
+  .authbtn{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;border-radius:11px;font-family:var(--sans);font-size:14.5px;font-weight:600;cursor:pointer;border:1px solid transparent;}
+  .authbtn svg{width:19px;height:19px;flex:0 0 auto;}
+  .auth-apple{background:#111;color:#fff;}
+  .auth-google{background:#fff;color:#3C4043;border-color:#DADCE0;}
+  .auth-email{background:var(--green);color:#fff;}
+  .authbtn.dis{background:#fff;color:var(--ink3);border-color:var(--line);cursor:not-allowed;}
+  .soon{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;letter-spacing:.3px;color:var(--ink3);background:var(--green-pale);border-radius:20px;padding:3px 8px;}
+  .auth-or{display:flex;align-items:center;gap:10px;color:var(--ink3);font-size:11px;margin:6px 0 0;}
+  .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line);}
+  .auth-terms{font-size:10.5px;color:var(--ink3);text-align:center;line-height:1.6;margin-top:16px;}
+  .auth-terms a{color:var(--green-d);text-decoration:none;}
+  .set-top{display:flex;align-items:center;gap:12px;padding:15px 16px;border-bottom:1px solid var(--line);}
+  .set-top .bk{display:inline-flex;color:var(--ink);}.set-top .bk svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .set-top b{font-family:var(--nira);font-size:18px;font-weight:600;}
+  .set-body{padding:16px 14px 24px;display:flex;flex-direction:column;gap:20px;}
+  .setgrp-h{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);margin:0 0 8px 5px;}
+  .setlist{background:#fff;border-radius:var(--r);box-shadow:var(--cardsh);overflow:hidden;}
+  .setrow{display:flex;align-items:center;gap:11px;padding:13px 14px;border-bottom:1px solid var(--hair);font-size:14px;}
+  .setrow:last-child{border-bottom:none;}
+  .setrow .ico{display:inline-flex;color:var(--green-d);flex:0 0 auto;}
+  .setrow .ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .setrow .lbl{flex:1;}
+  .setrow .val{color:var(--ink2);font-size:13px;}
+  .setrow .chev{display:inline-flex;color:var(--ink3);}.setrow .chev svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .setrow.lock{opacity:.6;}
+  .badge-soon{font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--ink3);background:var(--green-pale);border-radius:20px;padding:3px 8px;}
+  .toggle{width:38px;height:22px;border-radius:20px;background:var(--green);position:relative;flex:0 0 auto;}
+  .toggle::after{content:"";position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff;}
+  .toggle.off{background:var(--line);}.toggle.off::after{left:2px;}
+  .set-danger{justify-content:center;color:#C2503A;font-weight:600;}
+  .set-top .add{margin-left:auto;display:inline-flex;color:var(--green-d);}.set-top .add svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .tsum{display:flex;flex-direction:column;gap:10px;}
+  .tfilter{display:flex;gap:8px;flex-wrap:wrap;}
+  .tsumline{font-size:12px;color:var(--ink2);padding-left:2px;}
+  .tgrp{display:flex;align-items:center;gap:8px;margin:0 0 8px 4px;}
+  .tgrp .ico{display:inline-flex;color:var(--green-d);}.tgrp .ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .tgrp b{font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3);}
+  .tgrp .ct{margin-left:auto;font-size:11px;color:var(--ink3);}
+  .tasklist{background:#fff;border-radius:var(--r);box-shadow:var(--cardsh);overflow:hidden;}
+  .trow{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;border-bottom:1px solid var(--hair);}
+  .trow:last-child{border-bottom:none;}
+  .tck{width:20px;height:20px;border-radius:50%;border:2px solid var(--ink3);flex:0 0 auto;margin-top:1px;}
+  .tbody{flex:1;}
+  .tbody .tt{font-size:14px;color:var(--ink);line-height:1.35;}
+  .tbody .tm{font-size:11.5px;color:var(--ink3);margin-top:2px;}
+  .tright{font-size:12px;color:var(--ink2);font-weight:600;flex:0 0 auto;align-self:center;}
+  .tright.due{color:#C2503A;}
+  .uptile{width:46px;height:46px;border-radius:11px;background:var(--green-pale);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--green-d);}
+  .uptile svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+  .upitem{display:flex;gap:12px;padding:13px 14px;border-bottom:1px solid var(--hair);}
+  .upitem:last-child{border-bottom:none;}
+  .upbody{flex:1;min-width:0;}
+  .upbody .ut{font-size:14px;font-weight:600;color:var(--ink);}
+  .upbody .um{font-size:12.5px;color:var(--ink2);line-height:1.45;margin-top:3px;}
+  .upbody .um b{color:var(--green-d);font-weight:600;}
+  .upbody .umeta{font-size:11px;color:var(--ink3);margin-top:5px;}
+  .setrow .lbl small{display:block;font-size:11px;color:var(--ink3);font-weight:400;margin-top:2px;line-height:1.3;}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .segbtn{font-size:12px;font-weight:600;padding:4px 11px;background:#fff;border:none;color:var(--ink3);cursor:pointer;font-family:var(--sans);}
+  .segbtn.on{background:var(--green);color:#fff;}
+  .conn{font-size:11px;font-weight:700;color:var(--green-d);background:var(--green-pale);border-radius:20px;padding:5px 13px;cursor:pointer;}
+  .plug-intro{font-size:12px;color:var(--ink2);line-height:1.55;padding:0 5px 2px;}
+  .themesel{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .ttile{text-align:left;border:2px solid var(--line);border-radius:12px;padding:11px;background:#fff;cursor:pointer;font-family:var(--sans);}
+  .ttile.on{border-color:var(--tc);}
+  .tprev{height:46px;border-radius:8px;background:var(--tp);display:flex;align-items:center;gap:8px;padding:0 11px;margin-bottom:10px;}
+  .tdot{width:18px;height:18px;border-radius:50%;background:var(--tc);flex:0 0 auto;}
+  .tbars{display:flex;flex-direction:column;gap:4px;flex:1;}
+  .tbars i{height:5px;border-radius:3px;background:var(--tc);opacity:.45;display:block;}
+  .tbars i:first-child{width:75%;opacity:.8;}
+  .tmeta{display:flex;align-items:center;justify-content:space-between;}
+  .tmeta b{font-size:13.5px;color:var(--ink);}
+  .tcheck{width:18px;height:18px;border-radius:50%;background:var(--tc);color:#fff;font-size:11px;display:none;align-items:center;justify-content:center;}
+  .ttile.on .tcheck{display:flex;}
+  .onbrow{display:flex;gap:20px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none;}
+  .onbrow::-webkit-scrollbar{display:none;}
+  .onbrow .phone{flex:0 0 auto;}
+  .onb{padding:28px 20px 22px;display:flex;flex-direction:column;min-height:520px;}
+  .onb-dots{display:flex;gap:6px;justify-content:center;margin-bottom:24px;}
+  .onb-dots i{width:7px;height:7px;border-radius:50%;background:var(--line);}
+  .onb-dots i.on{background:var(--green);width:18px;border-radius:4px;}
+  .onb-body{flex:1;display:flex;flex-direction:column;gap:6px;justify-content:center;}
+  .onb-h{font-family:var(--nira);font-size:20px;font-weight:600;margin-bottom:4px;}
+  .oq{font-size:13px;color:var(--ink2);margin-top:14px;}
+  .opick{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .ochip{font-size:13.5px;border:1px solid var(--line);border-radius:20px;padding:8px 15px;background:#fff;cursor:pointer;color:var(--ink2);font-family:var(--sans);}
+  .ochip.on{background:var(--green);color:#fff;border-color:var(--green);}
+  .onb-check{width:66px;height:66px;border-radius:50%;background:var(--green-pale);display:flex;align-items:center;justify-content:center;}
+  .onb-check svg{width:32px;height:32px;stroke:var(--green-d);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+  .keybox{background:var(--green-pale);border-radius:10px;padding:13px 14px;margin-top:12px;font-family:ui-monospace,monospace;font-size:14px;color:var(--ink);letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .keybox .cp{display:inline-flex;color:var(--green-d);cursor:pointer;flex:0 0 auto;}
+  .keybox .cp svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .key-acts{display:flex;gap:8px;margin-top:9px;}
+  .key-acts button{flex:1;height:40px;border-radius:9px;border:1px solid var(--line);background:#fff;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .key-acts button svg{width:16px;height:16px;stroke:var(--green-d);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .key-check{display:flex;align-items:flex-start;gap:9px;margin-top:14px;font-size:12px;color:var(--ink2);line-height:1.45;}
+  .key-check .box{width:18px;height:18px;border-radius:5px;background:var(--green);flex:0 0 auto;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .key-check .box svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .mscroll{align-self:flex-start;display:flex;gap:10px;overflow-x:auto;margin-left:30px;max-width:calc(100% - 36px);padding:2px 0 6px;scrollbar-width:none;}
+  .mscroll::-webkit-scrollbar{display:none;}
+  .mcard{flex:0 0 236px;display:flex;flex-direction:column;background:var(--green-card);border-radius:var(--r);box-shadow:var(--cardsh);overflow:hidden;}
+  .big{font-size:23px;font-weight:600;color:var(--ink);line-height:1.15;}
+  .big span{color:var(--green-d);font-size:19px;}
+  .cond{font-size:12.5px;color:var(--ink2);margin-top:3px;}
+  .mrows{margin-top:11px;}
+  .mr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;padding:4px 0;}
+  .mr .l{color:var(--ink2);flex:0 0 auto;}.mr .v{font-weight:600;color:var(--ink);text-align:right;}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;}
+  .card{display:flex;flex-direction:column;border-radius:var(--r);background:var(--green-card);box-shadow:var(--cardsh);overflow:hidden;}
+  .statbig{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .statbig .n{font-size:26px;font-weight:700;color:var(--ink);line-height:1;}
+  .chip-pos,.chip-neg{font-size:11px;font-weight:700;color:#fff;border-radius:5px;padding:2px 7px;}
+  .chip-pos{background:var(--pos);}.chip-neg{background:var(--neg);}
+  .spark{width:100%;height:40px;display:block;margin:10px 0 4px;}
+  .bars{display:flex;align-items:flex-end;gap:7px;height:58px;margin:10px 0 0;}
+  .bars .b{flex:1;background:var(--green-pale);border-radius:3px 3px 0 0;}
+  .bars .b.on{background:var(--green);}
+  .blab{display:flex;gap:7px;margin-top:6px;}.blab span{flex:1;text-align:center;font-size:9px;color:var(--ink3);}
+  .gauge{width:130px;margin:2px auto 4px;display:block;}
+  .rate{display:inline-flex;gap:3px;}
+  .rate i{width:16px;height:6px;border-radius:3px;background:var(--green-pale);}
+  .rate i.on{background:var(--green);}
+  .rrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:13px;}
+  .rrow .l{color:var(--ink2);}
+  .prog{height:7px;border-radius:4px;background:var(--green-pale);overflow:hidden;}
+  .prog span{display:block;height:100%;background:var(--green);border-radius:4px;}
+  .progtxt{font-size:10.5px;color:var(--ink2);margin:6px 0 10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand"><h1>ปิ่น</h1><span class="rom">PIN</span></div>
+
+  <div class="themebar">
+    <span class="tlab">ธีม</span>
+    <button class="themebtn" data-t="green" onclick="setTheme('green')" style="--c:#34B06A" title="เขียว"></button>
+    <button class="themebtn" data-t="clay" onclick="setTheme('clay')" style="--c:#C15F3C" title="ดินเผา"></button>
+    <button class="themebtn" data-t="slate" onclick="setTheme('slate')" style="--c:#4F6FA6" title="ฟ้าสง่า"></button>
+    <button class="themebtn" data-t="amber" onclick="setTheme('amber')" style="--c:#CE8A2C" title="น้ำผึ้ง"></button>
+    <button class="themebtn" data-t="plum" onclick="setTheme('plum')" style="--c:#8A4A6B" title="พลัม"></button>
+    <span class="tname"><b id="themeName">เขียว</b></span>
+  </div>
+
+  <!-- VISION -->
+  <section>
+    <h2>Product Vision</h2>
+    <div class="vision">คู่หูที่คอยจำ เตือน และให้มุมมอง — <b>สมองสำรอง</b>ของคนทำงานคนเดียว</div>
+    <div class="leadtag">ปัก ไว้ ไม่ให้หล่น</div>
+    <p style="margin-top:14px;font-size:15px;line-height:1.6">ปิ่นไม่ใช่แอป to-do — เป็นคู่หู AI ที่ช่วย “ไม่ทำบอลหล่น” จำงานค้างแทน เตือนแทน และให้ <b>มุมมอง</b>ว่าวันนี้อะไรสำคัญจริง ผ่านการคุยกันธรรมดา ๆ</p>
+    <div class="vgrid">
+      <div class="vcard"><div class="t">North Star</div><p>ทุกฟีเจอร์ต้อง <b>ลดภาระ</b> ไม่ใช่เพิ่มงาน</p></div>
+      <div class="vcard"><div class="t">เพื่อใคร (wedge)</div><p>“มาย” ฟรีแลนซ์ดีไซเนอร์ 5–15 ลูกค้า ไม่มีทีม กลัวลืมแล้วเสียงาน/ดีล</p></div>
+      <div class="vcard"><div class="t">โตยังไง</div><p>งาน → ความรู้รอบตัว → wellness · pull ก่อน push เสมอ</p></div>
+    </div>
+    <div class="namebox"><b>ปิ่น</b> = เครื่อง “ปัก” ให้อยู่ทรง ไม่หลุด — ปิ่นปักผมให้อยู่ที่ · pin ปักงานไว้ไม่ให้หล่น ตรงกับหัวใจแบรนด์ “ไม่ทำบอลหล่น”</div>
+  </section>
+
+  <!-- PERSONA -->
+  <section>
+    <h2>Persona &amp; Voice</h2>
+    <p class="muted" style="font-size:15px;margin-bottom:8px">ปิ่นพูดเหมือน <b>เพื่อนเก่งที่คอยแบ็ค</b> — สงบ คม อบอุ่น มีไหวพริบนิด ๆ ไม่ใช่ผู้ช่วยหุ่นยนต์ ไม่ใช่เลขาทางการ</p>
+    <div class="quote">“หัวเต็มเลยพี่ น้องจับไว้ให้นะ”</div>
+    <div class="quote">“ตัวจริงเช้านี้มีอันเดียว — ส่ง A ทันสี่โมง ที่เหลือเลื่อนได้”</div>
+
+    <div class="subh">ทำ / ไม่ทำ</div>
+    <div class="cols">
+      <div class="box do"><div class="bt">ทำ</div><ul><li>สั้น 1–3 ประโยค ตรงประเด็น</li><li>อบอุ่น เป็นกันเอง แต่คม</li><li>เสนอ/ร่าง แล้วถามยืนยันก่อน</li><li>ซื่อสัตย์เรื่องที่ทำไม่ได้</li><li>เรื่องเงิน/เครียด อ่อนโยนจริงจัง</li></ul></div>
+      <div class="box dont"><div class="bt">ไม่ทำ</div><ul><li>ไม่อีโมจิ ไม่ hype</li><li>ไม่สั่ง โดยเฉพาะ “หยุด/พัก”</li><li>ไม่เร่ง ไม่สั่งสอน ไม่ยืดยาว</li><li>ไม่อ้างว่าเห็นทุกอย่าง</li><li>ไม่ลงมือแทนจนยืนยัน</li></ul></div>
+    </div>
+
+    <div class="subh">สรรพนามปรับได้</div>
+    <p class="muted" style="font-size:13.5px">ผู้ใช้เลือกเรียกปิ่นว่าอะไร และให้ปิ่นเรียกตัวเองว่าอะไร — ปิ่นใช้คำนั้นตลอด</p>
+    <div class="chiprow"><span class="chip">ปิ่น</span><span class="chip">น้อง</span><span class="chip">แก</span><span class="chip">พี่ / คุณ / ท่าน</span><span class="chip">กำหนดเอง</span></div>
+
+    <div class="subh">ปิ่นทำอะไร (MVP)</div>
+    <div class="doline"><span class="k">รับเข้า</span><span class="v">พิมพ์ / พูด / แคปหน้าจอ → แปลงเป็น open loops (รอคุณ · รอเขา · เดดไลน์ · เงินค้าง) เสนอก่อน ให้ยืนยัน</span></div>
+    <div class="doline"><span class="k">มุมมอง</span><span class="v">ตอนเช้าให้ความเห็นว่าอะไรสำคัญ/เงียบผิดปกติ/ปล่อยได้ — ไม่ใช่คายลิสต์</span></div>
+    <div class="doline"><span class="k">เตือน</span><span class="v">ทักเช้าครั้งเดียว เคารพช่วงเงียบ</span></div>
+    <div class="doline"><span class="k">ช่วยร่าง</span><span class="v">ร่างข้อความให้ — ไม่ส่งเอง ผู้ใช้กดส่ง</span></div>
+
+    <div class="subh">ขอบเขต — ทำไม่ได้ ก็พูดตรง</div>
+    <div class="doline"><span class="k">ไลน์ส่วนตัว</span><span class="v">อ่านเองไม่ได้ → ขอให้แคป/ส่งต่อ</span></div>
+    <div class="doline"><span class="k">ส่งแทน</span><span class="v">ไม่ส่งหาลูกค้าแทน — ร่างให้ ผู้ใช้กดส่ง</span></div>
+    <div class="doline"><span class="k">นอกแอป</span><span class="v">โทร/เจอตัว/ในหัว มองไม่เห็น ไม่เคลมว่าจับครบ</span></div>
+  </section>
+
+  <!-- PALETTE -->
+  <section>
+    <h2>Color Palette</h2>
+    <div class="sw">
+      <div class="chip-c"><div class="fill" style="background:var(--green)"></div><div class="meta"><div class="nm">Accent</div><div class="hex" id="hexAcc">#34B06A</div><div class="role">สีหลัก / บับเบิล / ปุ่ม</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:var(--green-d)"></div><div class="meta"><div class="nm">Accent Deep</div><div class="hex" id="hexDeep">#1C7A48</div><div class="role">ตัวอักษรบนพื้นอ่อน</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:var(--green-card)"></div><div class="meta"><div class="nm">Accent Soft</div><div class="hex" id="hexSoft">#E9F1E6</div><div class="role">การ์ด</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:var(--green-av)"></div><div class="meta"><div class="nm">Accent Avatar</div><div class="hex" id="hexAv">#DBEDD7</div><div class="role">อวตาร</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:var(--cream)"></div><div class="meta"><div class="nm">Background</div><div class="hex" id="hexBg">#FAF8F2</div><div class="role">พื้นหลัง</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:#FFFFFF;border-bottom:1px solid #E6E1D5"></div><div class="meta"><div class="nm">White</div><div class="hex">#FFFFFF</div><div class="role">บับเบิลปิ่น</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:#2A2A26"></div><div class="meta"><div class="nm">Ink</div><div class="hex">#2A2A26</div><div class="role">ตัวอักษรหลัก</div></div></div>
+      <div class="chip-c"><div class="fill" style="background:#6B6B62"></div><div class="meta"><div class="nm">Ink 2</div><div class="hex">#6B6B62</div><div class="role">ตัวอักษรรอง</div></div></div>
+    </div>
+  </section>
+
+  <!-- SAMPLE CARDS -->
+  <section>
+    <h2>Sample Cards · ตัวอย่างการ์ด</h2>
+    <div class="cardgrid">
+
+      <!-- 1 · งานค้าง -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/><path d="M9 6h11M9 12h11M9 18h11"/></svg></span><b>งานค้าง</b><span class="hm">4 รายการ</span></div>
+        <div class="cd">น้องจับไว้ให้ · แตะเพื่อปิด</div>
+        <div class="cc">
+          <div class="prog"><span style="width:33%"></span></div>
+          <div class="progtxt">ปิดวันนี้ 2 · เหลือ 4</div>
+          <div class="pit"><span class="c">รอคุณ</span><span class="t">ส่งงานลูกค้า A</span></div>
+          <div class="pit"><span class="c">รอเขา</span><span class="t">ดีล X ตอบกลับ</span></div>
+          <div class="pit"><span class="c">เดดไลน์</span><span class="t">พรีเซนต์ B พฤหัส</span></div>
+          <div class="pit"><span class="c">เงินค้าง</span><span class="t">งวด 2 ลูกค้า C</span></div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> อัปเดต 8:02</div>
+      </div>
+
+      <!-- 2 · สรุปเช้านี้ (the take) -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4"/><path d="M12 2.5v2.2M12 19.3v2.2M5 5l1.5 1.5M17.5 17.5L19 19M2.5 12h2.2M19.3 12h2.2M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></span><b>เช้านี้</b></div>
+        <div class="cd">พฤหัส · 12 มิ.ย.</div>
+        <div class="cc">
+          <div class="big">ส่ง A <span>· 16:00</span></div>
+          <div class="cond">ตัวจริงวันนี้มีอันเดียว ที่เหลือเลื่อนได้</div>
+          <div class="mrows">
+            <div class="mr"><span class="l">รอคุณ</span><span class="v">2 งาน</span></div>
+            <div class="mr"><span class="l">รอเขา</span><span class="v">ดีล X · เงียบ 5 วัน</span></div>
+          </div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg> น้องว่าเริ่ม A ก่อนคุ้มสุด</div>
+      </div>
+
+      <!-- 3 · ทวงเงิน -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/></svg></span><b>เงินค้าง</b><span class="hm">เลย 7 วัน</span></div>
+        <div class="cd">ลูกค้า C · งวด 2</div>
+        <div class="cc">
+          <div class="big">฿45,000</div>
+          <div class="cond">ครบกำหนด 5 มิ.ย. · งานส่งครบแล้ว</div>
+          <div class="mrows">
+            <div class="mr"><span class="l">ทวงครั้งล่าสุด</span><span class="v">—</span></div>
+          </div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><path d="M14 4l6 6M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19l-4 1z"/></svg> ร่างข้อความทวงให้ไหม</div>
+      </div>
+
+      <!-- 4 · นัดวันนี้ -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></span><b>นัดวันนี้</b><span class="hm">2 นัด</span></div>
+        <div class="cd">พฤหัส · 12 มิ.ย.</div>
+        <div class="cc">
+          <div class="pit"><span class="c">14:00</span><span class="t">คุย brief ลูกค้า B</span></div>
+          <div class="pit"><span class="c">16:30</span><span class="t">ส่งไฟล์งาน A</span></div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> เช้าว่าง · เคลียร์ A ได้</div>
+      </div>
+
+      <!-- 5 · ร่างข้อความ -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5.2A8 8 0 1 1 21 12z"/></svg></span><b>ร่างให้แล้ว</b></div>
+        <div class="cd">ตอบลูกค้า D</div>
+        <div class="cc">
+          <p>สวัสดีค่ะคุณดี ไฟล์แก้รอบสองส่งให้ภายในพรุ่งนี้เที่ยงนะคะ ขอบคุณที่รอค่ะ</p>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg> ก๊อปไปวาง — ปิ่นไม่ส่งให้เอง</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- MORE USE CASES -->
+  <section>
+    <h2>More Use Cases · นอกเรื่องงาน</h2>
+    <div class="cardgrid">
+
+      <!-- ดูดวง -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6L12 17.8 6.7 19.6l1.1-6L3.4 9.4l6-.8z"/></svg></span><b>ดวงวันนี้</b><span class="hm">ราศีเมษ</span></div>
+        <div class="cd">พฤหัส · 12 มิ.ย.</div>
+        <div class="cc">
+          <div class="rrow"><span class="l">การงาน</span><span class="rate"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></div>
+          <div class="rrow"><span class="l">การเงิน</span><span class="rate"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></div>
+          <div class="rrow"><span class="l">ความรัก</span><span class="rate"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></div>
+          <div class="mr" style="margin-top:6px"><span class="l">เลขนำโชค</span><span class="v">3 · 7</span></div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2 0 0 1 5 .3c0 1.6-2.4 1.6-2.5 3.2M12 16.5v.01"/></svg> เอาสนุก ๆ นะ ไม่ต้องซีเรียส</div>
+      </div>
+
+      <!-- หุ้น/พอร์ต -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><path d="M4 5v14h16"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><b>พอร์ตวันนี้</b><span class="hm">+1.8%</span></div>
+        <div class="cd">ปิดตลาด 16:30 · SET</div>
+        <div class="cc">
+          <div class="statbig"><span class="n">฿128,400</span><span class="chip-pos">+1.8%</span></div>
+          <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none"><polygon fill="var(--green-pale)" points="0,30 16,26 32,28 48,18 64,21 80,11 100,6 100,40 0,40"/><polyline fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="0,30 16,26 32,28 48,18 64,21 80,11 100,6"/></svg>
+          <div class="mrows">
+            <div class="mr"><span class="l">ตัวเด่น · DELTA</span><span class="v" style="color:var(--pos)">+4.2%</span></div>
+            <div class="mr"><span class="l">ตัวร่วง · KBANK</span><span class="v" style="color:var(--neg)">−1.1%</span></div>
+          </div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 11.5h1V16h1"/></svg> น้องบอกตัวเลขเฉย ๆ ไม่ใช่คำแนะนำลงทุน</div>
+      </div>
+
+      <!-- ราคาน้ำมัน -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 10.5a6 6 0 0 1-12 0C6 9.5 12 3 12 3z"/></svg></span><b>ราคาน้ำมัน</b><span class="hm">พรุ่งนี้ขึ้น</span></div>
+        <div class="cd">มีผล 13 มิ.ย. 05:00</div>
+        <div class="cc">
+          <div class="statbig"><span class="n">36.05</span><span class="chip-neg">+0.50</span></div>
+          <div class="cond">แก๊สโซฮอล์ 95 · ราคาพรุ่งนี้</div>
+          <div class="bars">
+            <div class="b" style="height:42%"></div>
+            <div class="b" style="height:50%"></div>
+            <div class="b" style="height:46%"></div>
+            <div class="b" style="height:62%"></div>
+            <div class="b" style="height:70%"></div>
+            <div class="b on" style="height:90%"></div>
+          </div>
+          <div class="blab"><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>พรุ่ง</span></div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> เติมวันนี้ก่อนขึ้นไหม</div>
+      </div>
+
+      <!-- ฝุ่น PM2.5 -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><path d="M4 8h13M3 12h16M5 16h11"/></svg></span><b>ฝุ่นวันนี้</b><span class="hm">78 · สีส้ม</span></div>
+        <div class="cd">เขตของคุณ · 09:00</div>
+        <div class="cc" style="text-align:center">
+          <svg class="gauge" viewBox="0 0 120 76"><path d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="var(--green-pale)" stroke-width="11" stroke-linecap="round"/><path d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="#E08A3C" stroke-width="11" stroke-linecap="round" stroke-dasharray="61 157"/><text x="60" y="60" text-anchor="middle" font-size="28" font-weight="700" fill="var(--ink)">78</text></svg>
+          <div class="cond">AQI 78 · เริ่มมีผลกับคนแพ้ฝุ่น</div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg> ถ้าออกไปนัด พกแมสก์หน่อย</div>
+      </div>
+
+      <!-- ค่าเงิน -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.2a2.5 2 0 0 1 5 0c0 1.3-1.2 1.6-2.5 1.9s-2.5.6-2.5 1.9a2.5 2 0 0 0 5 0"/></svg></span><b>ค่าเงินวันนี้</b><span class="hm">USD/THB</span></div>
+        <div class="cd">อัปเดต 09:00</div>
+        <div class="cc">
+          <div class="statbig"><span class="n">฿36.20</span><span class="chip-pos">+0.15</span></div>
+          <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none"><polygon fill="var(--green-pale)" points="0,26 20,28 40,22 60,24 80,18 100,13 100,40 0,40"/><polyline fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="0,26 20,28 40,22 60,24 80,18 100,13"/></svg>
+          <div class="cond">USD/THB · บาทอ่อนลงนิด รับงานนอกคุ้มขึ้น</div>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg> ผูกกับลูกค้าต่างประเทศได้</div>
+      </div>
+
+      <!-- wellness เช็กอิน -->
+      <div class="card">
+        <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></span><b>แวะถามนิดนึง</b></div>
+        <div class="cd">บ่ายสามแล้ว</div>
+        <div class="cc">
+          <div class="statbig"><span class="n">~3</span><span style="font-size:12.5px;color:var(--ink2)">ชม. ไม่ได้ลุก</span></div>
+          <p style="margin-top:9px">พักสายตา/ขยับนิดไหม วันนี้พลังประมาณไหน — ไม่ต้องตอบก็ได้</p>
+        </div>
+        <div class="cf"><svg viewBox="0 0 24 24"><path d="M5 12h4l2-5 3 9 2-4h3"/></svg> น้ำสักแก้ว · ลุกยืด · ไว้ก่อน — แล้วแต่พี่</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- REGISTER / LOGIN -->
+  <section>
+    <h2>Register / Login</h2>
+    <div class="phonewrap"><div class="phone">
+      <div class="authscreen">
+        <div class="auth-brand">
+          <div class="auth-icon">pin</div>
+          <h3>ปิ่น</h3>
+          <p>คู่หูที่คอยจำ เตือน และให้มุมมอง</p>
+        </div>
+        <div class="auth-btns">
+          <button class="authbtn auth-apple"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.02-1.97 1.6-2.92 1.67-2.97-.91-1.33-2.33-1.52-2.84-1.54-1.2-.12-2.35.71-2.96.71-.61 0-1.56-.69-2.56-.67-1.32.02-2.53.76-3.2 1.94-1.37 2.38-.35 5.9.98 7.83.65.94 1.42 1.99 2.43 1.95.97-.04 1.34-.63 2.52-.63 1.18 0 1.51.63 2.54.61 1.05-.02 1.71-.95 2.35-1.9.74-1.08 1.04-2.12 1.06-2.18-.02-.01-2.03-.78-2.05-3.09z"/><path d="M15.11 6.13c.54-.66.9-1.56.8-2.47-.77.03-1.71.52-2.27 1.18-.5.58-.94 1.5-.82 2.39.86.07 1.75-.44 2.29-1.1z"/></svg> ดำเนินการต่อด้วย Apple</button>
+          <button class="authbtn auth-google"><svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.7 1.22 9.2 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> ดำเนินการต่อด้วย Google</button>
+          <button class="authbtn auth-email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></svg> ใช้อีเมล</button>
+          <div class="auth-or">เพิ่มเร็ว ๆ นี้</div>
+          <button class="authbtn dis" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg> เบอร์มือถือ (OTP)<span class="soon">เร็ว ๆ นี้</span></button>
+          <button class="authbtn dis" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 8.5h-2A1.5 1.5 0 0 0 11 10v2H8.5v3H11v6"/><path d="M11 15h3.2"/></svg> Facebook<span class="soon">เร็ว ๆ นี้</span></button>
+        </div>
+        <p class="auth-terms">ดำเนินการต่อ = ยอมรับ <a>ข้อตกลงการใช้งาน</a> และ <a>นโยบายความเป็นส่วนตัว</a></p>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ONBOARDING -->
+  <section>
+    <h2>Onboarding</h2>
+    <div class="onbrow">
+
+      <div class="phone"><div class="onb">
+        <div class="onb-dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div class="onb-body" style="justify-content:center">
+          <div class="auth-brand"><div class="auth-icon">pin</div><h3>สวัสดี เราชื่อปิ่น</h3><p>คู่หูที่คอยจำ เตือน และให้มุมมอง — ตั้งค่าสั้น ๆ แล้วเริ่มกันเลย</p></div>
+        </div>
+        <button class="authbtn auth-email">เริ่มเลย</button>
+      </div></div>
+
+      <div class="phone"><div class="onb">
+        <div class="onb-dots"><i></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="onb-body" style="justify-content:flex-start;padding-top:6px">
+          <h3 class="onb-h">เรียกกันว่าอะไรดี</h3>
+          <div class="oq">อยากเรียกปิ่นว่า</div>
+          <div class="opick"><span class="ochip on">ปิ่น</span><span class="ochip">น้อง</span><span class="ochip">แก</span><span class="ochip">ใส่เอง</span></div>
+          <div class="oq">ให้ปิ่นเรียกเราว่า</div>
+          <div class="opick"><span class="ochip on">พี่</span><span class="ochip">คุณ</span><span class="ochip">ท่าน</span><span class="ochip">ใส่เอง</span></div>
+        </div>
+        <button class="authbtn auth-email">ถัดไป</button>
+      </div></div>
+
+      <div class="phone"><div class="onb">
+        <div class="onb-dots"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+        <div class="onb-body" style="justify-content:flex-start;padding-top:6px">
+          <h3 class="onb-h">เลือกธีมที่สบายใจ</h3>
+          <p style="font-size:12.5px;color:var(--ink2);margin-bottom:6px">เปลี่ยนทีหลังได้ใน Settings</p>
+          <div class="themesel">
+            <button class="ttile" data-t="green" onclick="setTheme('green')" style="--tc:#34B06A;--tp:#E9F1E6"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>เขียว</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="clay" onclick="setTheme('clay')" style="--tc:#C15F3C;--tp:#F1E6DD"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>ดินเผา</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="slate" onclick="setTheme('slate')" style="--tc:#4F6FA6;--tp:#E7ECF5"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>ฟ้าสง่า</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="amber" onclick="setTheme('amber')" style="--tc:#CE8A2C;--tp:#F5EBD6"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>น้ำผึ้ง</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="plum" onclick="setTheme('plum')" style="--tc:#8A4A6B;--tp:#F0E5EC"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>พลัม</b><span class="tcheck">✓</span></div></button>
+          </div>
+        </div>
+        <button class="authbtn auth-email">ถัดไป</button>
+      </div></div>
+
+      <div class="phone"><div class="onb">
+        <div class="onb-dots"><i></i><i></i><i></i><i class="on"></i><i></i></div>
+        <div class="onb-body" style="justify-content:flex-start;padding-top:6px">
+          <div class="onb-check"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+          <h3 class="onb-h">เก็บกุญแจกู้คืน</h3>
+          <p style="font-size:12.5px;color:var(--ink2);line-height:1.5">ข้อมูลของพี่เข้ารหัสแบบ end-to-end มีแค่พี่ที่เปิดได้ — เก็บกุญแจนี้ไว้ เผื่อเปลี่ยนเครื่องหรือลืมรหัส</p>
+          <div class="keybox">PIN-7K2M-9QX4-3FBN-8WLE<span class="cp"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></span></div>
+          <div class="key-acts">
+            <button><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg> คัดลอก</button>
+            <button><svg viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 20h14"/></svg> ดาวน์โหลด</button>
+          </div>
+          <label class="key-check"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> เก็บไว้ที่ปลอดภัยแล้ว — เข้าใจว่าถ้าทำหาย เรากู้ข้อมูลให้ไม่ได้ (เพราะเราก็เปิดไม่ได้)</label>
+        </div>
+        <button class="authbtn auth-email">ถัดไป</button>
+      </div></div>
+
+      <div class="phone"><div class="onb">
+        <div class="onb-dots"><i></i><i></i><i></i><i></i><i class="on"></i></div>
+        <div class="onb-body" style="justify-content:center">
+          <div class="auth-brand"><div class="onb-check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div><h3>พร้อมแล้ว</h3><p>เก็บไว้ให้หมดแล้ว เล่าให้ปิ่นฟังได้เลยว่ามีอะไรค้างอยู่</p></div>
+        </div>
+        <button class="authbtn auth-email">เริ่มใช้ปิ่น</button>
+      </div></div>
+
+    </div>
+  </section>
+
+  <!-- CONVERSATION MOCKUP -->
+  <section>
+    <h2>Conversation · Mockup</h2>
+    <div class="phonewrap"><div class="phone" style="position:relative">
+      <div class="fab-glass fab-cluster"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg></span></div>
+      <div class="fab-glass fab-now"><svg viewBox="0 0 24 24"><path d="M6 8.5h12M6 12.5h9M6 16.5h6"/></svg></div>
+      <div class="pthread" style="padding-top:18px">
+        <div class="day">วันแรก</div>
+        <div class="ku"><span class="a">ป</span><span class="b">สวัสดี เราชื่อปิ่น คู่หูที่จะคอยจำคอยเตือนให้ — อยากเรียกเราว่าอะไรดี</span></div>
+        <div class="me"><span class="b">น้อง</span></div>
+        <div class="ku"><span class="a">ป</span><span class="b">ได้เลย แล้วอยากให้น้องเรียกคุณว่าอะไร</span></div>
+        <div class="me"><span class="b">พี่</span></div>
+        <div class="ku"><span class="a">ป</span><span class="b">เก็บไว้แล้วนะพี่ เล่าให้น้องฟังหน่อย ตอนนี้กวนใจอะไรอยู่ บ่นมาเลย</span></div>
+        <div class="me"><span class="b">ลูกค้า A ทวงงานตั้งแต่เช้า ยังไม่ได้ส่ง C ก็ยังไม่จ่ายงวดสอง</span></div>
+        <div class="ku"><span class="a">ป</span><span class="b">หัวเต็มเลยพี่ น้องจับไว้ให้นะ</span></div>
+        <div class="lc">
+          <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/><path d="M9 6h11M9 12h11M9 18h11"/></svg></span><b>งานค้าง</b><span class="hm">2 รายการ</span></div>
+          <div class="cd">น้องจับไว้ให้ · แตะเพื่อปิด</div>
+          <div class="cc">
+            <div class="pit"><span class="c">รอคุณ</span><span class="t">ส่งงานลูกค้า A</span></div>
+            <div class="pit"><span class="c">เงินค้าง</span><span class="t">ตามงวด 2 ลูกค้า C</span></div>
+          </div>
+          <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> อัปเดต 8:02</div>
+        </div>
+        <div class="day">เช้าถัดมา</div>
+        <div class="ku"><span class="a">ป</span><span class="b">อรุณสวัสดิ์พี่ สรุปเช้านี้ให้แล้ว เลื่อนดูพรุ่งนี้ได้</span></div>
+        <div class="mscroll">
+          <div class="mcard">
+            <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4"/><path d="M12 2.5v2.2M12 19.3v2.2M5 5l1.5 1.5M17.5 17.5L19 19M2.5 12h2.2M19.3 12h2.2M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></span><b>เช้านี้</b></div>
+            <div class="cd">พฤหัส · 12 มิ.ย.</div>
+            <div class="cc">
+              <div class="big">ส่ง A <span>· 16:00</span></div>
+              <div class="cond">ตัวจริงวันนี้มีอันเดียว ที่เหลือเลื่อนได้</div>
+              <div class="mrows">
+                <div class="mr"><span class="l">รอคุณ</span><span class="v">2 งาน</span></div>
+                <div class="mr"><span class="l">รอเขา</span><span class="v">ดีล X · เงียบ 5 วัน</span></div>
+                <div class="mr"><span class="l">เงินค้าง</span><span class="v">140k</span></div>
+              </div>
+            </div>
+            <div class="cf"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg> น้องว่าเริ่ม A ก่อนคุ้มสุด</div>
+          </div>
+          <div class="mcard">
+            <div class="ch"><span class="ci"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></span><b>พรุ่งนี้</b></div>
+            <div class="cd">ศุกร์ · 13 มิ.ย.</div>
+            <div class="cc">
+              <div class="big">เบา ๆ</div>
+              <div class="cond">ไม่มีเดดไลน์ด่วน</div>
+              <div class="mrows">
+                <div class="mr"><span class="l">รอเขา</span><span class="v">1</span></div>
+                <div class="mr"><span class="l">นัด</span><span class="v">ลูกค้า B · 14:00</span></div>
+              </div>
+            </div>
+            <div class="cf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> พอมีเวลาหายใจ</div>
+          </div>
+        </div>
+        <div class="me"><span class="b">โอเค เดี๋ยวจัดการ A ก่อน</span></div>
+        <div class="day">เย็น</div>
+        <div class="me"><span class="b">เหนื่อยมาก แต่ลูกค้ายังตามงานอยู่เลย ยังไม่ได้พัก</span></div>
+        <div class="ku"><span class="a">ป</span><span class="b">รู้ว่าหนักพี่ แล้วก็รู้ว่าตอนนี้ยังถอยไม่ได้ เอาเท่าที่ทำได้ก่อน — น้ำสักแก้ว ลุกยืดหน่อย น้องจดไว้ให้ว่าคืนไหนพอได้พักจริง</span></div>
+        <div class="nt">ปิ่นไม่สั่งให้หยุด — ยอมรับเงื่อนไขจริง แล้วเสนอเท่าที่ทำได้</div>
+        <div class="me"><span class="b">ช่วยดูในไลน์ให้หน่อยว่าลูกค้า D ทักอะไร</span></div>
+        <div class="ku"><span class="a">ป</span><span class="b">ไลน์ส่วนตัวน้องแอบดูให้ไม่ได้นะพี่ แต่แคปหรือส่งต่อมา เดี๋ยวน้องจัดให้เลย</span></div>
+        <div class="nt">ทำไม่ได้ก็พูดตรง แล้วเสนอทางที่ทำได้</div>
+      </div>
+      <!-- MOCKUP CHROME · dev replace ด้วย chat SDK -->
+      <div class="comp">
+        <span class="cic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span class="cic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3.5"/><circle cx="12" cy="13.5" r="3.3"/></svg></span>
+        <span class="cic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.7 14a4 4 0 0 0 6.6 0"/><circle cx="9.3" cy="10" r="0.95" fill="currentColor"/><circle cx="14.7" cy="10" r="0.95" fill="currentColor"/></svg></span>
+        <span class="cinput">พิมพ์หาปิ่น…</span>
+        <span class="cmic"><svg viewBox="0 0 24 24"><rect x="9.5" y="3" width="5" height="9.5" rx="2.5"/><path d="M6.5 11a5.5 5.5 0 0 0 11 0M12 16.5v3"/></svg></span>
+      </div>
+    </div></div>
+    <div class="sdk-note"><b>หมายเหตุ dev:</b> ช่องพิมพ์ (composer) · ปุ่มลอย · บับเบิล · การ์ด = ออกแบบจริงทั้งหมด — ส่วนที่ dev ต่อ chat/LLM SDK คือ <b>การสตรีมข้อความในเธรด</b> (เนื้อหา ไม่ใช่หน้าตา)</div>
+  </section>
+
+  <!-- SECONDARY NAV OPTIONS -->
+  <section>
+    <h2>ทางเข้ารอง · Floating Action Top</h2>
+    <div style="display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:flex-start">
+
+      <div>
+        <div class="navlabel">ปกติ · ปุ่มลอยมุมบนขวา</div>
+        <div class="phonewrap"><div class="phone" style="position:relative">
+          <div class="pthread" style="padding-top:18px">
+            <div class="ku"><span class="a">ป</span><span class="b">เช้านี้ตัวจริงมีอันเดียว — ส่ง A ทันสี่โมง ที่เหลือเลื่อนได้</span></div>
+            <div class="me"><span class="b">โอเค เดี๋ยวจัดการ</span></div>
+            <div class="ku"><span class="a">ป</span><span class="b">ได้เลย เดี๋ยวน้องคอยสะกิด</span></div>
+          </div>
+          <div class="fab-glass fab-cluster"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg></span></div>
+      <div class="fab-glass fab-now"><svg viewBox="0 0 24 24"><path d="M6 8.5h12M6 12.5h9M6 16.5h6"/></svg></div>
+          <div class="comp">
+        <span class="cic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span class="cic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3.5"/><circle cx="12" cy="13.5" r="3.3"/></svg></span>
+        <span class="cic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.7 14a4 4 0 0 0 6.6 0"/><circle cx="9.3" cy="10" r="0.95" fill="currentColor"/><circle cx="14.7" cy="10" r="0.95" fill="currentColor"/></svg></span>
+        <span class="cinput">พิมพ์หาปิ่น…</span>
+        <span class="cmic"><svg viewBox="0 0 24 24"><rect x="9.5" y="3" width="5" height="9.5" rx="2.5"/><path d="M6.5 11a5.5 5.5 0 0 0 11 0M12 16.5v3"/></svg></span>
+      </div>
+        </div></div>
+        <p class="navcap">ปุ่มลอยกลม ๆ มุมบนขวา — เป็น nav ของปิ่นเอง ลอยเหนือ header ไม่ต้องพึ่ง chrome ของ chat SDK</p>
+      </div>
+
+      <div>
+        <div class="navlabel">กด · กางเมนู</div>
+        <div class="phonewrap"><div class="phone" style="position:relative">
+          <div class="pthread" style="padding-top:18px">
+            <div class="ku"><span class="a">ป</span><span class="b">เช้านี้ตัวจริงมีอันเดียว — ส่ง A ทันสี่โมง ที่เหลือเลื่อนได้</span></div>
+            <div class="me"><span class="b">โอเค เดี๋ยวจัดการ</span></div>
+          </div>
+          <div class="fab-glass fab-cluster"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg></span></div>
+          <div class="fab-glass fab-now"><svg viewBox="0 0 24 24"><path d="M6 8.5h12M6 12.5h9M6 16.5h6"/></svg></div>
+          <div class="navmenu">
+            <div class="ni"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.9-3.9"/></svg> ค้นในแชต</div>
+            <div class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M9.5 12h5"/></svg> ของที่ฝากไว้</div>
+            <div class="ni"><svg viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v2a6 6 0 0 1-12 0z"/><path d="M12 16v6"/></svg> ปลั๊กอิน</div>
+            <div class="ni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="var(--green)" stroke="none"/></svg> ธีมสี</div>
+            <div class="sep"></div>
+            <div class="ni"><svg viewBox="0 0 24 24"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.3" fill="#fff"/><circle cx="15" cy="16" r="2.3" fill="#fff"/></svg> ตั้งค่า</div>
+          </div>
+          <div class="comp">
+        <span class="cic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span class="cic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3.5"/><circle cx="12" cy="13.5" r="3.3"/></svg></span>
+        <span class="cic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.7 14a4 4 0 0 0 6.6 0"/><circle cx="9.3" cy="10" r="0.95" fill="currentColor"/><circle cx="14.7" cy="10" r="0.95" fill="currentColor"/></svg></span>
+        <span class="cinput">พิมพ์หาปิ่น…</span>
+        <span class="cmic"><svg viewBox="0 0 24 24"><rect x="9.5" y="3" width="5" height="9.5" rx="2.5"/><path d="M6.5 11a5.5 5.5 0 0 0 11 0M12 16.5v3"/></svg></span>
+      </div>
+        </div></div>
+        <p class="navcap">แตะแล้วเป็นกากบาท + กางเมนูรวมหน้ารอง — เลือกแล้วกลับเข้าแชตเหมือนเดิม</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CHAT COMPOSER -->
+  <section>
+    <h2>Chat Composer</h2>
+    <div style="display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:flex-start">
+
+      <div>
+        <div class="navlabel">ปกติ</div>
+        <div class="phonewrap"><div class="phone" style="position:relative">
+          <div class="pthread" style="padding-top:18px">
+            <div class="ku"><span class="a">ป</span><span class="b">เล่าให้ฟังได้เลยว่ามีอะไรค้างอยู่ — จะพิมพ์ พูด หรือแคปหน้าจอส่งมาก็ได้</span></div>
+            <div class="me"><span class="b">เดี๋ยวแคปแชตลูกค้ามาให้</span></div>
+          </div>
+          <div class="comp">
+            <span class="cic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+            <span class="cic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3.5"/><circle cx="12" cy="13.5" r="3.3"/></svg></span>
+            <span class="cic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.7 14a4 4 0 0 0 6.6 0"/><circle cx="9.3" cy="10" r="0.95" fill="currentColor"/><circle cx="14.7" cy="10" r="0.95" fill="currentColor"/></svg></span>
+            <span class="cinput">พิมพ์หาปิ่น…</span>
+            <span class="cmic"><svg viewBox="0 0 24 24"><rect x="9.5" y="3" width="5" height="9.5" rx="2.5"/><path d="M6.5 11a5.5 5.5 0 0 0 11 0M12 16.5v3"/></svg></span>
+          </div>
+        </div></div>
+        <p class="navcap">แถบพิมพ์: + แนบ · กล้อง · อีโมจิ · ช่องพิมพ์ · ไมค์ (กดค้างพูด) — สไตล์เขียวนุ่มของเรา</p>
+      </div>
+
+      <div>
+        <div class="navlabel">กด + · เมนูแนบ</div>
+        <div class="phonewrap"><div class="phone" style="position:relative">
+          <div class="pthread" style="padding-top:18px">
+            <div class="ku"><span class="a">ป</span><span class="b">เล่าให้ฟังได้เลยว่ามีอะไรค้างอยู่ — จะพิมพ์ พูด หรือแคปหน้าจอส่งมาก็ได้</span></div>
+          </div>
+          <div class="attach">
+            <div class="ai"><span class="ac"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M5.5 17l4-4 3 2.5 3.5-3.5 3 3"/></svg></span>ส่งรูป</div>
+            <div class="ai"><span class="ac"><svg viewBox="0 0 24 24"><path d="M8 4H5.5A1.5 1.5 0 0 0 4 5.5V8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M16 20h2.5a1.5 1.5 0 0 0 1.5-1.5V16"/></svg></span>แคปหน้าจอ</div>
+            <div class="ai"><span class="ac"><svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="12" height="11" rx="3"/><path d="M15 11l5.5-3v8L15 13z"/></svg></span>ส่งวิดีโอ</div>
+            <div class="ai"><span class="ac"><svg viewBox="0 0 24 24"><path d="M7 4h6l5 5v9.5A1.5 1.5 0 0 1 16.5 20h-9A1.5 1.5 0 0 1 6 18.5v-13A1.5 1.5 0 0 1 7 4z"/><path d="M13 4v5h5"/></svg></span>ส่งไฟล์</div>
+            <div class="ai"><span class="ac"><svg viewBox="0 0 24 24"><path d="M6 10v4M10 7v10M14 8.5v7M18 10v4"/></svg></span>อัดเสียงยาว</div>
+            <div class="ai"><span class="ac"><svg viewBox="0 0 24 24"><path d="M12 20.5c4-4.5 6.5-7.6 6.5-10.5a6.5 6.5 0 1 0-13 0c0 2.9 2.5 6 6.5 10.5z"/><circle cx="12" cy="10" r="2.3"/></svg></span>แชร์ตำแหน่ง</div>
+          </div>
+          <div class="comp">
+            <span class="cic act"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+            <span class="cic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3.5"/><circle cx="12" cy="13.5" r="3.3"/></svg></span>
+            <span class="cic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.7 14a4 4 0 0 0 6.6 0"/><circle cx="9.3" cy="10" r="0.95" fill="currentColor"/><circle cx="14.7" cy="10" r="0.95" fill="currentColor"/></svg></span>
+            <span class="cinput">พิมพ์หาปิ่น…</span>
+            <span class="cmic"><svg viewBox="0 0 24 24"><rect x="9.5" y="3" width="5" height="9.5" rx="2.5"/><path d="M6.5 11a5.5 5.5 0 0 0 11 0M12 16.5v3"/></svg></span>
+          </div>
+        </div></div>
+        <p class="navcap">เมนูแนบเข้าปิ่น: ส่งรูป · <b>แคปหน้าจอ</b> (อ่าน LINE/IG) · <b>ส่งวิดีโอ</b> (ให้ถอด/สรุป) · ส่งไฟล์ · อัดเสียงยาว · <b>แชร์ตำแหน่ง</b> (ให้จำที่) — ตัดแค่ poll ที่ไม่เกี่ยว</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ตอนนี้ · CURRENT MATTERS -->
+  <section>
+    <h2>ตอนนี้ · current matters</h2>
+    <p class="navcap" style="margin:-2px 0 14px">ปุ่มซ้ายบน (ตอนนี้) = ที่ pull ดูว่ากำลังมีอะไรต้องสน — สรุปสงบ ๆ ของน้อง + ลูปที่ค้าง ไม่ใช่เช็กลิสต์ กดปุ่มเดียวถอยกลับเข้าแชต</p>
+    <div class="phonewrap"><div class="phone">
+      <div class="setscreen">
+        <div class="set-top"><span class="bk"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><b>ตอนนี้</b><span class="add"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.9-3.9"/></svg></span></div>
+        <div class="set-body">
+          <div class="takebox"><span class="a">ป</span><div class="tk">บ่ายนี้มีสองเรื่องที่ควรปิดก่อนหมดวันนะพี่ — ส่งงานลูกค้า A กับตามงวด 2 ลูกค้า C ส่วนงาน B กับ D ยังรอเขาอยู่ ไม่ต้องรีบ แค่อย่าให้หลุด</div></div>
+          <div class="nowcard">
+            <div class="nowrow"><span class="c">รอพี่</span><span class="t">ส่งงานลูกค้า A</span><span class="m due">เดดไลน์วันนี้</span></div>
+            <div class="nowrow"><span class="c">เงินค้าง</span><span class="t">ตามงวด 2 ลูกค้า C · ฿45,000</span><span class="m due">ค้าง 12 วัน</span></div>
+            <div class="nowrow"><span class="c">รอเขา</span><span class="t">B ยังไม่ตอบเรื่องสีโลโก้</span><span class="m">ส่งไป 2 วัน</span></div>
+            <div class="nowrow"><span class="c">เดดไลน์</span><span class="t">ดราฟต์แคมเปญ D · 3 คอนเซ็ปต์</span><span class="m">ศุกร์นี้</span></div>
+          </div>
+          <button class="nowbtn"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-5.2A8 8 0 1 1 21 12z"/></svg> คุยกับน้องต่อ</button>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- SEARCH IN CHAT -->
+  <section>
+    <h2>Search · ค้นในแชต แล้วกระโดดไปข้อความ</h2>
+    <p class="navcap" style="margin:-2px 0 14px">เปิดจากเมนู ••• → ค้นในแชต (หรือแว่นขยายมุมบนของหน้า “ตอนนี้”) → พิมพ์คำ → เห็นข้อความที่ตรง → แตะเพื่อกระโดดไปจุดนั้น น้องไฮไลต์ให้</p>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <div class="navlabel">1 · ผลการค้นหา</div>
+        <div class="phonewrap"><div class="phone">
+          <div class="srchbar"><span class="bk"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><span class="field"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.9-3.9"/></svg><span class="q">ลูกค้า A</span><span class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></span></div>
+          <div class="scount">พบ 3 ข้อความ</div>
+          <div class="sres">
+            <div class="sresitem"><span class="sa me">พี่</span><div class="sb"><div class="stext"><mark>ลูกค้า A</mark> ทวงงานตั้งแต่เช้า ยังไม่ได้ส่ง C ก็ยังไม่จ่ายงวดสอง</div><div class="smeta">เรา · วันแรก 08:00</div></div></div>
+            <div class="sresitem"><span class="sa pin">ป</span><div class="sb"><div class="stext">งานค้าง · รอคุณ — ส่งงาน <mark>ลูกค้า A</mark></div><div class="smeta">ปิ่น · วันแรก 08:02</div></div></div>
+            <div class="sresitem"><span class="sa pin">ป</span><div class="sb"><div class="stext">น้องร่างข้อความตอบ <mark>ลูกค้า A</mark> ให้แล้ว กดส่งได้เลย</div><div class="smeta">ปิ่น · เช้าถัดมา 09:14</div></div></div>
+          </div>
+        </div></div>
+      </div>
+      <div>
+        <div class="navlabel">2 · กระโดดไป + ไฮไลต์</div>
+        <div class="phonewrap"><div class="phone">
+          <div class="jbar">ค้นหา “ลูกค้า A” · 1 / 3<span class="jnav"><span><svg viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></svg></span><span><svg viewBox="0 0 24 24"><path d="M6 10l6 6 6-6"/></svg></span></span></div>
+          <div class="pthread" style="padding-top:14px">
+            <div class="day">วันแรก</div>
+            <div class="ku"><span class="a">ป</span><span class="b">เก็บไว้แล้วนะพี่ เล่าให้น้องฟังหน่อย ตอนนี้กวนใจอะไรอยู่</span></div>
+            <div class="me hit"><span class="b"><mark>ลูกค้า A</mark> ทวงงานตั้งแต่เช้า ยังไม่ได้ส่ง C ก็ยังไม่จ่ายงวดสอง</span></div>
+            <div class="ku"><span class="a">ป</span><span class="b">หัวเต็มเลยพี่ น้องจับไว้ให้นะ</span></div>
+            <div class="me"><span class="b">ขอบใจมาก</span></div>
+            <div class="ku"><span class="a">ป</span><span class="b">เดี๋ยวเช้าน้องสรุปให้อีกที พักได้พี่</span></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- UPLOADS / MEMORY -->
+  <section>
+    <h2>ของที่ฝากไว้ · ให้น้องจำ</h2>
+    <div class="phonewrap"><div class="phone">
+      <div class="setscreen">
+        <div class="set-top"><span class="bk"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><b>ของที่ฝากไว้</b><span class="add"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.9-3.9"/></svg></span></div>
+        <div class="set-body">
+          <div class="plug-intro">ทุกอย่างที่ส่งมา น้องอ่านและจำให้แล้ว — ดึงมาใช้ได้ทุกเมื่อ</div>
+          <div class="tfilter"><span class="ochip on">ทั้งหมด</span><span class="ochip">รูป/แคป</span><span class="ochip">ไฟล์</span><span class="ochip">เสียง/วิดีโอ</span></div>
+          <div class="setlist">
+            <div class="upitem"><span class="uptile"><svg viewBox="0 0 24 24"><path d="M8 4H6a2 2 0 0 0-2 2v2M16 4h2a2 2 0 0 1 2 2v2M8 20H6a2 2 0 0 1-2-2v-2M16 20h2a2 2 0 0 0 2-2v-2"/></svg></span><div class="upbody"><div class="ut">แคปแชต LINE — ลูกค้า A</div><div class="um"><b>น้องจำไว้:</b> ขอแก้สีโลโก้ ส่งภายในศุกร์</div><div class="umeta">แคปหน้าจอ · เมื่อวาน 21:40</div></div></div>
+            <div class="upitem"><span class="uptile"><svg viewBox="0 0 24 24"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/></svg></span><div class="upbody"><div class="ut">ใบเสนอราคา_C.pdf</div><div class="um"><b>น้องจำไว้:</b> งวด 2 ค้างจ่าย ฿45,000 ครบกำหนดแล้ว</div><div class="umeta">ไฟล์ PDF · 2 วันก่อน</div></div></div>
+            <div class="upitem"><span class="uptile"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2.6"/><path d="M15 10.5l5.5-3v9L15 13.5z"/></svg></span><div class="upbody"><div class="ut">บรีฟลูกค้า D.mp4</div><div class="um"><b>น้องถอดให้แล้ว:</b> อยากได้ 3 คอนเซ็ปต์ ภายใน 2 สัปดาห์</div><div class="umeta">วิดีโอ 4:12 · 3 วันก่อน</div></div></div>
+            <div class="upitem"><span class="uptile"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.6"/><circle cx="8.5" cy="10" r="1.5"/><path d="M4.5 17.5l4.5-4 3 2.5 3.5-3.5 4 4"/></svg></span><div class="upbody"><div class="ut">มู้ดบอร์ด งาน B</div><div class="um">อ้างอิงสไตล์: โทนเอิร์ธ มินิมอล</div><div class="umeta">รูปภาพ · 3 วันก่อน</div></div></div>
+            <div class="upitem"><span class="uptile"><svg viewBox="0 0 24 24"><path d="M4 11v2M8 8.5v7M12 6v12M16 8.5v7M20 11v2"/></svg></span><div class="upbody"><div class="ut">โน้ตเสียง — ไอเดียแคมเปญ</div><div class="um"><b>น้องสรุปเป็นข้อ ๆ ให้แล้ว</b></div><div class="umeta">เสียง 2:14 · สัปดาห์ก่อน</div></div></div>
+            <div class="upitem"><span class="uptile"><svg viewBox="0 0 24 24"><path d="M12 21c4.5-4.8 7-8 7-11a7 7 0 1 0-14 0c0 3 2.5 6.2 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></span><div class="upbody"><div class="ut">ออฟฟิศลูกค้า E</div><div class="um"><b>น้องจำไว้:</b> นัดเจอ 12 มิ.ย. 14:00 ที่นี่</div><div class="umeta">ตำแหน่ง · สัปดาห์ก่อน</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section>
+    <h2>Settings · ตั้งค่า</h2>
+    <div class="phonewrap"><div class="phone">
+      <div class="setscreen">
+        <div class="set-top"><span class="bk"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><b>ตั้งค่า</b></div>
+        <div class="set-body">
+
+          <div>
+            <div class="setgrp-h">ปิ่น</div>
+            <div class="setlist">
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5.2A8 8 0 1 1 21 12z"/></svg></span><span class="lbl">เรียกปิ่นว่า</span><span class="val">น้อง</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span><span class="lbl">ให้ปิ่นเรียกเราว่า</span><span class="val">พี่</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="setgrp-h">การเตือน</div>
+            <div class="setlist">
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6-2.5 8-2.5 8h17S18 14 18 8z"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/></svg></span><span class="lbl">เตือนเช้า · 08:00</span><span class="toggle"></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg></span><span class="lbl">ช่วงเงียบ</span><span class="val">22:00–07:00</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="setgrp-h">ปลั๊กอิน &amp; บริการ</div>
+            <div class="setlist">
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v2a6 6 0 0 1-12 0z"/><path d="M12 16v6"/></svg></span><span class="lbl">จัดการปลั๊กอิน<small>Gmail · ปฏิทิน · อากาศ</small></span><span class="val">เปิด 3</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="setgrp-h">ทั่วไป</div>
+            <div class="setlist">
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg></span><span class="lbl">ภาษา · Language</span><span class="seg"><button class="segbtn on">TH</button><button class="segbtn">EN</button></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="var(--green)" stroke="none"/></svg></span><span class="lbl">ธีมสี</span><span class="val" id="setThemeName">เขียว</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span><span class="lbl">บัญชี</span><span class="val">may@studio.co</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+              <div class="setrow set-danger">ออกจากระบบ</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- PLUGINS -->
+  <section>
+    <h2>Plugins · ปลั๊กอิน</h2>
+    <div class="phonewrap"><div class="phone">
+      <div class="setscreen">
+        <div class="set-top"><span class="bk"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><b>ปลั๊กอิน</b></div>
+        <div class="set-body">
+          <div class="plug-intro">เลือกบริการที่อยากให้ปิ่นช่วยจับตา — เปิดเท่าที่ใช้ ไม่ต้องเปิดหมด</div>
+
+          <div>
+            <div class="setgrp-h">เชื่อมแล้ว</div>
+            <div class="setlist">
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></svg></span><span class="lbl">Gmail<small>อ่านอีเมลงาน สรุปให้</small></span><span class="toggle"></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></span><span class="lbl">Google ปฏิทิน<small>ดึงนัดของวัน</small></span><span class="toggle"></span></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="setgrp-h">บริการข้อมูล</div>
+            <div class="setlist">
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4"/><path d="M12 2.5v2.2M12 19.3v2.2M5 5l1.5 1.5M17.5 17.5L19 19M2.5 12h2.2M19.3 12h2.2M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></span><span class="lbl">อากาศ &amp; ฝุ่น<small>เตือนฝน/ฝุ่นก่อนออกไปนัด</small></span><span class="toggle"></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6L12 17.8 6.7 19.6l1.1-6L3.4 9.4l6-.8z"/></svg></span><span class="lbl">ดูดวง<small>ดวงรายวันตามราศี</small></span><span class="toggle off"></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 10.5a6 6 0 0 1-12 0C6 9.5 12 3 12 3z"/></svg></span><span class="lbl">ราคาน้ำมัน<small>เตือนวันก่อนปรับราคา</small></span><span class="toggle off"></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.2a2.5 2 0 0 1 5 0c0 1.3-1.2 1.6-2.5 1.9s-2.5.6-2.5 1.9a2.5 2 0 0 0 5 0"/></svg></span><span class="lbl">ค่าเงิน<small>USD/THB สำหรับงานต่างประเทศ</small></span><span class="toggle off"></span></div>
+              <div class="setrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 5v14h16"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><span class="lbl">หุ้น / พอร์ต<small>ต้องเชื่อมพอร์ตก่อน</small></span><span class="conn">เชื่อม</span></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="setgrp-h">เร็ว ๆ นี้</div>
+            <div class="setlist">
+              <div class="setrow lock"><span class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5.2A8 8 0 1 1 21 12z"/></svg></span><span class="lbl">LINE OA ลูกค้า<small>รับ-ตอบลูกค้าผ่านปิ่น</small></span><span class="badge-soon">เฟสถัดไป</span></div>
+              <div class="setrow lock"><span class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span><span class="lbl">Notion<small>ดึงโน้ต/งานจาก Notion</small></span><span class="badge-soon">เร็ว ๆ นี้</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- THEME SCREEN -->
+  <section>
+    <h2>Theme · เลือกธีม</h2>
+    <div class="phonewrap"><div class="phone">
+      <div class="setscreen">
+        <div class="set-top"><span class="bk"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><b>ธีมสี</b></div>
+        <div class="set-body">
+          <div class="plug-intro">เลือกสีที่สบายใจ — เปลี่ยนได้ทุกเมื่อ ใช้ทั้งตอนเริ่มต้นและใน Settings</div>
+          <div class="themesel">
+            <button class="ttile" data-t="green" onclick="setTheme('green')" style="--tc:#34B06A;--tp:#E9F1E6"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>เขียว</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="clay" onclick="setTheme('clay')" style="--tc:#C15F3C;--tp:#F1E6DD"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>ดินเผา</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="slate" onclick="setTheme('slate')" style="--tc:#4F6FA6;--tp:#E7ECF5"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>ฟ้าสง่า</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="amber" onclick="setTheme('amber')" style="--tc:#CE8A2C;--tp:#F5EBD6"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>น้ำผึ้ง</b><span class="tcheck">✓</span></div></button>
+            <button class="ttile" data-t="plum" onclick="setTheme('plum')" style="--tc:#8A4A6B;--tp:#F0E5EC"><div class="tprev"><span class="tdot"></span><span class="tbars"><i></i><i></i></span></div><div class="tmeta"><b>พลัม</b><span class="tcheck">✓</span></div></button>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+</div>
+
+<script>
+  const THEMES={
+    green:{name:'เขียว',  accent:'#34B06A',deep:'#1C7A48',dd:'#2C9D5C',pale:'#E4EFDE',card:'#E9F1E6',av:'#DBEDD7'},
+    clay: {name:'ดินเผา', accent:'#C15F3C',deep:'#7E3A20',dd:'#A04A2C',pale:'#F0E2DA',card:'#F1E6DD',av:'#E8D3C6'},
+    slate:{name:'ฟ้าสง่า', accent:'#4F6FA6',deep:'#2C436B',dd:'#3E5B8C',pale:'#E1E7F1',card:'#E7ECF5',av:'#D3DDEE'},
+    amber:{name:'น้ำผึ้ง', accent:'#CE8A2C',deep:'#8C5A12',dd:'#B0731C',pale:'#F3E7CF',card:'#F5EBD6',av:'#ECD9B2'},
+    plum: {name:'พลัม',   accent:'#8A4A6B',deep:'#5A2C45',dd:'#743C5A',pale:'#EEE0E8',card:'#F0E5EC',av:'#E2CCDB'}
+  };
+  function $(id){return document.getElementById(id);}
+  function setTheme(k){
+    const t=THEMES[k]; if(!t)return; const r=document.documentElement.style;
+    r.setProperty('--green',t.accent); r.setProperty('--green-d',t.deep); r.setProperty('--green-dd',t.dd);
+    r.setProperty('--green-pale',t.pale); r.setProperty('--green-card',t.card); r.setProperty('--green-av',t.av);
+    $('hexAcc').textContent=t.accent; $('hexDeep').textContent=t.deep; $('hexSoft').textContent=t.card;
+    $('hexAv').textContent=t.av; $('themeName').textContent=t.name;
+    var st=$('setThemeName'); if(st)st.textContent=t.name;
+    document.querySelectorAll('.themebtn').forEach(b=>b.classList.toggle('on',b.dataset.t===k));
+    document.querySelectorAll('.ttile').forEach(b=>b.classList.toggle('on',b.dataset.t===k));
+  }
+  document.addEventListener('DOMContentLoaded',()=>setTheme('green'));
+</script>
+</body>
+</html>

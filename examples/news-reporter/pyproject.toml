@@ -1,0 +1,10 @@
+[project]
+name = "news-reporter"
+version = "0.1.0"
+description = "Sample external developer remote-subagent for ปิ่น (RSS → flex card)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+]

@@ -1,0 +1,11 @@
+[project]
+name = "markitdown-svc"
+version = "0.1.0"
+description = "Platform file→Markdown service for ปิ่น (PDF/Word/Excel/PPT/HTML/CSV/audio)"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "markitdown[pdf,docx,xlsx,pptx,outlook,audio-transcription]>=0.0.1a3",
+]

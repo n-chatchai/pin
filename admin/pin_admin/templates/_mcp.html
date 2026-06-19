@@ -1,0 +1,30 @@
+<div class="sec-h"><h3>เชื่อมอยู่</h3><span class="hint">{{ rows|length }} server · keys ฝั่ง server</span></div>
+{% if rows %}
+<table>
+  <thead><tr><th>server</th><th>หมวด</th><th>สถานะ</th><th>ที่มา</th><th></th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr><td class="tname">{{ r.name }}</td><td style="font-size:12px;color:var(--ink2)">{{ r.category }}</td>
+        <td><span class="b {{ 'on' if r.status=='audited' else 'sub' }}">{{ r.status }}</span></td>
+        <td class="mono" style="color:var(--ink3);font-size:11px">{{ r.source }}</td>
+        <td><a class="tg" style="color:var(--red)" hx-post="/admin/uninstall/mcp/{{ r.name }}" hx-target="#panel">นำออก</a></td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p style="color:var(--ink3)">ยังไม่มี — เพิ่มจาก registry ด้านล่าง</p>{% endif %}
+
+<div class="sec-h"><h3>registry — เพิ่มได้</h3><span class="hint">ที่มา: awesome-mcp-servers</span></div>
+{% for cat, items in by_cat.items() %}
+<div class="cat-h">{{ cat }}</div>
+<div class="grid">
+  {% for it in items %}
+  <div class="rcard">
+    <div class="rh"><svg class="ic" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg>
+      <b>{{ it.name }}</b>
+      <span class="b {{ 'on' if it.audited else 'sub' }}" style="margin-left:auto">{{ '✓ audited' if it.audited else 'review' }}</span></div>
+    <div class="chips">{% for t in it.tools %}<span class="chip">{{ t.name }}</span>{% endfor %}</div>
+    <div class="src-tag">ที่มา: <b>{{ it.source.list }}</b> · <a href="https://github.com/{{ it.source.repo }}" target="_blank" style="color:var(--blue);text-decoration:none">{{ it.source.repo }}</a></div>
+    <div class="rfoot"><span class="hint">{{ it.tools|length }} tools</span>
+      <button class="btn p sm" hx-post="/admin/install/mcp/{{ it.name }}" hx-target="#panel">+ ติดตั้ง</button></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<p style="color:var(--ink3)">ติดตั้งครบทุกตัวแล้ว</p>{% endfor %}

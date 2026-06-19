@@ -1,0 +1,271 @@
+import 'dart:convert';
+import 'dart:io';
+
+import '../services/prefs.dart';
+import 'agent_reply.dart';
+import 'agent_config.dart';
+import 'catalog_client.dart';
+import 'device_brain.dart';
+import 'proxy_client.dart';
+import 'abilities.dart';
+import 'remote_tools.dart';
+import 'subagent.dart';
+import 'tools.dart';
+
+/// Drives the device brain for one room. Builds the system prompt (persona +
+/// capabilities), exposes the stateless tools, and runs a turn. The transcript
+/// is the encrypted DM room (source of truth) — held in memory here as model
+/// context only; there is no on-device chat/memory copy.
+class AgentSession {
+  final String room;
+  final ProxyClient proxy;
+
+  /// Extra tools fetched from the proxy `/catalog` at runtime (incl. MCP).
+  /// Empty until [loadCatalog] completes; merged into the registry per turn.
+  List<AgentTool> _catalogTools = const [];
+  Map<String, Map<String, dynamic>> _catalogSkills = const {}; // name->manifest
+  List<SubagentSpec> _catalogSubagents = const [];
+  DateTime? _catalogAt; // last successful/attempted catalog load
+
+  /// Model-context transcript, held in memory only — the encrypted DM room is the
+  /// source of truth. Seeded from the DM at boot ([seedTurns]) and appended each
+  /// turn; never written to the local AgentStore (no on-device chat copy that can
+  /// diverge across devices). Each entry is `{role, content}`.
+  final List<Map<String, dynamic>> _turns = <Map<String, dynamic>>[];
+
+  /// Replace the in-memory model transcript with the DM-derived turns (called
+  /// after the chat screen paginates the room). Keeps the LLM's context in sync
+  /// with the authoritative room without persisting a local copy.
+  void seedTurns(List<Map<String, dynamic>> turns) {
+    _turns
+      ..clear()
+      ..addAll(turns);
+  }
+
+  AgentSession({
+    required this.room,
+    required this.proxy,
+  });
+
+  Future<void> loadCatalog() async {
+    final r = await CatalogClient(proxy).fetch();
+    // Only overwrite when we actually got something (or it's the first load) —
+    // a transient network failure shouldn't wipe a good catalog.
+    if (_catalogAt == null ||
+        r.tools.isNotEmpty || r.skills.isNotEmpty || r.subagents.isNotEmpty) {
+      _catalogTools = r.tools;
+      _catalogSkills = r.skills;
+      _catalogSubagents = r.subagents;
+    }
+    _catalogAt = DateTime.now();
+  }
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  String _system() {
+    final now = DateTime.now();
+    const days = ['', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+    final dt =
+        '${now.year}-${_two(now.month)}-${_two(now.day)} ${_two(now.hour)}:${_two(now.minute)}';
+    final p = PrefsController.instance.value;
+    final persona = kPinSystemFor(
+      name: p.pinName,
+      userCall: p.userCall,
+      self: p.pinSelf,
+      ending: p.pinEnding,
+      lang: p.lang,
+    );
+    // Match the language the user writes in; fall back to their setting. Applies
+    // to everything incl. card titles/tables. Proper nouns/code/URLs stay as-is.
+    final langName = p.lang == 'en' ? 'English' : 'Thai';
+    var s = 'Reply in the same language the user writes in (Thai or English), '
+        'including card titles and tables. If unclear, default to $langName. '
+        'Keep proper nouns, code and URLs in their original language.\n'
+        'เวลาปัจจุบันบนเครื่องผู้ใช้: $dt น. วัน${days[now.weekday]} '
+        '(เขตเวลา Asia/Bangkok). ใช้เวลานี้อ้างอิงเสมอเมื่อบอกเวลา.\n'
+        'เมื่อผู้ใช้ขอวาด/สร้าง/เนรมิตรูป หรือสั่งแก้/วาดใหม่ (รวมถึงสั่งแบบอ้อม เช่น '
+        '"ไม่ใช่ เอาผู้ชาย") ต้องเรียกเครื่องมือ generate_image ทุกครั้ง '
+        'ห้ามสัญญาว่าจะวาดแล้วพิมพ์ prompt หรือ JSON เป็นข้อความเด็ดขาด — '
+        'ถ้ายังไม่ได้เรียกเครื่องมือ ถือว่ายังไม่ได้วาด.\n\n$persona';
+    // Catalog skill instructions (all on — the local skill toggle was removed
+    // with on-device memory; capability gating will move to room state later).
+    final blocks = <String>[
+      for (final e in _catalogSkills.entries) '${e.value['instructions']}',
+    ];
+    if (blocks.isNotEmpty) {
+      s += '\n\nความสามารถที่เปิดไว้:\n'
+          '${blocks.map((b) => '- $b').join('\n')}';
+    }
+    // Canonical capability list — built from the live tool registry (so it stays
+    // in sync) so "ทำอะไรได้บ้าง" gets a complete answer, never vague/partial.
+    // Deduped by friendly label: distinct tools/subagents that surface the same
+    // user-facing capability (e.g. web_search vs the researcher subagent, both
+    // "ค้นเชิงลึก") collapse to one line. Subagents are omitted — they're invoked
+    // internally via delegate and only realise capabilities already listed.
+    final caps = <String>[];
+    final seenLabel = <String>{};
+    void addCap(String label, String desc) {
+      if (seenLabel.add(label)) caps.add('- $label: $desc');
+    }
+    for (final d in _registry().declarations()) {
+      final fn = d['function'] as Map;
+      final n = '${fn['name']}';
+      if (n == 'delegate') continue;
+      addCap(abilityLabel(n), '${fn['description']}');
+    }
+    addCap('วาดรูป', 'เนรมิตรูปจากคำบรรยาย แก้/วาดใหม่ได้');
+    s += '\n\nความสามารถทั้งหมดที่ปิ่นทำได้ตอนนี้:\n${caps.join('\n')}'
+        '\nเมื่อผู้ใช้ถามว่า "ทำอะไรได้บ้าง/ช่วยอะไรได้/มีความสามารถอะไร" '
+        'ให้ไล่ตอบรายการข้างบนให้ครบทุกข้อ จัดเป็นหมวดอ่านง่าย ภาษาไทย '
+        'ห้ามตอบกว้าง ๆ ห้ามตกหล่น และไม่ต้องเรียกเครื่องมือใด ๆ '
+        'ปิดท้ายชวนให้เปิดหน้า "ความสามารถ" เพื่อเพิ่มทักษะใหม่ ๆ.';
+    return s;
+  }
+
+  ToolRegistry _registry() {
+    final base = <AgentTool>[
+        // Remote, minimal-arg tools (weather / currency / web_search).
+        ...remoteTools(proxy),
+        // On-device rich render: HTML card shown as-is (terminal).
+        AgentTool(
+          fnDecl('render_html',
+              'แสดงเนื้อหาเป็น HTML ในการ์ด (ตาราง/เลย์เอาต์ที่ข้อความทำไม่ได้). '
+              'ข้อความในการ์ด รวมหัวข้อ/title ใช้ภาษาเดียวกับบทสนทนา '
+              '(ยกเว้นชื่อเฉพาะ/โค้ด/URL คงภาษาเดิม)',
+              properties: {
+                'html': {'type': 'string', 'description': 'HTML body'},
+                'title': {'type': 'string'},
+              },
+              required: ['html']),
+          (args) async => ToolResult.terminal(AgentReply(flex: {
+                'header': {'title': '${args['title'] ?? 'เนื้อหา'}'},
+                'body': [
+                  {'type': 'html', 'html': '${args['html'] ?? ''}'}
+                ],
+              })),
+        ),
+        feedbackTool(
+          fnDecl('get_time', 'เวลาปัจจุบันบนเครื่องผู้ใช้'),
+          (_) => DateTime.now().toString(),
+        ),
+    ];
+    // Merge runtime catalog tools (skip any name a built-in already covers).
+    final names = base.map((t) => t.name).toSet();
+    base.addAll(_catalogTools.where((t) => !names.contains(t.name)));
+    // Wrap base tools in a registry the subagents are sandboxed against, then
+    // expose `delegate` on top (it isn't in any subset ⇒ no recursion).
+    final baseReg = ToolRegistry(base);
+    return ToolRegistry([...base, delegateTool(proxy, baseReg, _subagents())]);
+  }
+
+  List<SubagentSpec> _subagents() {
+    final names = _builtinSubagents.map((s) => s.name).toSet();
+    // Built-in first; catalog (developer-published) subagents merged in.
+    return [
+      ..._builtinSubagents,
+      ..._catalogSubagents.where((s) => !names.contains(s.name)),
+    ];
+  }
+
+  static const _builtinSubagents = <SubagentSpec>[
+        SubagentSpec(
+          name: 'researcher',
+          description: 'ค้นคว้าเชิงลึกหลายแหล่งแล้วสรุป',
+          system:
+              'คุณคือผู้ช่วยค้นคว้าของปิ่น. ค้นเว็บ (web_search) และความรู้ที่เก็บไว้ '
+              '(recall_knowledge) หลายรอบถ้าจำเป็น แล้วสรุปคำตอบที่ครบถ้วน ตรวจสอบได้ '
+              'ภาษาไทย กระชับ. ห้ามมโน ถ้าไม่เจอให้บอกตรง ๆ.',
+          toolNames: ['web_search', 'recall_knowledge'],
+        ),
+        SubagentSpec(
+          name: 'planner',
+          description: 'จัดทำแผน/สรุปออกมาเป็นการ์ดสวยงาม',
+          system:
+              'คุณคือผู้ช่วยวางแผนของปิ่น. รับโจทย์แล้วเรียบเรียงเป็น "การ์ด" ด้วย '
+              'เครื่องมือ render_html เพียงครั้งเดียว (หัวข้อชัด + รายการเป็นข้อ ๆ '
+              'หรือ ตาราง). จบด้วยการ์ดเดียวที่อ่านง่าย ภาษาไทย.',
+          toolNames: ['render_html'],
+        ),
+      ];
+
+  /// [persistUser] = false for internal triggers (e.g. a scheduled job) — the
+  /// trigger text isn't something the user typed, so it must NOT be stored as a
+  /// user turn (it would render as a user bubble on reload). The reply is still
+  /// stored so the card survives.
+  Future<AgentReply> send(String userText,
+      {String? imagePath,
+      bool persistUser = true,
+      String? recordText,
+      String? imageRecordPath}) async {
+    // Refresh the catalog if it's stale so a just-published capability works
+    // without a restart.
+    if (_catalogAt == null ||
+        DateTime.now().difference(_catalogAt!) > const Duration(seconds: 30)) {
+      await loadCatalog();
+    }
+    final brain = DeviceBrain(
+      proxy: proxy,
+      tools: _registry(),
+      system: _system(),
+    );
+    String? b64;
+    if (imagePath != null) {
+      b64 = base64Encode(await File(imagePath).readAsBytes());
+    }
+    var reply = await brain.reply(_turns, userText, imageB64: b64);
+    final hints = <String>[]; // capability labels for the hint (deduped later)
+
+    // (a) model self-tag "[ใช้: ดูดวง] …" → hint + strip it from the text.
+    // Strip EVERY occurrence (the model sometimes drops it mid-text, not only
+    // at the start) so the raw tag never leaks into the bubble.
+    if (reply.text != null) {
+      final re = RegExp(r'\[\s*ใช้\s*[:：]\s*([^\]]+)\]');
+      for (final m in re.allMatches(reply.text!)) {
+        hints.addAll(m.group(1)!.split(',').map((s) => s.trim()));
+      }
+      final cleaned = reply.text!.replaceAll(re, '').trim();
+      if (cleaned != reply.text) {
+        reply = AgentReply(
+            text: cleaned,
+            flex: reply.flex,
+            usedTools: reply.usedTools,
+            trace: reply.trace);
+      }
+    }
+    // (b) credit a skill when one of its required tools fired this turn.
+    final usedSet = reply.usedTools.toSet();
+    for (final e in _catalogSkills.entries) {
+      final req = ((e.value['requires'] as Map?)?['tools'] as List?)
+              ?.map((x) => '$x')
+              .toSet() ??
+          const <String>{};
+      if (req.intersection(usedSet).isNotEmpty) {
+        hints.add('${e.value['label'] ?? e.key}');
+      }
+    }
+    if (hints.isNotEmpty) {
+      // Skill/model labels first, then tool names — deduped, order preserved.
+      reply = reply.withTools(
+          <String>{...hints, ...reply.usedTools}.toList());
+    }
+    // Persist a clean transcript. For a sent photo we keep the durable image
+    // path (UI-only — stripped before going back to the model) so the bubble
+    // re-renders the photo after a restart, not a "[ส่งรูป]" marker. For a file
+    // upload, [recordText] holds a short marker (e.g. "📄 name") so the giant
+    // extracted body isn't shown in the bubble NOR resent to the model every
+    // following turn — the assistant's summary in history already captures it.
+    final userText2 = imagePath != null
+        ? '[ส่งรูป] $userText'.trim()
+        : (recordText ?? userText);
+    final assistantText = reply.text?.isNotEmpty == true
+        ? reply.text!
+        : (reply.flex != null ? '(ส่งการ์ดให้แล้ว)' : '');
+    // Append to the in-memory model transcript only (the DM room is the durable
+    // store — the chat screen writes both turns to it). No local AgentStore copy.
+    if (persistUser) {
+      _turns.add({'role': 'user', 'content': userText2});
+    }
+    _turns.add({'role': 'assistant', 'content': assistantText});
+    return reply;
+  }
+}

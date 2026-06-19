@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="wrap">
+  <aside class="side">
+    <div class="brand"><div class="logo">ปิ่น</div><div><b>Admin</b><span>catalog · proxy</span></div></div>
+    <nav class="nav" id="nav">
+      <div class="lbl">จัดการ</div>
+      <a hx-get="/admin/tab/tools" hx-target="#panel" class="on" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M14 7l-1.5-1.5a2 2 0 0 0-3 0L4 11l3 3 5.5-5.5a2 2 0 0 0 0-3z"/><path d="M14 7l6 6-3 3-6-6"/></svg> เครื่องมือ</a>
+      <a hx-get="/admin/tab/skills" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.4 6L21 9.4l-4.8 4 1.5 6.6L12 16.5 6.3 20l1.5-6.6L3 9.4 9.6 9z"/></svg> สกิล</a>
+      <a hx-get="/admin/tab/subagents" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="4" r="1.6"/><circle cx="4" cy="17" r="1.6"/><circle cx="20" cy="17" r="1.6"/></svg> Subagents</a>
+      <a hx-get="/admin/tab/mcp" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4"/><line x1="14" y1="5" x2="10" y2="19"/></svg> MCP Servers</a>
+      <div class="lbl">เผยแพร่</div>
+      <a hx-get="/admin/tab/review" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> รีวิว</a>
+      <a hx-get="/admin/tab/catalog" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M18 10a4 4 0 0 0-7.7-1.3A3.5 3.5 0 1 0 6.5 18H18a4 4 0 0 0 0-8z"/></svg> Catalog</a>
+      <a href="/developers" target="_blank">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg> Developer portal ↗</a>
+      <a hx-get="/admin/tab/logs" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg> Logs</a>
+    </nav>
+    <form method="post" action="/admin/logout" class="foot">
+      <button class="btn g" style="width:100%">ออกจากระบบ · {{ admin }}</button>
+    </form>
+  </aside>
+  <main class="main">
+    <div class="head">
+      <div><h1>ภาพรวม</h1><p class="lead">เผยแพร่ผ่าน <span class="mono">/catalog</span> — เครื่องลูกดึงไปใช้ runtime</p></div>
+      <button class="btn p" hx-post="/admin/catalog/publish" hx-target="#pubresult">
+        <svg class="ic" style="stroke:#fff" viewBox="0 0 24 24"><path d="M18 10a4 4 0 0 0-7.7-1.3A3.5 3.5 0 1 0 6.5 18H18a4 4 0 0 0 0-8z"/></svg> เผยแพร่ catalog</button>
+    </div>
+
+    <div class="note"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>
+      <div><b>PII gate บังคับที่ dispatch</b><p>tool remote/mcp รับเฉพาะ arg keys ที่ประกาศ — ไม่มี identity/บทสนทนา. log เก็บแค่ metadata</p></div></div>
+
+    <div class="stats">
+      <div class="stat"><b>{{ counts.tools }}</b><span>เครื่องมือ</span></div>
+      <div class="stat"><b>{{ counts.skills }}</b><span>สกิล</span></div>
+      <div class="stat"><b>{{ counts.subagents }}</b><span>subagents</span></div>
+      <div class="stat"><b>{{ counts.mcp }}</b><span>MCP</span></div>
+      <div class="stat"><b>v{{ counts.version }}</b><span>catalog</span></div>
+    </div>
+
+    <div id="pubresult"></div>
+    <div id="panel" hx-get="/admin/tab/tools" hx-trigger="load"></div>
+  </main>
+</div>
+<script>
+function act(el){document.querySelectorAll('#nav a').forEach(a=>a.classList.remove('on'));el.classList.add('on');}
+</script>
+{% endblock %}

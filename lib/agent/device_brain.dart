@@ -1,0 +1,177 @@
+import 'dart:convert';
+
+import 'agent_reply.dart';
+import 'proxy_client.dart';
+import 'tools.dart';
+
+/// On-device agent loop. Owns orchestration; all state stays on the phone and
+/// is passed in as `history`. Calls the blind LLM proxy and dispatches tool
+/// calls to the on-device registry (later: remote minimal-arg tool APIs).
+class DeviceBrain {
+  final ProxyClient proxy;
+  final ToolRegistry tools;
+  final String system;
+  final int maxSteps;
+
+  const DeviceBrain({
+    required this.proxy,
+    required this.tools,
+    required this.system,
+    this.maxSteps = 6,
+  });
+
+  /// Run one user turn. `history` is OpenAI-shaped prior messages (kept on
+  /// device). Returns the assistant's final text.
+  Future<AgentReply> reply(
+    List<Map<String, dynamic>> history,
+    String userText, {
+    String? imageB64, // jpeg base64 → multimodal (Gemini sees the image)
+  }) async {
+    final userMsg = imageB64 == null
+        ? {'role': 'user', 'content': userText}
+        : {
+            'role': 'user',
+            'content': [
+              {
+                'type': 'text',
+                'text': userText.isEmpty ? 'ดูรูปนี้ให้หน่อยค่ะ' : userText
+              },
+              {
+                'type': 'image_url',
+                'image_url': {'url': 'data:image/jpeg;base64,$imageB64'}
+              },
+            ],
+          };
+    final messages = <Map<String, dynamic>>[
+      {'role': 'system', 'content': system},
+      // Strip UI-only extras (e.g. a persisted flex card) — the provider only
+      // accepts role/content.
+      for (final h in history) {'role': h['role'], 'content': h['content']},
+      userMsg,
+    ];
+
+    final used = <String>[]; // tool names called this turn (for the UI hint)
+    final trace = <String>[]; // debug-bot: every step of the agent loop
+    Map<String, dynamic>? pendingFlex; // a card shown; ปิ่น still adds a caption
+    for (var step = 0; step < maxSteps; step++) {
+      final resp = await proxy.infer(
+        messages: messages,
+        tools: tools.declarations(),
+      );
+      final choice =
+          (resp['choices'] as List).first['message'] as Map<String, dynamic>;
+      final calls = choice['tool_calls'] as List?;
+
+      if (calls == null || calls.isEmpty) {
+        final content = (choice['content'] as String?)?.trim() ?? '';
+        // Salvage: the model sometimes PROMISES to draw and narrates a
+        // {"prompt": "..."} blob instead of calling generate_image (esp. on an
+        // indirect "วาดใหม่"). Detect the leaked JSON, run the tool for real,
+        // and return its card with the surrounding sentence as the caption.
+        if (pendingFlex == null && !used.contains('generate_image')) {
+          final p = _leakedPrompt(content);
+          if (p != null) {
+            trace.add('🛟 กู้คืน: เรียก generate_image จาก prompt ที่หลุดมาเป็นข้อความ');
+            used.add('generate_image');
+            final res = await tools.dispatch('generate_image', {'prompt': p});
+            if (res.reply?.flex != null) {
+              return AgentReply(
+                  text: _stripJson(content),
+                  flex: res.reply!.flex,
+                  usedTools: used,
+                  trace: trace);
+            }
+          }
+        }
+        trace.add(used.isEmpty
+            ? '💬 ตอบข้อความ (ไม่เรียกเครื่องมือ)'
+            : '💬 สรุปเป็นข้อความ');
+        // Caption (if any) + the card from the terminal tool.
+        return AgentReply(
+            text: content,
+            flex: pendingFlex,
+            usedTools: used,
+            trace: trace);
+      }
+
+      // Record the assistant turn (with tool_calls) then each tool result.
+      messages.add(choice);
+      var gotCard = false;
+      for (final call in calls) {
+        final fn = call['function'] as Map<String, dynamic>;
+        final name = '${fn['name']}';
+        if (!used.contains(name)) used.add(name);
+        final args = _parseArgs(fn['arguments']);
+        trace.add('→ เรียก $name(${_short(jsonEncode(args))})');
+        final result = await tools.dispatch(name, args);
+        if (result.reply != null) {
+          final r = result.reply!;
+          // A card → ปิ่น should ALSO say a line. Keep the card, tell the model
+          // it was shown, and loop once more for a short caption.
+          if (r.flex != null) {
+            pendingFlex = r.flex;
+            gotCard = true;
+            trace.add('← $name: การ์ด ✓ (ให้ปิ่นทักสั้น ๆ)');
+            messages.add({
+              'role': 'tool',
+              'tool_call_id': call['id'],
+              'content': 'แสดงการ์ดให้ผู้ใช้แล้ว ตอบกลับสั้น ๆ 1–2 ประโยคที่ '
+                  '"มีคุณค่า" — ชี้จุดที่น่าสนใจในการ์ด แล้วเพิ่มคำแนะนำหรือ '
+                  'ข้อสังเกตที่ใช้ได้จริง (อากาศ→เตือนพกร่ม/แต่งตัวตามอุณหภูมิ, '
+                  'ค่าเงิน→แนวโน้มน่าซื้อ/รอ, ข่าว→ไฮไลต์ที่ควรอ่าน, '
+                  'ดูดวง→ข้อควรระวัง). ห้ามพูดลอย ๆ ว่า "ตามนี้เลยค่ะ" หรือ '
+                  '"นี่คือข้อมูล" และห้ามเอ่ยชื่อฟังก์ชัน.',
+            });
+            break; // re-infer for the caption
+          }
+          // Non-card terminal (e.g. plain reply) → done.
+          trace.add('← $name: ผลลัพธ์ ✓');
+          return AgentReply(
+              text: r.text, flex: r.flex, usedTools: used, trace: trace);
+        }
+        trace.add('← $name: ${_short(result.feedback ?? "done")}');
+        messages.add({
+          'role': 'tool',
+          'tool_call_id': call['id'],
+          'content': result.feedback ?? 'done',
+        });
+      }
+      if (gotCard) continue; // back to the model for the caption
+    }
+    trace.add('⚠️ ครบ $maxSteps ขั้นแล้วยังไม่จบ');
+    return AgentReply(
+        text: 'ขอโทษค่ะ ตอนนี้ตอบไม่ได้ ลองใหม่อีกที',
+        usedTools: used,
+        trace: trace);
+  }
+
+  static String _short(String s) =>
+      s.length > 80 ? '${s.substring(0, 80)}…' : s;
+
+  /// Find a `"prompt": "…"` the model narrated instead of calling the tool.
+  static String? _leakedPrompt(String text) {
+    final m = RegExp(r'"prompt"\s*:\s*"((?:[^"\\]|\\.)*)"').firstMatch(text);
+    if (m == null) return null;
+    final raw = m.group(1)!;
+    if (raw.trim().length < 3) return null;
+    return raw.replaceAll(r'\"', '"').replaceAll(r'\\', r'\');
+  }
+
+  /// Drop a leaked JSON blob (object or ```fenced``` block) from the caption so
+  /// the bubble shows only ปิ่น's sentence, not the raw prompt.
+  static String _stripJson(String text) {
+    var t = text.replaceAll(RegExp(r'```[a-zA-Z]*'), '');
+    t = t.replaceAll(RegExp(r'\{[^{}]*"prompt"[^{}]*\}', dotAll: true), '');
+    return t.replaceAll('```', '').trim();
+  }
+
+  static Map<String, dynamic> _parseArgs(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        return jsonDecode(raw) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    return {};
+  }
+}

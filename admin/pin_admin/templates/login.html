@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div style="min-height:100vh;display:grid;place-items:center">
+  <form method="post" action="{{ post or '/admin/login' }}"
+        style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px;width:330px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <div class="logo">ปิ่น</div><b style="font-size:16px">{{ title or 'Admin' }}</b>
+    </div>
+    {% if error %}<div style="color:var(--red);font-size:12.5px;margin-bottom:10px">{{ error }}</div>{% endif %}
+    <input name="email" type="text" placeholder="ชื่อผู้ใช้ ปิ่น" required
+      style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;font-family:var(--th)">
+    <input name="password" type="password" placeholder="รหัสผ่าน" required
+      style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:16px;font-family:var(--th)">
+    <button class="btn" style="width:100%">เข้าสู่ระบบ</button>
+  </form>
+</div>
+{% endblock %}

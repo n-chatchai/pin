@@ -1,0 +1,14 @@
+<tr id="tool-{{ r.name }}">
+  <td><div class="tname">{{ r.name }}</div><div class="tsub">{{ r.description }}</div></td>
+  <td><span class="b {{ r.kind }}">{{ r.kind }}</span></td>
+  <td class="keys">
+    {% for k in (r.arg_keys_json or '[]') | fromjson %}<b>{{ k }}</b>{% endfor %}
+  </td>
+  <td style="color:var(--ink3);font-size:12px">{{ r.source }}</td>
+  <td>
+    <span class="b {{ 'on' if r.enabled else 'off' }}">{{ 'เปิด' if r.enabled else 'ปิด' }}</span>
+    <a class="tg" hx-post="/admin/tools/{{ r.name }}/toggle"
+       hx-target="#tool-{{ r.name }}" hx-swap="outerHTML">สลับ</a>
+    <a class="tg" hx-get="/admin/tool/{{ r.name }}/edit" hx-target="#panel">แก้ไข</a>
+  </td>
+</tr>

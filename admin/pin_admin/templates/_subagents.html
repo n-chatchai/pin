@@ -1,0 +1,30 @@
+<div class="sec-h"><h3>ติดตั้งแล้ว</h3><span class="hint">{{ rows|length }} ตัว</span></div>
+{% if rows %}
+<table>
+  <thead><tr><th>subagent</th><th>หมวด</th><th>model</th><th>steps</th><th>ที่มา</th><th></th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr><td class="tname">{{ r.name }}</td><td style="font-size:12px;color:var(--ink2)">{{ r.category }}</td>
+        <td><span class="b sub">{{ r.model }}</span></td><td class="mono">{{ r.max_steps }}</td>
+        <td class="mono" style="color:var(--ink3);font-size:11px">{{ r.source }}</td>
+        <td><a class="tg" style="color:var(--red)" hx-post="/admin/uninstall/subagents/{{ r.name }}" hx-target="#panel">นำออก</a></td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p style="color:var(--ink3)">ยังไม่มี — เพิ่มจาก registry ด้านล่าง</p>{% endif %}
+
+<div class="sec-h"><h3>registry — เพิ่มได้</h3><span class="hint">ที่มา: awesome-claude-code-subagents</span></div>
+{% for cat, items in by_cat.items() %}
+<div class="cat-h">{{ cat }}</div>
+<div class="grid">
+  {% for it in items %}
+  <div class="rcard">
+    <div class="rh"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="4" r="1.6"/><circle cx="4" cy="17" r="1.6"/><circle cx="20" cy="17" r="1.6"/></svg>
+      <b>{{ it.name }}</b><span class="b sub" style="margin-left:auto">{{ it.model }}</span></div>
+    <div class="rd">{{ it.description }}</div>
+    <div class="chips">{% for t in it.toolNames %}<span class="chip">{{ t }}</span>{% endfor %}</div>
+    <div class="src-tag">ที่มา: <b>{{ it.source.list }}</b> · <a href="https://github.com/{{ it.source.repo }}" target="_blank" style="color:var(--blue);text-decoration:none">{{ it.source.repo }}</a></div>
+    <div class="rfoot"><span class="hint">maxSteps {{ it.maxSteps }}</span>
+      <button class="btn p sm" hx-post="/admin/install/subagents/{{ it.name }}" hx-target="#panel">+ ติดตั้ง</button></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<p style="color:var(--ink3)">ติดตั้งครบแล้ว</p>{% endfor %}

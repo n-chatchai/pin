@@ -1,0 +1,31 @@
+<div class="sec-h"><h3>ติดตั้งแล้ว</h3><span class="hint">{{ rows|length }} สกิล</span></div>
+{% if rows %}
+<table>
+  <thead><tr><th>สกิล</th><th>หมวด</th><th>คำอธิบาย</th><th>ที่มา</th><th></th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr><td class="tname">{{ r.name }}</td><td style="font-size:12px;color:var(--ink2)">{{ r.category }}</td>
+        <td style="color:var(--ink2);font-size:12.5px">{{ r.description }}</td>
+        <td class="mono" style="color:var(--ink3);font-size:11px">{{ r.source }}</td>
+        <td><a class="tg" style="color:var(--red)" hx-post="/admin/uninstall/skills/{{ r.name }}" hx-target="#panel">นำออก</a></td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p style="color:var(--ink3)">ยังไม่มี — เพิ่มจาก registry ด้านล่าง</p>{% endif %}
+
+<div class="sec-h"><h3>registry — เพิ่มได้</h3><span class="hint">ที่มา: awesome-agent-skills</span></div>
+{% for cat, items in by_cat.items() %}
+<div class="cat-h">{{ cat }}</div>
+<div class="grid">
+  {% for it in items %}
+  <div class="rcard">
+    <div class="rh"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.4 6L21 9.4l-4.8 4 1.5 6.6L12 16.5 6.3 20l1.5-6.6L3 9.4 9.6 9z"/></svg><b>{{ it.name }}</b></div>
+    <div class="rd">{{ it.description }} — {{ it.instructions }}</div>
+    <div class="chips">
+      {% for t in it.requires.get('tools', []) %}<span class="chip">{{ t }}</span>{% endfor %}
+      {% for m in it.requires.get('mcp', []) %}<span class="chip">mcp:{{ m }}</span>{% endfor %}</div>
+    <div class="src-tag">ที่มา: <b>{{ it.source.list }}</b> · <a href="https://github.com/{{ it.source.repo }}" target="_blank" style="color:var(--blue);text-decoration:none">{{ it.source.repo }}</a></div>
+    <div class="rfoot"><span class="hint"></span>
+      <button class="btn p sm" hx-post="/admin/install/skills/{{ it.name }}" hx-target="#panel">+ ติดตั้ง</button></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<p style="color:var(--ink3)">ติดตั้งครบแล้ว</p>{% endfor %}

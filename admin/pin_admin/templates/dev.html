@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="wrap">
+  <aside class="side">
+    <div class="brand"><div class="logo">ปิ่น</div><div><b>Developers</b><span>tokens2 · capabilities</span></div></div>
+    <nav class="nav">
+      <a href="/developers" class="on">ส่งความสามารถ</a>
+    </nav>
+    <form method="post" action="/developers/logout" class="foot">
+      <button class="btn g" style="width:100%">ออกจากระบบ · {{ admin }}</button>
+    </form>
+  </aside>
+  <main class="main">
+    <h1>ส่งความสามารถ</h1>
+    <p class="lead">developer ส่ง MCP / skill / subagent → เข้าคิวรีวิว → owner อนุมัติ → เผยแพร่เข้า catalog</p>
+
+    <div class="note"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>
+      <div><b>กฎ:</b><p>argKeys ต้องประกาศให้ครบ — ระบบจะ strip args เหลือเฉพาะที่ประกาศ. ห้ามขอ identity/บทสนทนา/preferences</p></div></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start">
+      <form hx-post="/developers/submit" hx-target="#mine"
+            style="background:#fff;border:1px solid var(--line);border-radius:11px;padding:18px">
+        <style>.fld{margin-bottom:13px}.fld label{display:block;font-size:12px;color:var(--ink2);margin-bottom:5px;font-weight:600}
+          .fld input,.fld select,.fld textarea{width:100%;padding:8px 11px;border:1px solid var(--line2);border-radius:7px;font-family:var(--th);font-size:13px}
+          textarea{font-family:var(--en);min-height:200px}</style>
+        <div class="fld"><label>ชนิด</label>
+          <select name="type" id="subtype">
+            <option value="tool">Remote tool (endpoint)</option>
+            <option value="mcp">MCP server</option>
+            <option value="skill">Skill</option>
+            <option value="subagent">Subagent</option>
+          </select></div>
+        <div class="fld"><label>ชื่อ</label><input name="name" placeholder="เช่น news_reporter" required></div>
+        <div class="fld"><label>Manifest (JSON)</label>
+          <textarea name="payload" placeholder='Remote tool: {"endpoint":"https://dev.host/run","argKeys":["url","since"],"label":"ผู้สื่อข่าว AI","blurb":"สรุปข่าว","category":"ข่าวสาร","provider":"AstroLab","pricing":{"tier":"subscription","amount":39},"parameters":{"type":"object","properties":{"url":{"type":"string"},"since":{"type":"string"}}}}'></textarea></div>
+        <div class="src-tag" style="margin-bottom:13px">
+          <b>tool</b>: endpoint+argKeys+pricing · <b>mcp</b>: url+tools · <b>skill</b>: instructions+requires · <b>subagent</b>: system+toolNames</div>
+        <button class="btn p" type="submit">ส่งเข้าคิวรีวิว</button>
+      </form>
+      <div>
+        <div class="sec-h"><h3>ของฉัน</h3><span class="hint">คลิกดูรายละเอียด</span></div>
+        <div id="mine">{% include "_dev_list.html" %}</div>
+        <div id="detail" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
