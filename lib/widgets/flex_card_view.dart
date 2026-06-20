@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/pin_theme.dart';
 import 'html_view.dart';
@@ -597,7 +597,7 @@ class _Footer extends StatelessWidget {
           if (tappable)
             Padding(
               padding: const EdgeInsets.only(left: 2),
-              child: Icon(LucideIcons.chevronRight, size: 15, color: accent),
+              child: Icon(PhosphorIconsRegular.caretRight, size: 15, color: accent),
             ),
         ],
       ),
@@ -653,42 +653,42 @@ class _DeltaPill extends StatelessWidget {
 IconData _iconFor(String name) {
   switch (name) {
     case 'tasks':
-      return LucideIcons.listChecks;
+      return PhosphorIconsRegular.listChecks;
     case 'sun':
-      return LucideIcons.sun;
+      return PhosphorIconsRegular.sun;
     case 'calendar':
-      return LucideIcons.calendar;
+      return PhosphorIconsRegular.calendar;
     case 'money':
-      return LucideIcons.wallet;
+      return PhosphorIconsRegular.wallet;
     case 'chart':
-      return LucideIcons.trendingUp;
+      return PhosphorIconsRegular.trendUp;
     case 'fuel':
-      return LucideIcons.fuel;
+      return PhosphorIconsRegular.gasPump;
     case 'air':
-      return LucideIcons.wind;
+      return PhosphorIconsRegular.wind;
     case 'fx':
-      return LucideIcons.arrowLeftRight;
+      return PhosphorIconsRegular.arrowsLeftRight;
     case 'draft':
-      return LucideIcons.fileEdit;
+      return PhosphorIconsRegular.notePencil;
     case 'image':
-      return LucideIcons.image;
+      return PhosphorIconsRegular.image;
     case 'file':
     case 'doc':
-      return LucideIcons.fileText;
+      return PhosphorIconsRegular.fileText;
     case 'audio':
-      return LucideIcons.music;
+      return PhosphorIconsRegular.musicNote;
     case 'video':
-      return LucideIcons.video;
+      return PhosphorIconsRegular.videoCamera;
     case 'sparkles':
-      return LucideIcons.sparkles;
+      return PhosphorIconsRegular.sparkle;
     case 'heart':
-      return LucideIcons.heart;
+      return PhosphorIconsRegular.heart;
     case 'clock':
-      return LucideIcons.clock;
+      return PhosphorIconsRegular.clock;
     case 'news':
-      return LucideIcons.newspaper;
+      return PhosphorIconsRegular.newspaper;
     default:
-      return LucideIcons.zap;
+      return PhosphorIconsRegular.lightning;
   }
 }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// How a capability is priced. `free` = add yourself; `onetime` = buy once;
 /// `subscription` = recurring. Drives the action button in the abilities UI.
@@ -71,17 +71,17 @@ class Ability {
       };
 
   static IconData iconFor(String? key) => switch (key) {
-        'cloud' => LucideIcons.cloud,
-        'coins' => LucideIcons.coins,
-        'search' => LucideIcons.search,
-        'newspaper' => LucideIcons.newspaper,
-        'brain' => LucideIcons.brainCircuit,
-        'mail' => LucideIcons.mail,
-        'calendar' => LucideIcons.calendar,
-        'book' => LucideIcons.bookOpen,
-        'bell' => LucideIcons.bell,
-        'pin' => LucideIcons.pin,
-        _ => LucideIcons.sparkles,
+        'cloud' => PhosphorIconsRegular.cloud,
+        'coins' => PhosphorIconsRegular.coins,
+        'search' => PhosphorIconsRegular.magnifyingGlass,
+        'newspaper' => PhosphorIconsRegular.newspaper,
+        'brain' => PhosphorIconsRegular.brain,
+        'mail' => PhosphorIconsRegular.envelope,
+        'calendar' => PhosphorIconsRegular.calendar,
+        'book' => PhosphorIconsRegular.bookOpen,
+        'bell' => PhosphorIconsRegular.bell,
+        'pin' => PhosphorIconsRegular.pushPin,
+        _ => PhosphorIconsRegular.sparkle,
       };
 
   static Ability fromManifest(Map<String, dynamic> m) => Ability(
@@ -134,19 +134,19 @@ const kBuiltinAbilities = <Ability>[
       name: 'schedule_reminder',
       label: 'เตือนความจำ',
       blurb: 'ตั้งเตือน เด้งแจ้งเตือนแม้ปิดจอ',
-      icon: LucideIcons.bell,
+      icon: PhosphorIconsRegular.bell,
       category: 'ส่วนตัว'),
   Ability(
       name: 'remember_fact',
       label: 'จำเรื่องของคุณ',
       blurb: 'จดจำสิ่งสำคัญเกี่ยวกับคุณ',
-      icon: LucideIcons.pin,
+      icon: PhosphorIconsRegular.pushPin,
       category: 'ส่วนตัว'),
   Ability(
       name: 'recall_knowledge',
       label: 'ค้นความรู้ที่เก็บไว้',
       blurb: 'หยิบสิ่งที่เคยบันทึกมาใช้',
-      icon: LucideIcons.bookOpen,
+      icon: PhosphorIconsRegular.bookOpen,
       category: 'ส่วนตัว'),
 ];
 
@@ -157,7 +157,7 @@ const kFreeAbilities = <Ability>[
       name: 'morning_news',
       label: 'สรุปข่าวเช้า',
       blurb: 'ค้นข่าวล่าสุดแล้วสรุปให้',
-      icon: LucideIcons.newspaper,
+      icon: PhosphorIconsRegular.newspaper,
       category: 'ฟรี',
       instructions:
           'เมื่อผู้ใช้ขอข่าว/สรุปข่าว ให้ค้นข่าวล่าสุดด้วย web_search แล้วสรุปเป็นหัวข้อสั้น พร้อมที่มา.'),
@@ -165,7 +165,7 @@ const kFreeAbilities = <Ability>[
       name: 'deep_research',
       label: 'ค้นข้อมูลเชิงลึก',
       blurb: 'หาหลายแหล่งแล้วสรุปให้',
-      icon: LucideIcons.brainCircuit,
+      icon: PhosphorIconsRegular.brain,
       category: 'ฟรี',
       instructions:
           'ถ้าคำถามต้องค้น/ประมวลหลายรอบ ให้ใช้ delegate ส่งงานไปยังผู้ช่วย researcher.'),
@@ -173,7 +173,7 @@ const kFreeAbilities = <Ability>[
       name: 'encourage',
       label: 'ให้กำลังใจ',
       blurb: 'พูดให้กำลังใจเวลาเหนื่อย',
-      icon: LucideIcons.heart,
+      icon: PhosphorIconsRegular.heart,
       category: 'ฟรี',
       instructions:
           'เมื่อผู้ใช้ดูเครียดหรือเหนื่อย ให้พูดให้กำลังใจสั้น ๆ อย่างจริงใจก่อนช่วยงาน.'),
@@ -181,7 +181,7 @@ const kFreeAbilities = <Ability>[
       name: 'tldr_link',
       label: 'ย่อลิงก์',
       blurb: 'สรุปบทความจากลิงก์',
-      icon: LucideIcons.link,
+      icon: PhosphorIconsRegular.link,
       category: 'ฟรี',
       instructions:
           'เมื่อผู้ใช้ส่งลิงก์มา ให้ค้นเนื้อหาด้วย web_search แล้วสรุปประเด็นหลักสั้น ๆ.'),
@@ -194,42 +194,42 @@ const kComingSoonAbilities = <Ability>[
       name: 'email',
       label: 'อีเมล',
       blurb: 'อ่าน คัดกรอง และร่างตอบอีเมลให้',
-      icon: LucideIcons.mail,
+      icon: PhosphorIconsRegular.envelope,
       provider: 'Google',
       pricing: Pricing(tier: 'subscription', amount: 59, period: 'month')),
   Ability(
       name: 'calendar',
       label: 'ปฏิทิน',
       blurb: 'หาเวลาว่าง สร้างนัด เตือนล่วงหน้า',
-      icon: LucideIcons.calendar,
+      icon: PhosphorIconsRegular.calendar,
       provider: 'Google',
       pricing: Pricing(tier: 'subscription', amount: 59, period: 'month')),
   Ability(
       name: 'notion',
       label: 'จดลง Notion',
       blurb: 'บันทึกสิ่งที่คุยลงสมุดโน้ต',
-      icon: LucideIcons.bookOpen,
+      icon: PhosphorIconsRegular.bookOpen,
       provider: 'Notion',
       pricing: Pricing(tier: 'subscription', amount: 49, period: 'month')),
   Ability(
       name: 'translate',
       label: 'แปลภาษา',
       blurb: 'แปลข้อความได้หลายภาษา',
-      icon: LucideIcons.languages,
+      icon: PhosphorIconsRegular.translate,
       provider: 'ปิ่น',
       pricing: Pricing(tier: 'onetime', amount: 99)),
   Ability(
       name: 'docsum',
       label: 'สรุปเอกสาร',
       blurb: 'ย่อไฟล์หรือบทความยาวให้สั้น',
-      icon: LucideIcons.fileText,
+      icon: PhosphorIconsRegular.fileText,
       provider: 'ปิ่น',
       pricing: Pricing(tier: 'onetime', amount: 99)),
   Ability(
       name: 'trip',
       label: 'วางแผนทริป',
       blurb: 'หาเที่ยวบิน อากาศ แล้วร่างแผน',
-      icon: LucideIcons.map,
+      icon: PhosphorIconsRegular.mapTrifold,
       provider: 'ปิ่น',
       pricing: Pricing(tier: 'subscription', amount: 39, period: 'month')),
 ];

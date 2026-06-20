@@ -115,9 +115,12 @@ class _MessageComposerState extends State<MessageComposer> {
     // Floating liquid-glass card, inset to line up with the chat bubbles and
     // lifted above the home indicator (the chat fills under it, blurring
     // through — no solid bar beneath).
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // Lift the card clear of the system nav bar (Android 3-button bar is a solid
+    // ~48px; iOS/gesture pill is thinner) PLUS a small gap so it never touches.
+    // viewPadding = the raw inset, never consumed by a SafeArea.
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(14, 0, 14, (bottomInset - 6).clamp(0, 60)),
+      padding: EdgeInsets.fromLTRB(14, 0, 14, bottomInset.clamp(0, 80) + 10),
       // Solid lifted card (Claude-style): white surface, hairline edge, soft
       // drop shadow so it floats above the tinted screen instead of sinking in.
       child: Container(

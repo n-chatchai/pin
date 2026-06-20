@@ -6,7 +6,6 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_zxing/flutter_zxing.dart';
 import 'package:image/image.dart' as img;
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../config.dart';
@@ -122,7 +121,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
-                        icon: const Icon(LucideIcons.chevronLeft),
+                        icon: const Icon(PhosphorIconsRegular.caretLeft),
                         color: PinPalette.ink2,
                         onPressed: _back,
                       ),
@@ -189,7 +188,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _endCtl, _endPreset, (v) => setState(() => _endPreset = v)),
             const SizedBox(height: 24),
             const Row(children: [
-              Icon(LucideIcons.settings2, size: 13, color: PinPalette.ink3),
+              Icon(PhosphorIconsRegular.gearSix, size: 13, color: PinPalette.ink3),
               SizedBox(width: 6),
               Text('เปลี่ยนได้ภายหลังในการตั้งค่า',
                   style: TextStyle(fontSize: 12, color: PinPalette.ink3)),
@@ -341,7 +340,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle),
-            child: Icon(LucideIcons.check, color: scheme.secondary, size: 32),
+            child: Icon(PhosphorIconsRegular.check, color: scheme.secondary, size: 32),
           ),
           const SizedBox(height: 16),
           Text('พร้อมแล้ว', style: PinPalette.brand(size: 30)),
@@ -448,7 +447,7 @@ class _ThemeTile extends StatelessWidget {
                     height: 24,
                     decoration: BoxDecoration(
                         color: palette.accent, shape: BoxShape.circle),
-                    child: const Icon(LucideIcons.check,
+                    child: const Icon(PhosphorIconsRegular.check,
                         size: 15, color: Colors.white),
                   ),
               ],
@@ -510,8 +509,10 @@ class _RecoveryStepState extends State<_RecoveryStep> {
         setState(() => _mode = 'restore');
       } else {
         setState(() => _mode = 'create');
-        // Build the combined QR: email + user key + ปิ่น key (both accounts).
-        final payload = await MatrixService.instance.buildRecoveryQr();
+        // Full bootstrap (cross-signing + backup + recovery) with the signup
+        // password, then the combined QR (email + user key + ปิ่น key). Plain
+        // backup-only would leave cross-signing "not ready" / recovery incomplete.
+        final payload = await MatrixService.instance.bootstrapE2eeQr();
         final m = jsonDecode(payload) as Map<String, dynamic>;
         if (mounted) {
           setState(() {
@@ -685,7 +686,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
             const _Spinner('กำลังตรวจสอบ…')
           else if (_mode == 'restored')
             Row(children: [
-              Icon(LucideIcons.checkCircle, color: scheme.primary, size: 20),
+              Icon(PhosphorIconsRegular.checkCircle, color: scheme.primary, size: 20),
               const SizedBox(width: 8),
               const Text('กู้คืนสำเร็จ', style: TextStyle(color: PinPalette.ink)),
             ])
@@ -706,7 +707,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _restoring ? null : _loadQr,
-                  icon: const Icon(LucideIcons.qrCode, size: 18),
+                  icon: const Icon(PhosphorIconsRegular.qrCode, size: 18),
                   label: const Text('โหลดจากรูป QR'),
                 ),
                 if (_error != null)
@@ -736,7 +737,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                           });
                           try {
                             final payload = await MatrixService.instance
-                                .buildRecoveryQr();
+                                .bootstrapE2eeQr();
                             final m = jsonDecode(payload) as Map<String, dynamic>;
                             if (mounted) {
                               setState(() {
@@ -787,7 +788,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                           PinToast.show(context, 'คัดลอกกุญแจแล้ว');
                           widget.onSaved?.call();
                         },
-                        icon: const Icon(LucideIcons.copy, size: 17),
+                        icon: const Icon(PhosphorIconsRegular.copy, size: 17),
                         label: const Text('คัดลอก'),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),
@@ -802,7 +803,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _saveQr,
-                        icon: const Icon(LucideIcons.download, size: 17),
+                        icon: const Icon(PhosphorIconsRegular.downloadSimple, size: 17),
                         label: const Text('ดาวน์โหลด'),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/pin_theme.dart';
 import '../widgets/pin_toast.dart';
@@ -10,9 +10,9 @@ class PluginsScreen extends StatelessWidget {
   const PluginsScreen({super.key});
 
   static const _items = <(IconData, String, String)>[
-    (LucideIcons.mail, 'Gmail', 'อ่านอีเมล สรุปงาน/ใบเสร็จ'),
-    (LucideIcons.calendar, 'ปฏิทิน', 'นัดหมาย เตือนล่วงหน้า'),
-    (LucideIcons.cloudSun, 'อากาศ', 'พยากรณ์ ฝุ่น แจ้งก่อนออกไปนัด'),
+    (PhosphorIconsRegular.envelope, 'Gmail', 'อ่านอีเมล สรุปงาน/ใบเสร็จ'),
+    (PhosphorIconsRegular.calendar, 'ปฏิทิน', 'นัดหมาย เตือนล่วงหน้า'),
+    (PhosphorIconsRegular.cloudSun, 'อากาศ', 'พยากรณ์ ฝุ่น แจ้งก่อนออกไปนัด'),
   ];
 
   @override
@@ -21,7 +21,7 @@ class PluginsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('ปลั๊กอิน & บริการ')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewPadding.bottom),
         children: [
           const Text(
             'เชื่อมบริการเพื่อให้ปิ่นช่วยได้มากขึ้น — ปิ่นอ่านเท่าที่จำเป็น ไม่ส่งแทนคุณ',

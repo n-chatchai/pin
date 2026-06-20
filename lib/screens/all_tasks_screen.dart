@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../services/tasks_controller.dart';
 import '../theme/pin_theme.dart';
@@ -9,10 +9,10 @@ import '../theme/pin_theme.dart';
 const _groups = ['รอคุณ', 'รอเขา', 'เดดไลน์', 'เงินค้าง'];
 
 IconData _groupIcon(String g) => switch (g) {
-      'รอคุณ' => LucideIcons.user,
-      'รอเขา' => LucideIcons.clock,
-      'เดดไลน์' => LucideIcons.calendar,
-      _ => LucideIcons.wallet,
+      'รอคุณ' => PhosphorIconsRegular.user,
+      'รอเขา' => PhosphorIconsRegular.clock,
+      'เดดไลน์' => PhosphorIconsRegular.calendar,
+      _ => PhosphorIconsRegular.wallet,
     };
 
 class AllTasksScreen extends StatefulWidget {
@@ -46,11 +46,11 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       appBar: AppBar(
         title: const Text('งานค้าง'),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.plus), onPressed: () {}),
+          IconButton(icon: const Icon(PhosphorIconsRegular.plus), onPressed: () {}),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.of(context).viewPadding.bottom),
         children: [
           Row(
             children: [
@@ -127,7 +127,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(LucideIcons.circle, size: 20, color: Color(0xFFA0A096)),
+            const Icon(PhosphorIconsRegular.circle, size: 20, color: Color(0xFFA0A096)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

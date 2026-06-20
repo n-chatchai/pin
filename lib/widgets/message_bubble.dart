@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:flutter/services.dart';
 
@@ -52,7 +52,7 @@ class MessageBubble extends StatelessWidget {
         padding: const EdgeInsets.only(left: 16),
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Icon(LucideIcons.reply, color: scheme.primary),
+          child: Icon(PhosphorIconsRegular.arrowBendUpLeft, color: scheme.primary),
         ),
       ),
       child: Padding(
@@ -185,7 +185,7 @@ class MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              Icon(LucideIcons.bug, size: 13, color: scheme.primary),
+              Icon(PhosphorIconsRegular.bug, size: 13, color: scheme.primary),
               const SizedBox(width: 6),
               const Text('debug',
                   style: TextStyle(
@@ -224,7 +224,7 @@ class MessageBubble extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (msg.addedToNow) ...[
-                    Icon(LucideIcons.listPlus, size: 12, color: scheme.primary),
+                    Icon(PhosphorIconsRegular.listPlus, size: 12, color: scheme.primary),
                     const SizedBox(width: 4),
                     Text('เพิ่มใน ตอนนี้',
                         style:
@@ -233,7 +233,7 @@ class MessageBubble extends StatelessWidget {
                   if (msg.addedToNow && msg.hint != null)
                     const SizedBox(width: 12),
                   if (msg.hint != null) ...[
-                    Icon(LucideIcons.sparkles, size: 12, color: scheme.primary),
+                    Icon(PhosphorIconsRegular.sparkle, size: 12, color: scheme.primary),
                     const SizedBox(width: 4),
                     Text(msg.hint!,
                         style: const TextStyle(
@@ -295,10 +295,10 @@ class MessageBubble extends StatelessWidget {
 
   Widget _mediaChip(Color textColor) {
     final icon = switch (msg.kind) {
-      'image' => LucideIcons.image,
-      'video' => LucideIcons.video,
-      'audio' => LucideIcons.mic,
-      _ => LucideIcons.file,
+      'image' => PhosphorIconsRegular.image,
+      'video' => PhosphorIconsRegular.videoCamera,
+      'audio' => PhosphorIconsRegular.microphone,
+      _ => PhosphorIconsRegular.file,
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -398,7 +398,7 @@ class MessageBubble extends StatelessWidget {
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(LucideIcons.reply),
+              leading: const Icon(PhosphorIconsRegular.arrowBendUpLeft),
               title: const Text('Reply'),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -406,7 +406,7 @@ class MessageBubble extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(LucideIcons.copy),
+              leading: const Icon(PhosphorIconsRegular.copy),
               title: const Text('Copy'),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: msg.body));
@@ -415,7 +415,7 @@ class MessageBubble extends StatelessWidget {
             ),
             if (PinExport.canShare(msg))
               ListTile(
-                leading: const Icon(LucideIcons.share2),
+                leading: const Icon(PhosphorIconsRegular.shareNetwork),
                 title: const Text('แชร์ / บันทึก'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -424,13 +424,13 @@ class MessageBubble extends StatelessWidget {
               ),
             if (msg.isMe)
               ListTile(
-                leading: const Icon(LucideIcons.pencil),
+                leading: const Icon(PhosphorIconsRegular.pencilSimple),
                 title: const Text('Edit'),
                 onTap: () => Navigator.pop(sheetContext),
               ),
             if (msg.isMe)
               ListTile(
-                leading: const Icon(LucideIcons.trash2),
+                leading: const Icon(PhosphorIconsRegular.trash),
                 title: const Text('Delete'),
                 textColor: Theme.of(context).colorScheme.error,
                 iconColor: Theme.of(context).colorScheme.error,

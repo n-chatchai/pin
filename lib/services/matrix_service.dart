@@ -229,6 +229,21 @@ class MatrixService {
     return packRecoveryQr(userKey);
   }
 
+  /// FULL E2EE bootstrap (cross-signing + key backup + recovery) using the
+  /// account password cached right after signup/login — so a new account is
+  /// fully set up (not the "incomplete" state that plain `enableRecovery` leaves,
+  /// where cross-signing never gets bootstrapped). Falls back to backup-only when
+  /// there's no cached password (e.g. a token-restored session). Returns the
+  /// combined recovery QR payload.
+  Future<String> bootstrapE2eeQr() async {
+    final pw = _userPassword;
+    if (pw != null && pw.isNotEmpty) {
+      final userKey = await rust.resetRecovery(password: pw);
+      return packRecoveryQr(userKey);
+    }
+    return buildRecoveryQr(); // no password → backup only (cross-signing unset)
+  }
+
   /// Package an already-obtained user recovery key + the ปิ่น key + email into
   /// the combined QR JSON. Used by Settings (which gets the user key from a full
   /// cross-signing reset) so the user key isn't rotated twice.

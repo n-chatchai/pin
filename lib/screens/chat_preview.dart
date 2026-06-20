@@ -172,7 +172,7 @@ class _ChatPreviewState extends State<ChatPreview> {
   @override
   Widget build(BuildContext context) {
     return ChatScaffold(
-      title: 'ปิ่น AI',
+      title: 'ปิ่นเอไอ',
       encrypted: true,
       messages: _messages,
       scroll: _scroll,

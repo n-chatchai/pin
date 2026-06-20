@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../agent/abilities.dart';
 import '../agent/agent_config.dart';
@@ -73,7 +73,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 40 + MediaQuery.of(context).viewPadding.bottom),
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 14),
@@ -176,7 +176,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
       subtitle: _subtitle(a),
       trailing: added
           ? IconButton(
-              icon: const Icon(LucideIcons.checkCircle),
+              icon: const Icon(PhosphorIconsRegular.checkCircle),
               color: Theme.of(context).colorScheme.primary,
               tooltip: 'นำออก',
               onPressed: () async {

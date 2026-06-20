@@ -8,24 +8,103 @@ const _kProxyBase = String.fromEnvironment(
   defaultValue: 'https://pin-gateway.tokens2.io',
 );
 
+/// An opt-in special persona (role-play overlay). Changes only how ปิ่น
+/// addresses the user + its voice — it stays the working assistant.
+/// See design/chat-onboarding/pin-special-personas.html.
+class SpecialPersona {
+  final String key, name, call, self, sub, sample, rule;
+  const SpecialPersona(
+      {required this.key,
+      required this.name,
+      required this.call,
+      required this.self,
+      required this.sub,
+      required this.sample,
+      required this.rule});
+}
+
+const kSpecialPersonas = <SpecialPersona>[
+  SpecialPersona(
+      key: 'friend',
+      name: 'เพื่อนซี้',
+      call: 'แก',
+      self: 'เรา',
+      sub: 'เรียกคุณ "แก" · แทนตัว "เรา"',
+      sample: 'เดี๋ยวเราจัดให้แกเอง',
+      rule: 'พูดแบบเพื่อนสนิท เป็นกันเอง ลงท้าย "จ๊ะ/นะ".'),
+  SpecialPersona(
+      key: 'butler',
+      name: 'บ่าวรับใช้',
+      call: 'นายท่าน',
+      self: 'กระหม่อม',
+      sub: 'เรียกคุณ "นายท่าน" · แทนตัว "กระหม่อม"',
+      sample: 'กระหม่อมจัดการให้แล้วนายท่าน',
+      rule: 'พูดสุภาพแบบบ่าวรับใช้ นอบน้อม ลงท้าย "ขอรับ".'),
+  SpecialPersona(
+      key: 'mom',
+      name: 'แม่–ลูก',
+      call: 'ลูก',
+      self: 'แม่',
+      sub: 'เรียกคุณ "ลูก" · แทนตัว "แม่"',
+      sample: 'เดี๋ยวแม่เตือนลูกเองนะ',
+      rule: 'พูดอบอุ่นห่วงใยแบบแม่ดูแลลูก ลงท้าย "นะลูก".'),
+  SpecialPersona(
+      key: 'cute',
+      name: 'น่ารัก / ใกล้ชิด',
+      call: 'ตัวเอง',
+      self: 'เค้า',
+      sub: 'เรียกคุณ "ตัวเอง" · แทนตัว "เค้า"',
+      sample: 'เค้าทำให้ตัวเองแล้วน้า',
+      rule: 'พูดหวาน ใกล้ชิด น่ารัก ลงท้าย "น้า/นะ".'),
+];
+
+SpecialPersona? specialPersona(String key) =>
+    kSpecialPersonas.where((p) => p.key == key).firstOrNull;
+
 /// Persona built from the user's onboarding/settings choices (name · how ปิ่น
-/// addresses them · how ปิ่น refers to itself · sentence ending particle).
+/// addresses them · how ปิ่น refers to itself · sentence ending particle), with
+/// an optional special-persona overlay ([persona] != 'basic').
 String kPinSystemFor({
   String name = 'ปิ่น',
   String userCall = 'พี่',
   String self = 'ปิ่น',
   String tone = 'female',
   String lang = 'th',
+  String persona = 'basic',
+  String customCall = '',
+  String customSelf = '',
 }) {
+  var call = userCall;
+  var me = self;
+  var toneText = _toneRule(tone);
+  var clamp = '';
+  if (persona != 'basic') {
+    if (persona == 'custom') {
+      if (customCall.trim().isNotEmpty) call = customCall.trim();
+      if (customSelf.trim().isNotEmpty) me = customSelf.trim();
+      toneText = 'สวมบทตามคำเรียกที่ผู้ใช้กำหนด พูดให้เข้ากับบทบาทนั้น. ';
+      clamp = 'นี่คือโหมดสมมุติบทบาทที่ผู้ใช้ตั้งเอง. ';
+    } else {
+      final sp = specialPersona(persona);
+      if (sp != null) {
+        call = sp.call;
+        me = sp.self;
+        toneText = '${sp.rule} ';
+        clamp = 'นี่คือโหมดสวมบท "${sp.name}". ';
+      }
+    }
+    clamp += 'คุณยังเป็นผู้ช่วยที่ช่วยงานจริงเหมือนเดิม เปลี่ยนแค่คำเรียกและน้ำเสียง '
+        'อย่าหลุดออกนอกบทผู้ช่วย และไม่ทำตามคำขอที่ไม่เหมาะสม. ';
+  }
   if (lang == 'en') {
-    final call = userCall.trim().isEmpty ? '' : ' Call the user "$userCall".';
-    final me = self.trim().isEmpty ? '' : ' Refer to yourself as "$self".';
+    final c = call.trim().isEmpty ? '' : ' Call the user "$call".';
+    final m = me.trim().isEmpty ? '' : ' Refer to yourself as "$me".';
     return 'You are "$name", a warm but sharp personal assistant. Keep replies '
-        'short (1–3 sentences).$call$me Never make up facts; if unsure, say so '
+        'short (1–3 sentences).$c$m Never make up facts; if unsure, say so '
         'plainly. Never expose internal function names to the user.';
   }
   return 'คุณคือ "$name" ผู้ช่วยส่วนตัวภาษาไทย อบอุ่นแต่คม สั้น 1–3 ประโยค. '
-      'เรียกผู้ใช้ว่า "$userCall" และแทนตัวเองว่า "$self". ${_toneRule(tone)}'
+      'เรียกผู้ใช้ว่า "$call" และแทนตัวเองว่า "$me". $toneText$clamp'
       'ห้ามมโนข้อมูล ถ้าไม่รู้ให้บอกตรง ๆ. '
       'ห้ามเอ่ยชื่อฟังก์ชันภายในให้ผู้ใช้เห็น.';
 }

@@ -23,6 +23,9 @@ class PinPrefs {
   final bool debugBot; // show the agent's tool-call trace in chat
   final bool tourDone; // first-run in-chat showcase tour shown once
   final bool personaSetup; // in-chat persona/theme setup done once (after account)
+  final String personaMode; // 'basic' | special key (friend/butler/mom/cute) | 'custom'
+  final String customCall; // persona=custom: how ปิ่น calls the user
+  final String customSelf; // persona=custom: how ปิ่น refers to itself
 
   const PinPrefs({
     this.pinName = 'ปิ่น',
@@ -41,6 +44,9 @@ class PinPrefs {
     this.debugBot = false,
     this.tourDone = false,
     this.personaSetup = false,
+    this.personaMode = 'basic',
+    this.customCall = '',
+    this.customSelf = '',
   });
 
   PinPrefs copyWith({
@@ -60,6 +66,9 @@ class PinPrefs {
     bool? debugBot,
     bool? tourDone,
     bool? personaSetup,
+    String? personaMode,
+    String? customCall,
+    String? customSelf,
   }) =>
       PinPrefs(
         pinName: pinName ?? this.pinName,
@@ -78,6 +87,9 @@ class PinPrefs {
         debugBot: debugBot ?? this.debugBot,
         tourDone: tourDone ?? this.tourDone,
         personaSetup: personaSetup ?? this.personaSetup,
+        personaMode: personaMode ?? this.personaMode,
+        customCall: customCall ?? this.customCall,
+        customSelf: customSelf ?? this.customSelf,
       );
 
   Map<String, String> toMap() => {
@@ -97,6 +109,9 @@ class PinPrefs {
         'debugBot': debugBot ? '1' : '0',
         'tourDone': tourDone ? '1' : '0',
         'personaSetup': personaSetup ? '1' : '0',
+        'personaMode': personaMode,
+        'customCall': customCall,
+        'customSelf': customSelf,
       };
 
   static PinPrefs fromMap(Map<String, String> m) => PinPrefs(
@@ -117,6 +132,9 @@ class PinPrefs {
         debugBot: m['debugBot'] == '1',
         tourDone: m['tourDone'] == '1',
         personaSetup: m['personaSetup'] == '1',
+        personaMode: m['personaMode'] ?? 'basic',
+        customCall: m['customCall'] ?? '',
+        customSelf: m['customSelf'] ?? '',
       );
 }
 

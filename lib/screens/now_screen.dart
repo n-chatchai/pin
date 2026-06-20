@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../agent/agent_store.dart';
@@ -153,7 +153,7 @@ class NowView extends StatelessWidget {
                   style: const TextStyle(fontSize: 14, color: PinPalette.ink)),
             ),
             if (e.remind)
-              const Icon(LucideIcons.bell, size: 16, color: PinPalette.ink2),
+              const Icon(PhosphorIconsRegular.bell, size: 16, color: PinPalette.ink2),
           ],
         ),
       );
@@ -181,7 +181,7 @@ class NowView extends StatelessWidget {
               color: tint.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(agentic ? LucideIcons.sparkles : LucideIcons.bell,
+            child: Icon(agentic ? PhosphorIconsRegular.sparkle : PhosphorIconsRegular.bell,
                 size: 17, color: tint),
           ),
           const SizedBox(width: 11),
@@ -210,7 +210,7 @@ class NowView extends StatelessWidget {
             customBorder: const CircleBorder(),
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(LucideIcons.x, size: 16, color: PinPalette.ink3),
+              child: Icon(PhosphorIconsRegular.x, size: 16, color: PinPalette.ink3),
             ),
           ),
         ],
@@ -241,7 +241,7 @@ class NowView extends StatelessWidget {
               color: tint.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(isKnow ? LucideIcons.bookOpen : LucideIcons.pin,
+            child: Icon(isKnow ? PhosphorIconsRegular.bookOpen : PhosphorIconsRegular.pushPin,
                 size: 16, color: tint),
           ),
           const SizedBox(width: 11),
@@ -272,7 +272,7 @@ class NowView extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(8, 40, 8, 24),
         child: Column(
           children: [
-            Icon(LucideIcons.coffee, size: 38, color: PinPalette.ink2),
+            Icon(PhosphorIconsRegular.coffee, size: 38, color: PinPalette.ink2),
             SizedBox(height: 14),
             Text('พอมีเวลาหายใจ',
                 style: TextStyle(fontSize: 16, color: PinPalette.ink)),
@@ -300,7 +300,7 @@ class NowView extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(LucideIcons.circle,
+            Icon(PhosphorIconsRegular.circle,
                 size: 20,
                 color: t.overdue ? PinPalette.neg : const Color(0xFFA0A096)),
             const SizedBox(width: 12),
@@ -396,7 +396,7 @@ class _FilesTabState extends State<FilesTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.folderOpen, size: 38, color: PinPalette.ink2),
+              Icon(PhosphorIconsRegular.folderOpen, size: 38, color: PinPalette.ink2),
               SizedBox(height: 14),
               Text('ยังไม่มีไฟล์',
                   style: TextStyle(fontSize: 16, color: PinPalette.ink)),
@@ -444,7 +444,7 @@ class _FilesTabState extends State<FilesTab> {
           color: PinPalette.neg.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(LucideIcons.trash2, size: 18, color: PinPalette.neg),
+        child: const Icon(PhosphorIconsRegular.trash, size: 18, color: PinPalette.neg),
       ),
       child: InkWell(
         onTap: f.isImage
@@ -512,12 +512,12 @@ class _FilesTabState extends State<FilesTab> {
           ? Image.network(f.uri, width: 44, height: 44, fit: BoxFit.cover,
               loadingBuilder: (_, child, p) =>
                   p == null ? child : _spinBox(),
-              errorBuilder: (_, __, ___) => _iconBox(LucideIcons.imageOff))
+              errorBuilder: (_, __, ___) => _iconBox(PhosphorIconsRegular.imageBroken))
           : Image.file(File(f.uri), width: 44, height: 44, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _iconBox(LucideIcons.imageOff));
+              errorBuilder: (_, __, ___) => _iconBox(PhosphorIconsRegular.imageBroken));
       return ClipRRect(borderRadius: BorderRadius.circular(9), child: img);
     }
-    return _iconBox(f.isAudio ? LucideIcons.mic : LucideIcons.fileText);
+    return _iconBox(f.isAudio ? PhosphorIconsRegular.microphone : PhosphorIconsRegular.fileText);
   }
 
   Widget _spinBox() => Container(

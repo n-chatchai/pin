@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -21,6 +21,8 @@ import '../widgets/flex_card_view.dart';
 import 'abilities_screen.dart';
 import 'device_data_screen.dart';
 import 'local_chat_screen.dart' show debugForcePersonaSetup;
+import 'personality_screen.dart';
+import 'special_personas_screen.dart';
 import 'welcome_screen.dart';
 
 /// Dev-only debug tools (test runners) are gated behind this flag and stripped
@@ -69,65 +71,43 @@ class SettingsScreen extends StatelessWidget {
         valueListenable: PrefsController.instance,
         builder: (context, p, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 96),
+          padding: EdgeInsets.only(bottom: 96 + MediaQuery.of(context).viewPadding.bottom),
           children: [
             _section(p.pinName),
             _card([
+              // 1) Persona — edited on a dedicated page with a live preview.
               _navRow(
                 context,
-                LucideIcons.messageCircle,
-                'ชื่อผู้ช่วย',
-                p.pinName,
-                () => _editText(context, 'ตั้งชื่อผู้ช่วย', p.pinName,
-                    ['ปิ่น', 'น้อง', 'แก'],
-                    (v) => _updatePersona(
-                        p.copyWith(pinName: v.trim().isEmpty ? 'ปิ่น' : v.trim()))),
+                PhosphorIconsRegular.smiley,
+                'บุคลิกของผู้ช่วย',
+                '${p.pinName} · เรียก${p.userCall}',
+                () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => PersonalityScreen(onSave: _updatePersona))),
               ),
+              // 2) Capability — skills / tools.
               _navRow(
                 context,
-                LucideIcons.user,
-                'ให้${p.pinName}เรียกเราว่า',
-                p.userCall,
-                () => _editText(
-                    context, 'ให้${p.pinName}เรียกเราว่า (สรรพนาม หรือชื่อเล่น)',
-                    p.userCall, ['พี่', 'คุณ', 'เธอ'],
-                    (v) => _updatePersona(
-                        p.copyWith(userCall: v.isEmpty ? p.userCall : v))),
-              ),
-              _navRow(
-                context,
-                LucideIcons.smile,
-                '${p.pinName}แทนตัวเองว่า',
-                p.pinSelf,
-                () => _editText(context, '${p.pinName}แทนตัวเองว่า', p.pinSelf,
-                    [p.pinName, 'หนู', 'ผม', 'เรา'],
-                    (v) => _updatePersona(
-                        p.copyWith(pinSelf: v.isEmpty ? p.pinName : v))),
-              ),
-              _navRow(
-                context,
-                LucideIcons.messageSquare,
-                '${p.pinName}ลงท้ายว่า',
-                p.pinEnding.isEmpty ? '(ไม่ลงท้าย)' : p.pinEnding,
-                () => _editText(context, '${p.pinName}ลงท้ายประโยคว่า', p.pinEnding,
-                    ['ครับ', 'คะ', 'จ้ะ', ''],
-                    // The agent now reads `tone`, not the raw ending — derive it
-                    // so this control still works until the Settings rebuild.
-                    (v) => _updatePersona(
-                        p.copyWith(pinEnding: v, tone: toneFromEnding(v)))),
-              ),
-              ListTile(
-                leading: const Icon(LucideIcons.sparkles),
-                title: Text('ความสามารถของ${p.pinName}'),
-                trailing: const Icon(LucideIcons.chevronRight, size: 18),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                PhosphorIconsRegular.sparkle,
+                'ความสามารถ',
+                'สกิล · เครื่องมือ',
+                () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
+              ),
+              // 3) Special personas — opt-in role-play (18+).
+              _navRow(
+                context,
+                PhosphorIconsRegular.maskHappy,
+                'บุคลิกพิเศษ',
+                'สวมบทตัวละคร',
+                () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) =>
+                        SpecialPersonasScreen(onSave: _updatePersona))),
               ),
             ]),
             _section('ทั่วไป'),
             _card([
               ListTile(
-                leading: const Icon(LucideIcons.globe),
+                leading: const Icon(PhosphorIconsRegular.globe),
                 title: const Text('ภาษา · Language'),
                 trailing: _LangToggle(
                   lang: p.lang,
@@ -140,7 +120,7 @@ class SettingsScreen extends StatelessWidget {
               ValueListenableBuilder<PinPalette>(
                 valueListenable: ThemeController.instance,
                 builder: (context, palette, _) => ListTile(
-                  leading: const Icon(LucideIcons.palette),
+                  leading: const Icon(PhosphorIconsRegular.palette),
                   title: const Text('ธีมสี'),
                   trailing: Text(palette.name,
                       style: const TextStyle(color: PinPalette.ink2)),
@@ -153,7 +133,7 @@ class SettingsScreen extends StatelessWidget {
             _section('เครื่องมือนักพัฒนา'),
             _card([
               SwitchListTile(
-                secondary: const Icon(LucideIcons.bug),
+                secondary: const Icon(PhosphorIconsRegular.bug),
                 title: const Text('ดีบักบอท'),
                 subtitle: const Text(
                     'โชว์ขั้นตอนใต้คำตอบ + ส่งบทสนทนาให้ทีมพัฒนาดูเพื่อปรับปรุง '
@@ -163,10 +143,10 @@ class SettingsScreen extends StatelessWidget {
                     PrefsController.instance.update(p.copyWith(debugBot: v)),
               ),
               ListTile(
-                leading: const Icon(LucideIcons.activity),
+                leading: const Icon(PhosphorIconsRegular.pulse),
                 title: const Text('API call log'),
                 subtitle: const Text('เวลาที่ใช้ของแต่ละ API (หา call ที่ช้า)'),
-                trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const ApiLogScreen())),
               ),
@@ -176,14 +156,14 @@ class SettingsScreen extends StatelessWidget {
             _card([
               if (userId != null)
                 ListTile(
-                  leading: const Icon(LucideIcons.userCircle),
+                  leading: const Icon(PhosphorIconsRegular.userCircle),
                   title: const Text('บัญชี'),
                   subtitle: Text(userId!,
                       style: const TextStyle(
                           color: PinPalette.ink2, fontSize: 12)),
                 ),
               ListTile(
-                leading: Icon(LucideIcons.logOut, color: scheme.error),
+                leading: Icon(PhosphorIconsRegular.signOut, color: scheme.error),
                 title: Text('ออกจากระบบ',
                     style: TextStyle(
                         color: scheme.error, fontWeight: FontWeight.w600)),
@@ -239,7 +219,7 @@ class SettingsScreen extends StatelessWidget {
           children: [
             Text(value, style: const TextStyle(color: PinPalette.ink2)),
             const SizedBox(width: 4),
-            const Icon(LucideIcons.chevronRight, size: 18),
+            const Icon(PhosphorIconsRegular.caretRight, size: 18),
           ],
         ),
         onTap: onTap,
@@ -383,7 +363,7 @@ class _SecurityStatusState extends State<_SecurityStatus> {
             dense: true,
             title: const Text('อ่านสถานะไม่ได้'),
             trailing: IconButton(
-              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              icon: const Icon(PhosphorIconsRegular.arrowsClockwise, size: 18),
               onPressed: () => setState(
                   () => _future = MatrixService.instance.e2eeStatus()),
             ),
@@ -391,40 +371,77 @@ class _SecurityStatusState extends State<_SecurityStatus> {
         }
         final s = snap.data!;
         final hasRecovery = s.recovery == 'enabled';
+        final incomplete = s.recovery == 'incomplete';
         return Column(children: [
-          _statusRow('รหัสกู้คืน', hasRecovery),
-          _statusRow('สำรองคีย์บนเซิร์ฟเวอร์', hasRecovery),
-          _statusRow('การลงนามข้ามอุปกรณ์', s.crossSigningReady),
-          _statusRow('อุปกรณ์นี้ยืนยันแล้ว', s.deviceVerified),
-          // Privacy is one more "protection" in the list — tap to slide up the
-          // explanation (blind proxy / PII-aware tools / on-device memory).
-          ListTile(
-            leading: const Icon(LucideIcons.eyeOff,
-                color: Color(0xFF2E9E63), size: 26),
-            title: const Text('ความเป็นส่วนตัวของ AI',
-                style:
-                    TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            subtitle: const Text('AI ตาบอด · เครื่องมือเห็นแค่คำค้น',
-                style: TextStyle(color: PinPalette.ink2, fontSize: 12)),
-            trailing: const Icon(LucideIcons.chevronRight, size: 18),
-            onTap: () => _showPrivacy(context),
+          // Recovery key + server backup are one feature → one row. Tappable to
+          // set it up when it's not on yet (no dead-end warning).
+          _row(
+            PhosphorIconsRegular.key,
+            'สำรองกุญแจกู้คืน',
+            hasRecovery
+                ? 'เปิดอยู่ · กู้แชตคืนเมื่อเปลี่ยนเครื่องได้'
+                : incomplete
+                    ? 'ตั้งค่ายังไม่ครบ — แตะตั้งให้เสร็จ'
+                    : 'ยังไม่เปิด — แตะเพื่อสำรองกุญแจ',
+            hasRecovery,
+            onTap: hasRecovery ? null : () => _setupRecovery(context),
           ),
+          _row(PhosphorIconsRegular.sealCheck, 'การลงนามข้ามอุปกรณ์',
+              s.crossSigningReady ? 'พร้อม' : 'ยังไม่พร้อม', s.crossSigningReady),
+          _row(PhosphorIconsRegular.deviceMobile, 'อุปกรณ์นี้ยืนยันแล้ว',
+              s.deviceVerified ? 'ยืนยันแล้ว' : 'ยังไม่ยืนยัน', s.deviceVerified),
+          // Privacy is one more "protection" in the list — tap for the
+          // explanation (blind proxy / PII-aware tools / on-device memory).
+          _row(PhosphorIconsRegular.eyeSlash, 'ความเป็นส่วนตัวของเอไอ',
+              'การเข้ารหัสแชทและการใช้งานเอไอ', true,
+              onTap: () => _showPrivacy(context)),
         ]);
       },
     );
   }
 
-  Widget _statusRow(String title, bool ok) => ListTile(
-        leading: Icon(
-          ok ? LucideIcons.checkCircle2 : LucideIcons.alertCircle,
-          color: ok ? const Color(0xFF2E9E63) : const Color(0xFFE0A100),
-          size: 26,
-        ),
-        title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-        subtitle: Text(ok ? 'เปิดใช้งาน' : 'ยังไม่เปิด',
-            style: const TextStyle(color: PinPalette.ink2, fontSize: 12)),
-      );
+  /// One status row: a topic icon (tinted by status), label + state, and either
+  /// a chevron (actionable) or a check/warn badge (read-only).
+  Widget _row(IconData icon, String title, String sub, bool ok,
+      {VoidCallback? onTap}) {
+    final c = ok ? const Color(0xFF2E9E63) : const Color(0xFFE0A100);
+    return ListTile(
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.13),
+            borderRadius: BorderRadius.circular(11)),
+        child: Icon(icon, color: c, size: 21),
+      ),
+      title: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+      subtitle: Text(sub,
+          style: const TextStyle(color: PinPalette.ink2, fontSize: 12)),
+      trailing: onTap != null
+          ? const Icon(PhosphorIconsRegular.caretRight,
+              size: 18, color: PinPalette.ink3)
+          : Icon(
+              ok
+                  ? PhosphorIconsFill.checkCircle
+                  : PhosphorIconsFill.warningCircle,
+              color: c,
+              size: 20),
+      onTap: onTap,
+    );
+  }
+
+  /// Full E2EE setup (cross-signing + key backup + recovery) — needs the account
+  /// password (UIA). `enableRecovery` alone only does the backup and leaves
+  /// cross-signing "not ready" → recovery stays "incomplete", so we use the
+  /// full bootstrap screen here. Refresh the status card afterwards.
+  Future<void> _setupRecovery(BuildContext context) async {
+    await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const _E2eeResetScreen()));
+    if (mounted) {
+      setState(() => _future = MatrixService.instance.e2eeStatus());
+    }
+  }
 
   void _showPrivacy(BuildContext context) {
     // Push (slide-left) to match the chevron affordance — same as every other
@@ -441,18 +458,18 @@ class _PrivacyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ความเป็นส่วนตัวของ AI')),
+      appBar: AppBar(title: const Text('ความเป็นส่วนตัวของเอไอ')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + MediaQuery.of(context).viewPadding.bottom),
         children: const [
-          _PrivacyItem(LucideIcons.eyeOff, 'AI ไม่เห็นตัวตนคุณ',
+          _PrivacyItem(PhosphorIconsRegular.eyeSlash, 'AI ไม่เห็นตัวตนคุณ',
               'ข้อความวิ่งผ่านพร็อกซีแบบ "ตาบอด" — ส่งต่อไปยังโมเดลเท่านั้น '
                   'ไม่เก็บ ไม่บันทึก log เนื้อหาบทสนทนา'),
-          _PrivacyItem(LucideIcons.scissors, 'เครื่องมือเห็นแค่คำค้น',
+          _PrivacyItem(PhosphorIconsRegular.scissors, 'เครื่องมือเห็นแค่คำค้น',
               'tools / MCP / ผู้พัฒนาภายนอก ได้รับเฉพาะค่าที่จำเป็น '
                   '(เช่น ชื่อเมือง) ระบบตัดชื่อ บทสนทนา และการตั้งค่าส่วนตัว '
                   'ออกก่อนเสมอ'),
-          _PrivacyItem(LucideIcons.smartphone, 'ความจำอยู่บนเครื่อง',
+          _PrivacyItem(PhosphorIconsRegular.deviceMobile, 'ความจำอยู่บนเครื่อง',
               'ประวัติแชท ความจำ และความรู้ที่ปิ่นสรุป เก็บเข้ารหัสบนเครื่องคุณ '
                   'ไม่ขึ้นเซิร์ฟเวอร์'),
         ],
@@ -548,7 +565,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           return ListTile(
             title: const Text('อ่านสถานะไม่ได้'),
             trailing: IconButton(
-              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              icon: const Icon(PhosphorIconsRegular.arrowsClockwise, size: 18),
               onPressed: () => setState(() => _future = _load()),
             ),
           );
@@ -560,7 +577,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
             .push(MaterialPageRoute(builder: (_) => screen));
         return Column(children: [
           _tile(
-            LucideIcons.info,
+            PhosphorIconsRegular.info,
             'เวอร์ชัน · สถานะระบบ',
             'รุ่น ${d.appVersion} · E2EE '
                 '${d.status.crossSigningReady ? "พร้อม" : "ยังไม่พร้อม"}',
@@ -570,7 +587,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           if (_kDebugTools) ...[
           _div(),
           _tile(
-            LucideIcons.cpu,
+            PhosphorIconsRegular.cpu,
             'ทดสอบสมองในเครื่อง',
             'ลองถาม "อากาศเชียงใหม่" แล้วดูการ์ดผลลัพธ์',
             nav: true,
@@ -583,7 +600,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           ),
           _div(),
           _tile(
-            LucideIcons.newspaper,
+            PhosphorIconsRegular.newspaper,
             'รันงานข่าวเช้า (เดี๋ยวนี้)',
             'จำลองการปลุก รันงานตามเวลาทันที',
             nav: true,
@@ -596,7 +613,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           ),
           _div(),
           _tile(
-            LucideIcons.bell,
+            PhosphorIconsRegular.bell,
             'ทดสอบแจ้งเตือน (10 วิ)',
             'ส่งแจ้งเตือน + ตรวจสิทธิ์และคิวที่ค้าง',
             nav: true,
@@ -612,7 +629,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           ),
           _div(),
           _tile(
-            LucideIcons.users,
+            PhosphorIconsRegular.users,
             'ทดสอบ DM ปิ่น (2-account)',
             'ยก ปิ่น session + DM แล้วอ่าน timeline กลับมา — เช็ค provision + E2EE',
             nav: true,
@@ -625,7 +642,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           ),
           _div(),
           _tile(
-            LucideIcons.messageCircle,
+            PhosphorIconsRegular.chatCircle,
             'รัน persona setup ใหม่',
             'ปิดหน้านี้แล้วเริ่มถามตั้งชื่อ/เรียกขาน ในแชตอีกครั้ง',
             onTap: () {
@@ -640,7 +657,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           ],
           _div(),
           _tile(
-            LucideIcons.database,
+            PhosphorIconsRegular.database,
             'ข้อมูลในเครื่อง',
             'ดู/ล้าง ความจำ · ประวัติ · ความรู้ · การตั้งค่า',
             nav: true,
@@ -648,7 +665,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           ),
           _div(),
           _tile(
-            LucideIcons.shieldAlert,
+            PhosphorIconsRegular.shieldWarning,
             'ตั้งค่า E2EE ใหม่',
             'ตั้งการลงนามข้ามอุปกรณ์/กุญแจใหม่ (ต้องใช้รหัสผ่าน)',
             danger: true,
@@ -719,7 +736,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
       subtitle: Text(subtitle,
           style: const TextStyle(color: PinPalette.ink2, fontSize: 12)),
       trailing: trailing ??
-          (nav ? const Icon(LucideIcons.chevronRight, size: 18) : null),
+          (nav ? const Icon(PhosphorIconsRegular.caretRight, size: 18) : null),
       onTap: onTap,
     );
   }
@@ -847,7 +864,7 @@ class _DebugActionScreenState extends State<_DebugActionScreen> {
           ],
           const SizedBox(height: 16),
           FilledButton.icon(
-            icon: const Icon(LucideIcons.refreshCw, size: 16),
+            icon: const Icon(PhosphorIconsRegular.arrowsClockwise, size: 16),
             label: const Text('รันอีกครั้ง'),
             onPressed: _running ? null : _go,
           ),
@@ -907,7 +924,7 @@ class _DiagnosticsScreen extends StatelessWidget {
             ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            icon: const Icon(LucideIcons.copy, size: 16),
+            icon: const Icon(PhosphorIconsRegular.copy, size: 16),
             label: const Text('คัดลอกทั้งหมด'),
             onPressed: () {
               Clipboard.setData(ClipboardData(
@@ -969,13 +986,14 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ตั้งค่า E2EE ใหม่')),
+      appBar: AppBar(title: const Text('ตั้งค่ากุญแจความปลอดภัย')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        padding: EdgeInsets.fromLTRB(
+            20, 16, 20, 24 + MediaQuery.of(context).viewPadding.bottom),
         children: [
           const Text(
-              'ตั้ง cross-signing + key backup ใหม่ (ต้องใช้รหัสผ่านบัญชี). '
-              'จะได้กุญแจกู้คืนใหม่ — เก็บไว้ให้ดี',
+              'ตั้งการลงนามข้ามอุปกรณ์ + สำรองกุญแจกู้คืน (ต้องใช้รหัสผ่านบัญชี). '
+              'จะได้กุญแจกู้คืน — เก็บไว้ในที่ปลอดภัย ถ้าหายเรากู้ให้ไม่ได้',
               style: TextStyle(fontSize: 13, height: 1.45)),
           const SizedBox(height: 16),
           TextField(
@@ -1014,14 +1032,14 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              icon: const Icon(LucideIcons.qrCode, size: 16),
+              icon: const Icon(PhosphorIconsRegular.qrCode, size: 16),
               label: const Text('บันทึกเป็น QR'),
               onPressed: () => shareRecoveryQr(context, _qrData ?? _key!,
                   caption: MatrixService.instance.userEmail),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              icon: const Icon(LucideIcons.copy, size: 16),
+              icon: const Icon(PhosphorIconsRegular.copy, size: 16),
               label: const Text('คัดลอกกุญแจ'),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: _key!));

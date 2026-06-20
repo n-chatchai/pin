@@ -18,6 +18,7 @@ import '../models/chat_view_message.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import '../services/files_store.dart';
 import '../services/matrix_service.dart';
+import '../services/name_filter.dart';
 import '../services/prefs.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/pin_toast.dart';
@@ -314,6 +315,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   // Settings now. This replaces the old scripted showcase tour.
 
   String _personaStage = ''; // which onboarding question the next answer fills
+  int _nameTries = 0; // failed name attempts on the current stage (offer skip ≥3)
 
   void _startPersonaSetup() {
     _personaStep = 0; // >=0 marks onboarding active (typed input = an answer)
@@ -527,22 +529,67 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     });
   }
 
+  /// Gate a persona name: trusted chips pass straight through; typed names get
+  /// the instant local check + an LLM moderation pass (ปิ่น "thinks" meanwhile)
+  /// before [onOk]. Rejections re-ask in-character without echoing the bad word.
+  Future<void> _acceptName(String value,
+      {required bool typed, required void Function(String clean) onOk}) async {
+    if (!typed) {
+      onOk(value.trim());
+      return;
+    }
+    final local = localNameReason(value);
+    if (local != null) {
+      _rejectName(value, local);
+      return;
+    }
+    setState(() => _botTyping = true);
+    final v = await devProxy().moderateName(value.trim());
+    if (!mounted) return;
+    setState(() => _botTyping = false);
+    if (v['ok'] == false) {
+      _rejectName(value, '${v['reason'] ?? 'profane'}');
+      return;
+    }
+    _nameTries = 0;
+    onOk(value.trim());
+  }
+
+  /// Soft, in-character rejection — mask the word, re-ask, and after a few tries
+  /// offer the escape hatch. Stays on the current (typable) stage.
+  void _rejectName(String raw, String reason) {
+    _nameTries++;
+    setState(() {
+      _messages.add(_text(maskRejected(raw, reason), me: true));
+      _messages
+          .add(_text(nameRejectMsg[reason] ?? nameRejectMsg['profane']!, me: false));
+    });
+    if (_nameTries >= 3) {
+      _botSay('ถ้านึกไม่ออก พิมพ์ชื่อจริงสั้น ๆ ก็ได้นะ');
+    }
+  }
+
   /// Apply a typed or tapped answer for [_personaStage], echo it, then advance.
   /// [typed] answers only apply on the free-text stages (others are tap-only).
   void _applyPersonaAnswer(String value, {String? label, bool typed = false}) {
     final p = PrefsController.instance.value;
     switch (_personaStage) {
       case 'userName':
-        final v = value.trim();
-        if (v.isEmpty) return;
-        _echoUser(v);
-        PrefsController.instance.update(p.copyWith(userName: v));
-        _askPinName();
+        _acceptName(value, typed: typed, onOk: (v) {
+          if (v.isEmpty) return;
+          _echoUser(v);
+          PrefsController.instance
+              .update(PrefsController.instance.value.copyWith(userName: v));
+          _askPinName();
+        });
       case 'pinName':
-        final v = value.trim().isEmpty ? 'ปิ่น' : value.trim();
-        _echoUser(label ?? v);
-        PrefsController.instance.update(p.copyWith(pinName: v));
-        _reminderDemo();
+        _acceptName(value, typed: typed, onOk: (v0) {
+          final v = v0.isEmpty ? 'ปิ่น' : v0;
+          _echoUser(label ?? v);
+          PrefsController.instance
+              .update(PrefsController.instance.value.copyWith(pinName: v));
+          _reminderDemo();
+        });
       case 'demo_reminder':
         if (value == 'go') {
           _echoUser('เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง');
@@ -567,13 +614,16 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           setState(() => _quickReplies = const []);
           return;
         }
-        final addr = value.trim();
-        if (addr.isEmpty) return;
-        _echoUser(addr);
-        final self = _deriveSelf(addr, p.pinName);
-        PrefsController.instance.update(p.copyWith(userCall: addr, pinSelf: self));
-        _botSay('โอเค$addr! ตั้งแต่นี้${self}จะเรียกแบบนี้ตลอดนะ$_ptq');
-        _fileDemo();
+        _acceptName(value, typed: typed, onOk: (addr) {
+          if (addr.isEmpty) return;
+          _echoUser(addr);
+          final cur = PrefsController.instance.value;
+          final self = _deriveSelf(addr, cur.pinName);
+          PrefsController.instance
+              .update(cur.copyWith(userCall: addr, pinSelf: self));
+          _botSay('โอเค$addr! ตั้งแต่นี้${self}จะเรียกแบบนี้ตลอดนะ$_ptq');
+          _fileDemo();
+        });
       case 'demo_file':
         if (value == 'upload') {
           _uploadFileThenVoice(); // real picker → ปิ่น summarises the actual file

@@ -74,6 +74,9 @@ class AgentSession {
       self: p.pinSelf,
       tone: p.tone,
       lang: p.lang,
+      persona: p.personaMode,
+      customCall: p.customCall,
+      customSelf: p.customSelf,
     );
     // Match the language the user writes in; fall back to their setting. Applies
     // to everything incl. card titles/tables. Proper nouns/code/URLs stay as-is.

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../models/chat_view_message.dart';
 import '../services/prefs.dart';
@@ -104,10 +104,16 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                           // chat always opens at the latest message regardless of
                           // variable item heights / async images — no jump hack.
                           reverse: true,
-                          // Reserve extra bottom space for the quick-reply bar so
-                          // the newest bubble/timestamp isn't covered by the chips.
+                          // Reserve space for the quick-reply bar + the composer,
+                          // which itself grows by the nav-bar inset (3-button bar /
+                          // gesture pill) — add that inset so the newest bubble
+                          // clears the taller composer on edge-to-edge Android.
                           padding: EdgeInsets.fromLTRB(
-                              0, 62, 0, widget.quickReplies.isNotEmpty ? 196 : 152),
+                              0,
+                              62,
+                              0,
+                              (widget.quickReplies.isNotEmpty ? 196 : 152) +
+                                  MediaQuery.of(context).viewPadding.bottom),
                           // +1 trailing slot for the typing indicator (bottom).
                           itemCount: messages.length + (botTyping ? 1 : 0),
                           itemBuilder: (context, d) {
@@ -415,7 +421,7 @@ class _FabTop extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return LiquidGlassCircle(
       onTap: onTap,
-      child: Icon(LucideIcons.moreHorizontal, size: 21, color: scheme.secondary),
+      child: Icon(PhosphorIconsRegular.dotsThree, size: 21, color: scheme.secondary),
     );
   }
 }
@@ -431,7 +437,7 @@ class _FabNow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return LiquidGlassCircle(
       onTap: onTap,
-      child: Icon(LucideIcons.alignLeft, size: 21, color: scheme.secondary),
+      child: Icon(PhosphorIconsRegular.textAlignLeft, size: 21, color: scheme.secondary),
     );
   }
 }
