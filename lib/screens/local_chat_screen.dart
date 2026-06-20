@@ -393,6 +393,44 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         opts);
   }
 
+  // ---- Real feature mini-tour (after persona). Each step runs the ACTUAL
+  // feature (real reminder / file summary / voice) — no mock cards — then moves
+  // on. "ข้าม" skips a step. reminder → file → voice → theme.
+  void _reminderDemo() {
+    _personaStage = 'demo_reminder';
+    final name = PrefsController.instance.value.pinName;
+    _postStage(
+        'demo_reminder',
+        'เยี่ยม! ${name}พร้อมช่วยแล้ว ลองสั่งจริงดูสักอย่าง — แตะตัวอย่าง หรือพิมพ์เอง',
+        'chips',
+        [
+          _pChip('เตือนรดน้ำต้นไม้พรุ่งนี้ 7 โมง',
+              'เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง'),
+          _pChip('ข้าม', '__skip'),
+        ]);
+  }
+
+  void _fileDemo() {
+    _personaStage = 'demo_file';
+    final name = PrefsController.instance.value.pinName;
+    _postStage(
+        'demo_file',
+        'ลองอีกอย่าง — ${name}สรุปไฟล์เอกสารให้เป็นการ์ดอ่านง่ายได้ ลองอัปโหลดไฟล์ดู',
+        'chips',
+        [_pChip('อัปโหลดไฟล์', '__upload'), _pChip('ข้าม', '__skip')]);
+  }
+
+  void _voiceDemo() {
+    _personaStage = 'demo_voice';
+    final name = PrefsController.instance.value.pinName;
+    _postStage(
+        'demo_voice',
+        'สุดท้าย — ${name}ฟังเสียงก็ได้ กดปุ่มไมค์ในช่องพิมพ์ค้างแล้วลองพูดดู '
+            'เช่น "พรุ่งนี้อากาศเป็นยังไง"',
+        'chips',
+        [_pChip('ข้าม', '__skip')]);
+  }
+
   // Theme is the LAST step: picking a swatch live-applies AND finishes (v2 —
   // no separate "done" button). The swatch tap fires onAction('done').
   void _themeStep() {
@@ -492,8 +530,30 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           PrefsController.instance
               .update(cur.copyWith(userCall: addr, pinSelf: self));
           _botSay('โอเค$addr! ตั้งแต่นี้${self}จะเรียกแบบนี้ตลอดนะ$_ptq');
-          _themeStep();
+          _reminderDemo();
         });
+      case 'demo_reminder':
+        _personaStage = '';
+        if (value == '__skip') {
+          _fileDemo();
+          return;
+        }
+        // Real agent turn — sets an ACTUAL reminder (shows in "ตอนนี้"), then
+        // advance. whenComplete still fires if _run bails, so the tour never stalls.
+        _run(_text(value, me: true), value)
+            .whenComplete(() => mounted ? _fileDemo() : null);
+      case 'demo_file':
+        _personaStage = '';
+        if (value == '__skip') {
+          _voiceDemo();
+          return;
+        }
+        // Real file pick → markitdown → summary card (or cancel → just advance).
+        _onMedia('file').whenComplete(() => mounted ? _voiceDemo() : null);
+      case 'demo_voice':
+        // Tap "ข้าม" → theme. The real voice path advances from _onAudio.
+        _personaStage = '';
+        _themeStep();
       case 'theme':
         _finishPersonaSetup();
     }
@@ -737,7 +797,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // During onboarding, a typed message IS the answer (not a chat turn). Only
     // the free-text stages accept typing; tap-only stages ignore it.
     if (_personaStep >= 0) {
-      const typable = {'userName', 'pinName', 'address'};
+      const typable = {'userName', 'pinName', 'address', 'demo_reminder'};
       if (typable.contains(_personaStage)) {
         _consumeOptions(); // remove the inline buttons for this stage, if any
         _applyPersonaAnswer(t, typed: true);
@@ -872,6 +932,15 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     final saved = await FilesStore.instance.persistMedia(path, ext);
     await FilesStore.instance
         .add(name: 'บันทึกเสียง', type: 'เสียง', summary: text, uri: saved);
+    // Onboarding voice demo: run the transcript as a REAL turn (the agent acts
+    // on it for real), then move on to the theme step.
+    if (_personaStep >= 0 && _personaStage == 'demo_voice') {
+      _personaStage = '';
+      _consumeOptions();
+      await _run(_text(text, me: true), text);
+      if (mounted) _themeStep();
+      return;
+    }
     _onSend(text);
   }
 
