@@ -1,10 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import 'config.dart';
-import 'services/api_log.dart';
-import 'src/rust/api/inspector.dart';
 import 'widgets/boot_loading.dart';
 import 'screens/all_tasks_screen.dart';
 import 'screens/auth_screen.dart';
@@ -28,33 +24,10 @@ const _preview = String.fromEnvironment('PIN_PREVIEW');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
-  // Opt-in only (PIN_INSPECTOR, not PIN_DEBUG): start the Matrix HTTP inspector
-  // BEFORE any login/restore so build_client routes through the loopback proxy.
-  // OFF by default — the proxy MITMs all Matrix traffic, so it must never be on
-  // for normal debug use. Each JSON line → the Chuck-style API log.
-  if (kInspectorBuild) _startMatrixInspector();
   await ThemeController.instance.load();
   await PrefsController.instance.load();
   await NotificationService.instance.init();
   runApp(const PinApp());
-}
-
-/// Subscribe to the Rust inspector proxy; each line is one Matrix HTTP round-trip
-/// `{method,url,status,ms,req,resp}`. Best-effort — a parse hiccup drops one row.
-void _startMatrixInspector() {
-  startMatrixInspector().listen((line) {
-    try {
-      final m = jsonDecode(line) as Map<String, dynamic>;
-      ApiLog.instance.addHttp(
-        method: '${m['method'] ?? 'MTX'}',
-        url: '${m['url'] ?? ''}',
-        status: (m['status'] as num?)?.toInt() ?? 0,
-        ms: (m['ms'] as num?)?.toInt() ?? 0,
-        reqBody: m['req']?.toString(),
-        respBody: m['resp']?.toString(),
-      );
-    } catch (_) {/* malformed line — skip */}
-  });
 }
 
 class PinApp extends StatelessWidget {
