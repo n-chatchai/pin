@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'config.dart';
+import 'services/api_log.dart';
+import 'src/rust/api/matrix_trace.dart';
 import 'widgets/boot_loading.dart';
 import 'screens/all_tasks_screen.dart';
 import 'screens/auth_screen.dart';
@@ -24,10 +28,30 @@ const _preview = String.fromEnvironment('PIN_PREVIEW');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
+  // Debug builds only: passively observe matrix-sdk's own HTTP tracing spans
+  // (method/url/status/ms — no headers, no bodies) into the API log. Read-only;
+  // it never touches the connection, so it can't affect login/sync.
+  if (kDebugBuild) _startMatrixTrace();
   await ThemeController.instance.load();
   await PrefsController.instance.load();
   await NotificationService.instance.init();
   runApp(const PinApp());
+}
+
+/// Subscribe to the Rust Matrix HTTP tracer; each line is one Matrix call's
+/// metadata `{method,url,status,ms}` (no headers/bodies). Best-effort.
+void _startMatrixTrace() {
+  startMatrixTrace().listen((line) {
+    try {
+      final m = jsonDecode(line) as Map<String, dynamic>;
+      ApiLog.instance.addHttp(
+        method: '${m['method'] ?? 'MTX'}',
+        url: '${m['url'] ?? ''}',
+        status: int.tryParse('${m['status'] ?? ''}') ?? 0,
+        ms: (m['ms'] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {/* malformed line — skip */}
+  });
 }
 
 class PinApp extends StatelessWidget {
