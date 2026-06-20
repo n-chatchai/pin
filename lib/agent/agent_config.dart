@@ -8,11 +8,13 @@ const _kProxyBase = String.fromEnvironment(
   defaultValue: 'https://pin-gateway.tokens2.io',
 );
 
-/// An opt-in special persona (role-play overlay). The character speaks in its
-/// own voice — address word ([call]), self-reference ([self]), demeanor + its
-/// own ending ([rule], e.g. butler → ขอรับ) — but it COMPLEMENTS rather than
-/// erases: the assistant keeps its name and helpful-assistant role (see
-/// kPinSystemFor). See design/chat-onboarding/pin-special-personas.html.
+/// An opt-in special persona (role-play overlay). The character sets the address
+/// word ([call]), self-reference ([self]) and a demeanor ([rule]); the ending
+/// particle is left to the model, which picks it from the role + the user's tone
+/// register (butler + female → เจ้าค่ะ, + male → ขอรับ) — not hardcoded. It
+/// COMPLEMENTS rather than erases: the assistant keeps its name and
+/// helpful-assistant role (see kPinSystemFor).
+/// See design/chat-onboarding/pin-special-personas.html.
 class SpecialPersona {
   final String key, name, call, self, sub, sample, rule;
   const SpecialPersona(
@@ -33,7 +35,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'เรา',
       sub: 'เรียกคุณ "แก" · แทนตัว "เรา"',
       sample: 'เดี๋ยวเราจัดให้แกเอง',
-      rule: 'วางท่าทีแบบเพื่อนสนิท เป็นกันเอง สนุก ลงท้าย "จ๊ะ" หรือ "นะ".'),
+      rule: 'วางท่าทีแบบเพื่อนสนิท เป็นกันเอง สนุก สบาย ๆ.'),
   SpecialPersona(
       key: 'butler',
       name: 'บ่าวรับใช้',
@@ -41,7 +43,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'กระหม่อม',
       sub: 'เรียกคุณ "นายท่าน" · แทนตัว "กระหม่อม"',
       sample: 'กระหม่อมจัดการให้แล้วนายท่าน',
-      rule: 'วางท่าทีแบบบ่าวรับใช้ นอบน้อม ให้เกียรติ ลงท้าย "ขอรับ".'),
+      rule: 'วางท่าทีแบบบ่าวรับใช้ นอบน้อม ให้เกียรติ เป็นทางการ.'),
   SpecialPersona(
       key: 'mom',
       name: 'แม่–ลูก',
@@ -49,7 +51,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'แม่',
       sub: 'เรียกคุณ "ลูก" · แทนตัว "แม่"',
       sample: 'เดี๋ยวแม่เตือนลูกเองนะ',
-      rule: 'วางท่าทีอบอุ่นห่วงใยแบบแม่ดูแลลูก ลงท้าย "นะลูก".'),
+      rule: 'วางท่าทีอบอุ่นห่วงใยแบบแม่ดูแลลูก คอยห่วงใย.'),
   SpecialPersona(
       key: 'cute',
       name: 'น่ารัก / ใกล้ชิด',
@@ -57,7 +59,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'เค้า',
       sub: 'เรียกคุณ "ตัวเอง" · แทนตัว "เค้า"',
       sample: 'เค้าทำให้ตัวเองแล้วน้า',
-      rule: 'วางท่าทีหวาน ใกล้ชิด น่ารัก ขี้เล่น ลงท้าย "น้า" หรือ "นะ".'),
+      rule: 'วางท่าทีหวาน ใกล้ชิด น่ารัก ขี้เล่น.'),
 ];
 
 SpecialPersona? specialPersona(String key) =>
@@ -81,11 +83,12 @@ String kPinSystemFor({
   var toneText = _toneRule(tone);
   var clamp = '';
   if (persona != 'basic') {
-    // Complement, don't erase: a special character speaks in its own voice
-    // (address word + self-reference + demeanor + its ending, e.g. butler →
-    // นายท่าน/กระหม่อม/ขอรับ), but it's still the user's assistant — the name
-    // [name] and the helpful-assistant role stay. Custom keeps the user's tone
-    // (it has no preset voice of its own).
+    // Complement, don't erase: a special character takes the address word +
+    // self-reference + demeanor, but the ENDING is left to the model — we hand
+    // it the role and the user's register (gender/politeness) and let it pick
+    // the fitting particle itself (butler + female → เจ้าค่ะ, + male → ขอรับ),
+    // instead of hardcoding one per gender. The assistant keeps its name [name]
+    // and helpful-assistant role. Custom keeps the user's own tone.
     if (persona == 'custom') {
       if (customCall.trim().isNotEmpty) call = customCall.trim();
       if (customSelf.trim().isNotEmpty) me = customSelf.trim();
@@ -96,7 +99,8 @@ String kPinSystemFor({
       if (sp != null) {
         call = sp.call;
         me = sp.self;
-        toneText = '${sp.rule} ';
+        toneText = '${sp.rule}เลือกสรรพนามและคำลงท้ายเองให้สมกับบทบาทนี้ '
+            'และเข้ากับน้ำเสียง${_toneRegister(tone)}ที่ผู้ใช้เลือก. ';
         clamp = 'นี่คือโหมดสวมบท "${sp.name}". ';
       }
     }
@@ -114,6 +118,22 @@ String kPinSystemFor({
       'เรียกผู้ใช้ว่า "$call" และแทนตัวเองว่า "$me". $toneText$clamp'
       'ห้ามมโนข้อมูล ถ้าไม่รู้ให้บอกตรง ๆ. '
       'ห้ามเอ่ยชื่อฟังก์ชันภายในให้ผู้ใช้เห็น.';
+}
+
+/// User tone → a register label handed to the model so a special character can
+/// pick its OWN fitting ending (butler + female → เจ้าค่ะ, + male → ขอรับ)
+/// instead of us hardcoding one per gender.
+String _toneRegister(String tone) {
+  switch (tone) {
+    case 'male':
+      return 'สุภาพแบบผู้ชาย';
+    case 'female':
+      return 'สุภาพแบบผู้หญิง';
+    case 'casual':
+      return 'เป็นกันเอง';
+    default:
+      return 'เป็นกลาง';
+  }
 }
 
 /// Tone → ending-particle instruction. female is the only one that varies by
