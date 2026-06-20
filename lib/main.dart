@@ -106,8 +106,12 @@ class _AfterAuthState extends State<AfterAuth> {
     await PrefsController.instance.update(
       PrefsController.instance.value.copyWith(
         pinName: p['pin_name'],
+        userName: p['user_name'],
         userCall: p['user_call'],
         pinSelf: p['pin_self'],
+        // Older rooms stored no tone — derive it from the ending so the agent's
+        // particle (ค่ะ/ครับ/จ๊ะ) matches instead of falling to the default.
+        tone: p['tone'] ?? toneFromEnding(p['pin_ending'] ?? 'ค่ะ'),
         pinEnding: p['pin_ending'],
         onboarded: true,
       ),
