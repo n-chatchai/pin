@@ -396,6 +396,16 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   // ---- Real feature mini-tour (after persona). Each step runs the ACTUAL
   // feature (real reminder / file summary / voice) — no mock cards — then moves
   // on. "ข้าม" skips a step. reminder → file → voice → theme.
+
+  /// Pause after a result card lands before posting the next step — otherwise
+  /// the new prompt instantly scrolls the (often tall) card out of view and the
+  /// user never sees what just happened.
+  void _tourNext(VoidCallback next) {
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted) next();
+    });
+  }
+
   void _reminderDemo() {
     _personaStage = 'demo_reminder';
     final name = PrefsController.instance.value.pinName;
@@ -541,7 +551,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         // Real agent turn — sets an ACTUAL reminder (shows in "ตอนนี้"), then
         // advance. whenComplete still fires if _run bails, so the tour never stalls.
         _run(_text(value, me: true), value)
-            .whenComplete(() => mounted ? _fileDemo() : null);
+            .whenComplete(() => _tourNext(_fileDemo));
       case 'demo_file':
         _personaStage = '';
         if (value == '__skip') {
@@ -549,7 +559,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           return;
         }
         // Real file pick → markitdown → summary card (or cancel → just advance).
-        _onMedia('file').whenComplete(() => mounted ? _voiceDemo() : null);
+        _onMedia('file').whenComplete(() => _tourNext(_voiceDemo));
       case 'demo_voice':
         // Tap "ข้าม" → theme. The real voice path advances from _onAudio.
         _personaStage = '';
@@ -938,7 +948,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       _personaStage = '';
       _consumeOptions();
       await _run(_text(text, me: true), text);
-      if (mounted) _themeStep();
+      _tourNext(_themeStep);
       return;
     }
     _onSend(text);
