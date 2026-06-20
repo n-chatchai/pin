@@ -129,21 +129,9 @@ class _AfterAuthState extends State<AfterAuth> {
     final p = await MatrixService.instance.loadPrefsFromRoom(id);
     if (p == null || (p['pin_name'] ?? '').isEmpty) return;
     await PrefsController.instance.update(
-      PrefsController.instance.value.copyWith(
-        pinName: p['pin_name'],
-        userName: p['user_name'],
-        userCall: p['user_call'],
-        pinSelf: p['pin_self'],
-        // Older rooms stored no tone — derive it from the ending so the agent's
-        // particle (ค่ะ/ครับ/จ๊ะ) matches instead of falling to the default.
-        tone: p['tone'] ?? toneFromEnding(p['pin_ending'] ?? 'ค่ะ'),
-        pinEnding: p['pin_ending'],
-        personaMode: p['persona_mode'],
-        customCall: p['custom_call'],
-        customSelf: p['custom_self'],
-        onboarded: true,
-        personaSetup: true,
-      ),
+      PrefsController.instance.value
+          .copyWithRoomState(p)
+          .copyWith(onboarded: true, personaSetup: true),
     );
   }
 

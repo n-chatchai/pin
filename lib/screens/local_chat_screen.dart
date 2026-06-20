@@ -128,19 +128,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           p != null && (p['pin_ending'] != null || (p['pin_name'] ?? '').isNotEmpty);
       if (!hasRoomPersona) return;
       final cur = PrefsController.instance.value;
-      await PrefsController.instance.update(cur.copyWith(
-        pinName: p['pin_name'] ?? cur.pinName,
-        userName: p['user_name'] ?? cur.userName,
-        userCall: p['user_call'] ?? cur.userCall,
-        pinSelf: p['pin_self'] ?? cur.pinSelf,
-        // Migrate older rooms with no tone stored: derive it from the ending.
-        tone: p['tone'] ?? toneFromEnding(p['pin_ending'] ?? cur.pinEnding),
-        pinEnding: p['pin_ending'] ?? cur.pinEnding,
-        personaMode: p['persona_mode'] ?? cur.personaMode,
-        customCall: p['custom_call'] ?? cur.customCall,
-        customSelf: p['custom_self'] ?? cur.customSelf,
-        personaSetup: true,
-      ));
+      await PrefsController.instance
+          .update(cur.copyWithRoomState(p).copyWith(personaSetup: true));
       final theme = p['theme'];
       if (theme != null && theme.isNotEmpty) {
         ThemeController.instance.select(theme);

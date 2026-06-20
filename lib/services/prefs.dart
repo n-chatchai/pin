@@ -93,6 +93,25 @@ class PinPrefs {
         customSelf: customSelf ?? this.customSelf,
       );
 
+  /// Apply a ปิ่น room-state persona map (snake_case keys from the
+  /// `io.tokens2.prefs` state event) onto this prefs. The room is the single
+  /// source of truth for persona, so this is the ONE place that maps it — boot
+  /// rehydrate AND chat-open sync both call it, so the field set can't drift
+  /// (duplicating it is how `tone` / `persona_mode` got dropped before). A key
+  /// absent from the room keeps the current value; `tone` is derived from the
+  /// ending for older rooms that predate the tone field.
+  PinPrefs copyWithRoomState(Map<String, String> r) => copyWith(
+        pinName: r['pin_name'],
+        userName: r['user_name'],
+        userCall: r['user_call'],
+        pinSelf: r['pin_self'],
+        tone: r['tone'] ?? toneFromEnding(r['pin_ending'] ?? pinEnding),
+        pinEnding: r['pin_ending'],
+        personaMode: r['persona_mode'],
+        customCall: r['custom_call'],
+        customSelf: r['custom_self'],
+      );
+
   Map<String, String> toMap() => {
         'pinName': pinName,
         'userName': userName,
