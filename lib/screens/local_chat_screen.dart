@@ -279,23 +279,29 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     });
   }
 
-  /// Fetch the server-configured greeting + quick replies, interpolate the
-  /// user's persona, and show them on first run.
-  Future<void> _loadWelcome() async {
-    final w = await devProxy().fetchWelcome();
-    if (!mounted || w == null || _messages.isNotEmpty) return;
-    String fill(String s) => _fillPersona(s);
-    final greeting = fill('${w['greeting'] ?? ''}');
-    final replies = [
-      for (final r in (w['quickReplies'] as List? ?? const []))
-        {
-          'label': fill('${(r as Map)['label'] ?? ''}'),
-          'send': fill('${r['send'] ?? r['label'] ?? ''}'),
-        }
-    ];
+  /// Built-in first-run greeting + quick replies, interpolated with the user's
+  /// persona and shown when the chat opens empty. This is static UI copy, so it
+  /// lives in the app — no /welcome round-trip to the proxy.
+  static const _greetingTpl =
+      'สวัสดี{userCall} {pinName}เอง{ending} 👋 '
+      '{pinName}ช่วยจำ เตือน หาข้อมูล และสรุปให้ได้ — ลองกดดูสักอันก่อนก็ได้{ending}';
+  static const _welcomeReplies = <Map<String, String>>[
+    {'label': 'ลองให้ปิ่นเตือน', 'send': 'เตือนฉันในอีก 1 นาทีว่า ลองใช้ปิ่นดู'},
+    {'label': 'สรุปเอกสาร', 'send': 'ช่วยสรุปเอกสารนี้สั้น ๆ แล้วจำไว้ให้ด้วย'},
+    {'label': 'ดูดวง', 'send': 'ดูดวงให้หน่อย'},
+    {'label': 'ขอข่าววันนี้', 'send': 'ขอข่าววันนี้'},
+    {'label': 'อากาศวันนี้', 'send': 'อากาศวันนี้เป็นไง'},
+  ];
+
+  void _loadWelcome() {
+    if (!mounted || _messages.isNotEmpty) return;
+    final greeting = _fillPersona(_greetingTpl);
     setState(() {
-      if (greeting.isNotEmpty) _messages.add(_text(greeting, me: false));
-      _quickReplies = replies;
+      _messages.add(_text(greeting, me: false));
+      _quickReplies = [
+        for (final r in _welcomeReplies)
+          {'label': _fillPersona(r['label']!), 'send': _fillPersona(r['send']!)},
+      ];
     });
   }
 

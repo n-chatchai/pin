@@ -143,28 +143,6 @@ class ProxyClient {
     }
   }
 
-  /// First-run greeting + quick replies (server-configurable). Returns null on
-  /// any failure → the app falls back to its built-in greeting.
-  Future<Map<String, dynamic>?> fetchWelcome() async {
-    try {
-      final sw = Stopwatch()..start();
-      final r = await http.get(Uri.parse('$baseUrl/welcome'),
-          headers: {'Authorization': 'Bearer $token'}).timeout(
-          const Duration(seconds: 8));
-      final respText = utf8.decode(r.bodyBytes);
-      ApiLog.instance.addHttp(
-          method: 'GET',
-          url: '$baseUrl/welcome',
-          status: r.statusCode,
-          ms: sw.elapsedMilliseconds,
-          respBody: respText);
-      if (r.statusCode != 200) return null;
-      return jsonDecode(respText) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
-
   /// Debug-bot: ship a conversation turn (user text + reply + agent trace) to
   /// the proxy debug log so the developer can review and improve ปิ่น. ONLY
   /// called when the user has turned on the "ดีบักบอท" toggle (explicit opt-in

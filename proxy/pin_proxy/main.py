@@ -121,28 +121,6 @@ async def schedule_cancel(
     return {"ok": scheduler.cancel(b["job_id"])}
 
 
-# First-run greeting + LINE-style quick replies. Server-side config so it can
-# change without an app update. {userCall}/{pinName} are filled on-device from
-# the user's persona. `send` is the text the chip sends to ปิ่น when tapped.
-_WELCOME = {
-    "greeting": "สวัสดี{userCall} {pinName}เองค่ะ 👋 "
-                "{pinName}ช่วยจำ เตือน หาข้อมูล และสรุปให้ได้ — "
-                "ลองกดดูสักอันก่อนก็ได้ค่ะ",
-    "quickReplies": [
-        # Lead with the core value: a complete reminder so ปิ่น sets it
-        # immediately (no asking back) → shows in "ตอนนี้" and fires for real.
-        {"label": "ลองให้ปิ่นเตือน",
-         "send": "เตือนฉันในอีก 1 นาทีว่า ลองใช้ปิ่นดู"},
-        # action=scan → opens the document scanner; send = the instruction.
-        {"label": "สรุปเอกสาร", "action": "scan",
-         "send": "ช่วยสรุปเอกสารนี้สั้น ๆ แล้วจำไว้ให้ด้วย"},
-        {"label": "ดูดวง", "send": "ดูดวงให้หน่อย"},
-        {"label": "ขอข่าววันนี้", "send": "ขอข่าววันนี้"},
-        {"label": "อากาศวันนี้", "send": "อากาศวันนี้เป็นไง"},
-    ],
-}
-
-
 _MARKITDOWN = os.environ.get("PIN_MARKITDOWN_URL", "http://127.0.0.1:8093")
 
 
@@ -215,13 +193,6 @@ async def transcribe(
         return {"text": "\n".join(lines).strip() or text}
     except Exception as e:  # noqa: BLE001
         return {"text": "", "error": f"ถอดเสียงไม่ได้: {e}"}
-
-
-@app.get("/welcome")
-def welcome(authorization: str | None = Header(default=None)) -> dict:
-    """First-run greeting + quick replies (server-configurable)."""
-    _check_token(authorization)
-    return _WELCOME
 
 
 @app.post("/debug/log")
