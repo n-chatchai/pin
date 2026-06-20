@@ -122,7 +122,8 @@ class _AfterAuthState extends State<AfterAuth> {
   late final Future<void> _hydrate = _rehydratePrefs();
 
   Future<void> _rehydratePrefs() async {
-    if (PrefsController.instance.value.onboarded) return;
+    // Persona is room-only (never persisted on device), so always pull it from
+    // the ปิ่น room state on launch — the room is the single source of truth.
     final id = await MatrixService.instance.findPinRoomId();
     if (id == null) return; // brand-new account → onboarding runs
     final p = await MatrixService.instance.loadPrefsFromRoom(id);
@@ -137,6 +138,9 @@ class _AfterAuthState extends State<AfterAuth> {
         // particle (ค่ะ/ครับ/จ๊ะ) matches instead of falling to the default.
         tone: p['tone'] ?? toneFromEnding(p['pin_ending'] ?? 'ค่ะ'),
         pinEnding: p['pin_ending'],
+        personaMode: p['persona_mode'],
+        customCall: p['custom_call'],
+        customSelf: p['custom_self'],
         onboarded: true,
       ),
     );

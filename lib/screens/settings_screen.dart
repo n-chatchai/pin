@@ -45,6 +45,9 @@ Future<void> _updatePersona(PinPrefs np) async {
       'pin_self': np.pinSelf,
       'tone': np.tone,
       'pin_ending': np.pinEnding,
+      'persona_mode': np.personaMode,
+      'custom_call': np.customCall,
+      'custom_self': np.customSelf,
       'theme': ThemeController.instance.value.key,
     });
   }

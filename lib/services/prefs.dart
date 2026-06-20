@@ -4,8 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// User preferences shown on the Settings screen (design/pin.html).
-/// Persisted locally; these also shape ปิ่น's persona + reminder behaviour
-/// (synced to the bot later).
+/// The persona identity fields are the source-of-truth ONLY in the ปิ่น room
+/// state (see toLocalMap) — never persisted on device. Device-local settings
+/// (language, reminder times, dev flags) persist via [PrefsController].
 class PinPrefs {
   final String pinName; // เรียกปิ่นว่า
   final String userName; // ชื่อ/ชื่อเล่นของผู้ใช้ (ใช้สร้างตัวเลือกคำเรียก)
@@ -114,6 +115,21 @@ class PinPrefs {
         'customSelf': customSelf,
       };
 
+  /// The subset persisted to on-device storage. The persona identity
+  /// (pinName/userName/userCall/pinSelf/tone/pinEnding/personaMode/customCall/
+  /// customSelf) is DELIBERATELY excluded — it is user data and lives only in
+  /// the ปิ่น room state (single source of truth), never on the device, so it
+  /// can't diverge across devices. Only device-local settings/flags persist.
+  static const _personaKeys = {
+    'pinName', 'userName', 'userCall', 'pinSelf', 'tone', 'pinEnding',
+    'personaMode', 'customCall', 'customSelf',
+  };
+  Map<String, String> toLocalMap() {
+    final m = toMap();
+    m.removeWhere((k, _) => _personaKeys.contains(k));
+    return m;
+  }
+
   static PinPrefs fromMap(Map<String, String> m) => PinPrefs(
         pinName: m['pinName'] ?? 'ปิ่น',
         userName: m['userName'] ?? '',
@@ -207,7 +223,9 @@ class PrefsController extends ValueNotifier<PinPrefs> {
 
   Future<void> update(PinPrefs p) async {
     value = p;
-    final raw = p.toMap().entries.map((e) => '${e.key}=${e.value}').join('\n');
+    // Persist only device-local settings; persona identity stays room-only.
+    final raw =
+        p.toLocalMap().entries.map((e) => '${e.key}=${e.value}').join('\n');
     await _storage.write(key: _key, value: raw);
   }
 }

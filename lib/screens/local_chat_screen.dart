@@ -136,6 +136,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         // Migrate older rooms with no tone stored: derive it from the ending.
         tone: p['tone'] ?? toneFromEnding(p['pin_ending'] ?? cur.pinEnding),
         pinEnding: p['pin_ending'] ?? cur.pinEnding,
+        personaMode: p['persona_mode'] ?? cur.personaMode,
+        customCall: p['custom_call'] ?? cur.customCall,
+        customSelf: p['custom_self'] ?? cur.customSelf,
         personaSetup: true,
       ));
       final theme = p['theme'];
@@ -632,6 +635,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         'pin_self': p.pinSelf,
         'tone': p.tone,
         'pin_ending': p.pinEnding,
+        'persona_mode': p.personaMode,
+        'custom_call': p.customCall,
+        'custom_self': p.customSelf,
         'theme': ThemeController.instance.value.key,
       });
     }
