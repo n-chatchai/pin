@@ -346,14 +346,14 @@ class MatrixService {
     MemoryController.instance.value = const [];
     // Close the per-account files DB so the next account opens its own.
     await FilesStore.instance.reset();
-    // Reset onboarded so a re-login re-runs the gate. For the SAME account the
-    // crypto store is kept (rust logout no longer wipes it), so AfterAuth's
-    // rehydrate finds the ปิ่น room + persona, flips onboarded back to true and
-    // skips straight to chat with keys intact — no recovery prompt. A genuinely
-    // different account (no room on this device) still falls through to the
-    // recovery step to pull ITS keys.
-    await PrefsController.instance
-        .update(PrefsController.instance.value.copyWith(onboarded: false));
+    // Wipe ALL local prefs (persona, onboarded, personaSetup, settings) so the
+    // next account starts clean — keeping only onboarded=false left the previous
+    // account's name/personaSetup behind, so a new account showed the old name
+    // and skipped the in-chat setup. For the SAME account, AfterAuth's rehydrate
+    // re-pulls persona from the ปิ่น room and flips onboarded back to true (keys
+    // are kept, so no recovery prompt); a different account has no room here and
+    // falls through to the recovery step to pull ITS keys.
+    await PrefsController.instance.reset();
   }
 
   // -------------------------------------------------------------------------

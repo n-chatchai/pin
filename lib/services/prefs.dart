@@ -228,4 +228,15 @@ class PrefsController extends ValueNotifier<PinPrefs> {
         p.toLocalMap().entries.map((e) => '${e.key}=${e.value}').join('\n');
     await _storage.write(key: _key, value: raw);
   }
+
+  /// Wipe to defaults (called on logout). The persona, onboarded/personaSetup
+  /// flags, and settings of the previous account must NOT survive into the next
+  /// one on the same device — otherwise a new account inherits the old name and
+  /// skips onboarding. Persona then re-hydrates from the next account's room.
+  Future<void> reset() async {
+    await _storage.delete(key: _key);
+    final detected =
+        ui.PlatformDispatcher.instance.locale.languageCode == 'th' ? 'th' : 'en';
+    value = PinPrefs(lang: detected);
+  }
 }

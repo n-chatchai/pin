@@ -142,6 +142,7 @@ class _AfterAuthState extends State<AfterAuth> {
         customCall: p['custom_call'],
         customSelf: p['custom_self'],
         onboarded: true,
+        personaSetup: true,
       ),
     );
   }
