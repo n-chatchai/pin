@@ -38,8 +38,10 @@ Future<void> _updatePersona(PinPrefs np) async {
   if (id != null) {
     await MatrixService.instance.savePersonaToRoom(id, {
       'pin_name': np.pinName,
+      'user_name': np.userName,
       'user_call': np.userCall,
       'pin_self': np.pinSelf,
+      'tone': np.tone,
       'pin_ending': np.pinEnding,
       'theme': ThemeController.instance.value.key,
     });
@@ -109,7 +111,10 @@ class SettingsScreen extends StatelessWidget {
                 p.pinEnding.isEmpty ? '(ไม่ลงท้าย)' : p.pinEnding,
                 () => _editText(context, '${p.pinName}ลงท้ายประโยคว่า', p.pinEnding,
                     ['ครับ', 'คะ', 'จ้ะ', ''],
-                    (v) => _updatePersona(p.copyWith(pinEnding: v))),
+                    // The agent now reads `tone`, not the raw ending — derive it
+                    // so this control still works until the Settings rebuild.
+                    (v) => _updatePersona(
+                        p.copyWith(pinEnding: v, tone: toneFromEnding(v)))),
               ),
               ListTile(
                 leading: const Icon(LucideIcons.sparkles),

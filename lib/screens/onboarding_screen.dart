@@ -51,20 +51,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _endPreset = 'ครับ';
   bool _recoverySaved = false; // gate: next disabled until key is saved/restored
 
-  bool get _isEn => PrefsController.instance.value.lang == 'en';
-
   _RecoveryStep get _recovery => _RecoveryStep(
       onSaved: () => setState(() => _recoverySaved = true),
       // Restore succeeded → nothing left to do on this step, advance for them.
       onRestored: _next);
 
-  /// Steps + their bottom-button labels. Account-only now: persona + theme are
-  /// collected IN-CHAT after the account/room exist (so they sync to room state
-  /// from the start instead of being local-only). '' label = self-advancing.
+  /// Steps + their bottom-button labels (Thai-only for now). Account-only:
+  /// persona + theme are collected IN-CHAT after the account/room exist (so they
+  /// sync to room state from the start). '' label = self-advancing.
   List<(Widget, String)> _stepList() => [
         if (widget.signup) (_SignupStep(onAuthed: _next), ''),
-        (_recovery, _isEn ? 'Next' : 'ถัดไป'),
-        (_ready(), _isEn ? 'Start using ปิ่น' : 'เริ่มใช้ปิ่น'),
+        (_recovery, 'ถัดไป'),
+        (_ready(), 'เริ่มใช้ปิ่น'),
       ];
 
   List<String> get _labels => [for (final s in _stepList()) s.$2];

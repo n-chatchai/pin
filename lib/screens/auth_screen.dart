@@ -4,9 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config.dart';
 import '../main.dart';
 import '../services/auth_service.dart';
-import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
-import '../widgets/lang_pick.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
 import '../widgets/pin_route.dart';
@@ -30,30 +28,17 @@ class AuthScreen extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            // Always-present escape: this screen is pushed (from Welcome or the
-            // signup step), so a back affordance must exist even when the
-            // edge-swipe gesture isn't used.
-            Positioned(
-              top: 0,
-              left: 4,
-              child: IconButton(
-                icon: const Icon(Icons.chevron_left, color: PinPalette.ink2),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-            ),
-            // Language toggle, top-right (mirrors the Welcome screen).
-            Positioned(
-              top: 8,
-              right: 16,
-              child: ValueListenableBuilder<PinPrefs>(
-                valueListenable: PrefsController.instance,
-                builder: (_, p, __) => LangPick(
-                  lang: p.lang,
-                  onChanged: (v) => PrefsController.instance
-                      .update(p.copyWith(lang: v, langExplicit: true)),
+            // Back affordance only when there's somewhere to go back to (this
+            // screen can be the root, e.g. after logout) — no dead button.
+            if (Navigator.of(context).canPop())
+              Positioned(
+                top: 0,
+                left: 4,
+                child: IconButton(
+                  icon: const Icon(Icons.chevron_left, color: PinPalette.ink2),
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
-            ),
             LayoutBuilder(
           builder: (context, c) => SingleChildScrollView(
             child: ConstrainedBox(

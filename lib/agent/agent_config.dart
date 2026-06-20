@@ -14,7 +14,7 @@ String kPinSystemFor({
   String name = 'ปิ่น',
   String userCall = 'พี่',
   String self = 'ปิ่น',
-  String ending = 'ค่ะ',
+  String tone = 'female',
   String lang = 'th',
 }) {
   if (lang == 'en') {
@@ -24,13 +24,25 @@ String kPinSystemFor({
         'short (1–3 sentences).$call$me Never make up facts; if unsure, say so '
         'plainly. Never expose internal function names to the user.';
   }
-  final end = ending.trim().isEmpty
-      ? ''
-      : 'ลงท้ายประโยคด้วย "${ending.trim()}" สม่ำเสมอ. ';
   return 'คุณคือ "$name" ผู้ช่วยส่วนตัวภาษาไทย อบอุ่นแต่คม สั้น 1–3 ประโยค. '
-      'เรียกผู้ใช้ว่า "$userCall" และแทนตัวเองว่า "$self". $end'
+      'เรียกผู้ใช้ว่า "$userCall" และแทนตัวเองว่า "$self". ${_toneRule(tone)}'
       'ห้ามมโนข้อมูล ถ้าไม่รู้ให้บอกตรง ๆ. '
       'ห้ามเอ่ยชื่อฟังก์ชันภายในให้ผู้ใช้เห็น.';
+}
+
+/// Tone → ending-particle instruction. female is the only one that varies by
+/// sentence type (ค่ะ statement / คะ question) so it can't be a single string.
+String _toneRule(String tone) {
+  switch (tone) {
+    case 'male':
+      return 'ลงท้ายประโยคด้วย "ครับ" สม่ำเสมอ. ';
+    case 'female':
+      return 'ลงท้ายสุภาพแบบหญิง: ประโยคบอกเล่าใช้ "ค่ะ" ประโยคคำถามใช้ "คะ" สม่ำเสมอ. ';
+    case 'casual':
+      return 'พูดเป็นกันเอง ลงท้ายด้วย "จ๊ะ" หรือ "นะ" ไม่เป็นทางการ. ';
+    default: // neutral
+      return 'ไม่ต้องลงท้ายด้วยคำสุภาพ (ไม่ใช้ ครับ/ค่ะ). ';
+  }
 }
 
 /// Default persona (used where prefs aren't available, e.g. debug tests).

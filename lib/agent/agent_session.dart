@@ -72,7 +72,7 @@ class AgentSession {
       name: p.pinName,
       userCall: p.userCall,
       self: p.pinSelf,
-      ending: p.pinEnding,
+      tone: p.tone,
       lang: p.lang,
     );
     // Match the language the user writes in; fall back to their setting. Applies

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตั้งค่าผู้ช่วย — Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --app-bg:#e8f1ea; --bubble:#46c266; --bubble-text:#fff; --txt:#1f2421; --txt-2:#8a938c;
+    --card:#fff; --green:#1f8a52; --green-soft:#d2ecd8; --line:#e3ebe5; --pageframe:#cdd8d0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Anuphan',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--pageframe);display:flex;justify-content:center;min-height:100vh;color:var(--txt);}
+  .phone{width:100%;max-width:430px;background:var(--app-bg);display:flex;flex-direction:column;height:100vh;position:relative;}
+
+  .status{display:flex;align-items:center;justify-content:space-between;padding:14px 24px 4px;font-size:17px;font-weight:600;flex:0 0 auto;}
+  .status .right{display:flex;align-items:center;gap:7px;font-size:15px;}
+  .battery .cell{width:25px;height:13px;border:1.5px solid var(--txt);border-radius:3px;position:relative;display:flex;padding:1.5px;}
+  .battery .cell::after{content:"";position:absolute;right:-3px;top:4px;width:2px;height:5px;background:var(--txt);border-radius:0 2px 2px 0;}
+  .battery .fill{height:100%;width:67%;background:var(--txt);border-radius:1px;}
+
+  .header{display:flex;align-items:center;justify-content:space-between;padding:6px 18px 10px;position:relative;flex:0 0 auto;}
+  .iconbtn{width:46px;height:46px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;border:none;box-shadow:0 1px 3px rgba(0,0,0,.05);cursor:pointer;}
+  .iconbtn svg{width:22px;height:22px;stroke:#3a4540;}
+  .htitle{position:absolute;left:50%;top:11px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}
+  .htitle .nm{font-size:17px;font-weight:600;}
+  .htitle .st{font-size:12px;color:var(--green);}
+  .prog{position:absolute;right:18px;top:18px;background:#fff;font-size:12px;color:var(--txt-2);padding:4px 10px;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+
+  .feed{flex:1 1 auto;overflow-y:auto;padding:8px 18px 16px;}
+  .row{margin-bottom:16px;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .row.user{display:flex;flex-direction:column;align-items:flex-end;}
+  .bubble{background:var(--bubble);color:var(--bubble-text);padding:13px 18px;border-radius:22px;font-size:18px;font-weight:500;max-width:82%;line-height:1.35;}
+  .asst{display:flex;gap:10px;align-items:flex-start;}
+  .asst .txt{font-size:18px;line-height:1.5;max-width:88%;padding-top:4px;}
+
+  .resultcard{background:#fff;border-radius:20px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.05);margin-top:4px;}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:11px 16px;font-size:16px;font-family:inherit;cursor:pointer;color:var(--txt);margin-top:4px;}
+  .chip:active{transform:scale(.97);}
+  .chip svg{width:18px;height:18px;stroke:var(--green);}
+
+  .resultcard{display:flex;align-items:center;gap:14px;}
+  .ricon{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .ricon.bell{background:#fdf1d2;} .ricon.bell svg{stroke:#c79412;}
+  .ricon svg{width:26px;height:26px;}
+  .resultcard .rt{font-size:18px;font-weight:600;}
+  .resultcard .rs{font-size:15px;color:var(--txt-2);margin-top:2px;}
+
+  .tonegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;}
+  .toneopt{background:#fff;border:2px solid transparent;border-radius:18px;padding:16px;cursor:pointer;text-align:left;font-family:inherit;box-shadow:0 1px 4px rgba(0,0,0,.04);transition:border-color .15s,transform .1s;}
+  .toneopt:active{transform:scale(.97);}
+  .toneopt.sel{border-color:var(--bubble);}
+  .toneopt .sample{font-size:17px;font-weight:600;color:#243029;}
+  .toneopt .tlabel{font-size:13px;color:var(--txt-2);margin-top:6px;}
+
+  .addrscroll{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
+  .addropt{background:#fff;border:2px solid transparent;border-radius:18px;padding:13px 20px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;color:#243029;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .addropt:active{transform:scale(.96);}
+  .addropt.sel{border-color:var(--bubble);}
+
+  .inputbar{padding:10px 16px 20px;flex:0 0 auto;}
+  .inputwrap{background:#fff;border-radius:28px;padding:8px 8px 8px 20px;box-shadow:0 1px 4px rgba(0,0,0,.05);display:flex;align-items:center;gap:8px;transition:opacity .2s;}
+  .inputwrap.off{opacity:.55;}
+  .msgin{flex:1;border:none;outline:none;font-family:inherit;font-size:18px;background:transparent;color:var(--txt);}
+  .msgin::placeholder{color:#9aa39c;}
+  .sendbtn{width:46px;height:46px;border-radius:50%;background:#eef3ef;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .2s;}
+  .sendbtn.active{background:var(--bubble);}
+  .sendbtn svg{width:22px;height:22px;stroke:#5a665e;}
+  .sendbtn.active svg{stroke:#fff;}
+
+  .filebubble{display:flex;flex-direction:column;align-items:flex-end;}
+  .filebubble .fb{display:flex;align-items:center;gap:10px;background:var(--bubble);color:#fff;padding:11px 15px;border-radius:20px;max-width:84%;font-size:16px;font-weight:500;}
+  .filebubble .fb svg{width:20px;height:20px;stroke:#fff;flex:0 0 auto;}
+  .filebubble .ftag{font-size:12px;color:var(--txt-2);margin:5px 4px 0 0;}
+  .tripscroll{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 6px;scroll-snap-type:x mandatory;margin:4px -2px 0;-webkit-overflow-scrolling:touch;}
+  .tripscroll::-webkit-scrollbar{display:none;}
+  .tcard{flex:0 0 78%;scroll-snap-align:start;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .tcard .tstrip{background:var(--green-soft);padding:13px 16px;font-weight:600;color:#243029;font-size:16px;}
+  .tcard .tbody{padding:6px 16px 12px;}
+  .tcard .titem{font-size:15px;color:#3a443e;padding:9px 0;border-bottom:0.5px solid var(--line);display:flex;gap:9px;align-items:baseline;}
+  .tcard .titem:last-child{border-bottom:none;}
+  .tcard .titem .n{color:var(--green);font-weight:600;flex:0 0 auto;}
+
+  .micHint{display:none;position:absolute;right:20px;bottom:74px;background:#243029;color:#fff;font-size:13px;padding:7px 12px;border-radius:14px;white-space:nowrap;}
+  .micHint::after{content:"";position:absolute;right:18px;bottom:-5px;width:10px;height:10px;background:#243029;transform:rotate(45deg);}
+  .sendbtn.mic{background:var(--bubble);}
+  .sendbtn.mic svg{stroke:#fff;}
+  .sendbtn.listening{animation:pulse 1s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(0,0,0,.18);}70%{box-shadow:0 0 0 15px rgba(0,0,0,0);}100%{box-shadow:0 0 0 0 rgba(0,0,0,0);}}
+  .demohint{font-size:13px;color:var(--txt-2);margin:2px 0 8px;}
+  .vchips{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+  .ricon.news{background:var(--green-soft);} .ricon.news svg{stroke:var(--green);}
+  .themerow{display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;}
+  .themeitem{display:flex;flex-direction:column;align-items:center;gap:7px;}
+  .swatch{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;box-shadow:0 1px 4px rgba(0,0,0,.12);}
+  .swatch:active{transform:scale(.93);}
+  .swatch.sel{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--txt);}
+  .swatch svg{width:22px;height:22px;stroke:#fff;opacity:0;}
+  .swatch.sel svg{opacity:1;}
+  .tname{font-size:13px;color:var(--txt-2);}
+
+  .chips2{display:flex;gap:10px;flex-wrap:wrap;}
+  .vsay{display:flex;align-items:center;gap:9px;font-size:16px;color:var(--txt);font-style:italic;background:#fff;border:1.5px dashed #c9d6cd;border-radius:16px;padding:11px 16px;}
+  .vsay svg{width:18px;height:18px;stroke:var(--green);flex:0 0 auto;}
+  .sendbtn.attn{animation:attn 1.4s ease-in-out infinite;}
+  @keyframes attn{0%,100%{transform:scale(1);}50%{transform:scale(1.09);}}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="status">
+    <span>07:17</span>
+    <span class="right">5G <span class="battery"><span class="cell"><span class="fill"></span></span></span></span>
+  </div>
+
+  <div class="header">
+    <button class="iconbtn" aria-label="เมนู"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>
+    <div class="htitle"><span class="nm" id="hName">ผู้ช่วยใหม่</span><span class="st">กำลังตั้งค่า…</span></div>
+    <div class="prog" id="prog">1 / 3</div>
+  </div>
+
+  <div class="feed" id="feed"></div>
+
+  <div class="inputbar" style="position:relative;">
+    <div class="micHint" id="micHint"></div>
+    <div class="inputwrap off" id="iwrap">
+      <input class="msgin" id="msg" placeholder="พิมพ์ข้อความ..." disabled autocomplete="off">
+      <button class="sendbtn" id="send" disabled aria-label="ส่ง">
+        <svg id="sicon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var feed=document.getElementById('feed'), hName=document.getElementById('hName'), prog=document.getElementById('prog');
+  var iwrap=document.getElementById('iwrap'), msg=document.getElementById('msg'), send=document.getElementById('send'), sicon=document.getElementById('sicon');
+  var S={user:'',asst:'',tone:null,addr:'',awaiting:null};
+  var TONE={
+    male:{label:'สุภาพ (ครับ)',s:'ครับ',q:'ครับ',sample:'ตั้งเตือนให้แล้วครับ'},
+    female:{label:'สุภาพ (ค่ะ)',s:'ค่ะ',q:'คะ',sample:'ตั้งเตือนให้แล้วค่ะ'},
+    casual:{label:'เป็นกันเอง (จ๊ะ)',s:'จ๊ะ',q:'จ๊ะ',sample:'ตั้งเตือนให้แล้วจ๊ะ'},
+    neutral:{label:'เป็นกลาง',s:'',q:'',sample:'ตั้งเตือนให้แล้ว'}
+  };
+  function p(){return S.tone?TONE[S.tone].s:'';}
+  function pq(){return S.tone?TONE[S.tone].q:'';}
+  function sp(x){return x||'';}  // คำลงท้ายติดกับคำหน้า เช่น ดีจ๊ะ / เรียบร้อยจ๊ะ
+  function callUser(){return S.addr||S.user||'คุณ';}
+  function scroll(){feed.scrollTop=feed.scrollHeight;}
+  function el(html){var d=document.createElement('div');d.innerHTML=html;return d.firstElementChild;}
+  function user(t){feed.appendChild(el('<div class="row user"><div class="bubble">'+t+'</div></div>'));scroll();}
+  function node(n){feed.appendChild(n);scroll();}
+  function bot(text,cb){
+    setTimeout(function(){
+      node(el('<div class="row"><div class="asst"><div class="txt">'+text+'</div></div></div>'));
+      if(cb)cb();
+    },430);
+  }
+
+  /* ----- chat input control ----- */
+  function setAwait(type){
+    S.awaiting=type; msg.disabled=false; send.disabled=false;
+    iwrap.classList.remove('off'); send.classList.add('active');
+    sicon.innerHTML='<line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/>';
+    msg.focus();
+  }
+  function clearAwait(){
+    S.awaiting=null; msg.value=''; msg.disabled=true; send.disabled=true;
+    iwrap.classList.add('off'); send.classList.remove('active');
+    sicon.innerHTML='<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/>';
+  }
+  var chatMode=false;
+  function handleSubmit(){
+    var v=msg.value.trim(); if(!v)return;
+    if(!S.awaiting){
+      if(chatMode){ user(v); msg.value=''; genericReply(); }
+      return;
+    }
+    var type=S.awaiting; user(v); clearAwait();
+    if(type==='user'){ S.user=v.slice(0,20); askAsstName(); }
+    else if(type==='assistant'){ S.asst=v.slice(0,20); hName.textContent=S.asst; stageTryFeature(); }
+    else if(type==='addr'){ S.addr=v.slice(0,14); confirmAddr(); }
+  }
+  send.onclick=handleSubmit;
+  msg.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();handleSubmit();}});
+
+  /* ----- stage 1: names (typed in chat) ----- */
+  function start(){
+    prog.textContent='1 / 3';
+    bot('สวัสดี! ฉันคือผู้ช่วยเอไอของคุณ ก่อนเริ่มใช้งาน ขอรู้จักกันสักนิดนะ ไม่ทราบว่าคุณชื่ออะไร',function(){
+      setAwait('user');
+    });
+  }
+  function askAsstName(){
+    bot('ยินดีที่ได้รู้จักนะ'+S.user+' แล้วอยากให้ฉันชื่อว่าอะไรดี',function(){ setAwait('assistant'); });
+  }
+
+  /* ----- stage 2: try reminder + tone ----- */
+  function stageTryFeature(){
+    prog.textContent='2 / 3';
+    bot('เยี่ยมเลย '+S.asst+' พร้อมช่วยแล้ว มาลองใช้งานจริงกันนะ แตะตัวอย่างด้านล่างให้ '+S.asst+' ตั้งเตือนให้ดู',function(){
+      var c=el('<div class="row"><button class="chip" id="cg"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg>เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง</button></div>');
+      node(c); c.querySelector('#cg').onclick=function(){c.remove();reminderDemo();};
+    });
+  }
+  function reminderDemo(){
+    user('เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง');
+    bot('จัดให้แล้ว!',function(){
+      node(el('<div class="row"><div class="resultcard"><div class="ricon bell"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div><div><div class="rt">รดน้ำต้นไม้</div><div class="rs">พรุ่งนี้ • 07:00 น.</div></div></div></div>'));
+      bot('แล้วอยากให้ '+S.asst+' ตอบแบบไหนดี แตะเลือกที่ถูกใจเลย',function(){ toneCards(); });
+    });
+  }
+  function toneCards(){
+    var keys=['male','female','casual','neutral'], html='<div class="row"><div class="tonegrid">';
+    keys.forEach(function(k){html+='<button class="toneopt" data-k="'+k+'"><div class="sample">'+TONE[k].sample+'</div><div class="tlabel">'+TONE[k].label+'</div></button>';});
+    html+='</div></div>';
+    var c=el(html);node(c);
+    c.querySelectorAll('.toneopt').forEach(function(b){
+      b.onclick=function(){
+        c.querySelectorAll('.toneopt').forEach(function(x){x.classList.remove('sel');x.style.pointerEvents='none';});
+        b.classList.add('sel'); S.tone=b.getAttribute('data-k');
+        user('เอาแบบ '+TONE[S.tone].label);
+        askAddress();
+      };
+    });
+  }
+
+  /* ----- stage 3: how should I call you (always, tone-aware) ----- */
+  function addrOptions(){
+    if(S.tone==='casual') return ['แก','นาย','เพื่อน',S.user];
+    if(S.tone==='neutral') return [S.user,'คุณ'+S.user];
+    return [S.user,'คุณ'+S.user,'พี่'+S.user,'น้อง'+S.user];
+  }
+  /* คำเรียกผู้ใช้บอกบทบาทของบอทด้วย:
+     เรียกผู้ใช้ "พี่X" → บอทเป็นน้อง (แทนตัว หนู/น้องปิ่น)
+     เรียกผู้ใช้ "น้องX" → บอทเป็นพี่ (แทนตัว พี่ปิ่น/พี่) */
+  function selfName(){
+    if(S.addr.indexOf('พี่')===0) return 'น้อง'+S.asst;
+    if(S.addr.indexOf('น้อง')===0) return 'พี่'+S.asst;
+    return S.asst;
+  }
+  function askAddress(){
+    prog.textContent='3 / 3';
+    var q='แล้วอยากให้ '+S.asst+' เรียก'+S.user+'ว่ายังไงดี'+sp(pq())+' แตะเลือกหรือกำหนดเองก็ได้';
+    bot(q,function(){
+      var opts=addrOptions();
+      var html='<div class="row"><div class="addrscroll">';
+      opts.forEach(function(o,i){html+='<button class="addropt" data-i="'+i+'">'+o+'</button>';});
+      html+='<button class="addropt" data-custom="1">กำหนดเอง</button></div></div>';
+      var c=el(html);node(c);
+      c.querySelectorAll('.addropt').forEach(function(b){
+        b.onclick=function(){
+          if(b.getAttribute('data-custom')){ c.remove(); customAddr(); return; }
+          c.querySelectorAll('.addropt').forEach(function(x){x.classList.remove('sel');x.style.pointerEvents='none';});
+          b.classList.add('sel'); S.addr=opts[+b.getAttribute('data-i')];
+          user('เรียกฉันว่า "'+S.addr+'"'); confirmAddr();
+        };
+      });
+    });
+  }
+  function customAddr(){
+    bot('ได้เลย พิมพ์คำที่อยากให้เรียกมาได้เลย'+sp(p()),function(){ setAwait('addr'); });
+  }
+  function confirmAddr(){
+    bot('โอเค'+S.addr+'! ตั้งแต่นี้ '+selfName()+' จะเรียกแบบนี้ตลอดนะ'+sp(pq()),function(){ finishToFile(); });
+  }
+
+  /* ----- bonus: file summary in chosen tone ----- */
+  function fileBubble(name,tag){
+    var t=tag?'<div class="ftag">'+tag+'</div>':'';
+    feed.appendChild(el('<div class="row"><div class="filebubble"><div class="fb"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"/><path d="M19 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>'+name+'</div>'+t+'</div></div>'));scroll();
+  }
+  function finishToFile(){
+    bot('ลองอีกอย่างไหม'+sp(pq())+' ปิ่นรับไฟล์ที่'+callUser()+'อัปโหลด แล้วสรุปให้เป็นการ์ดอ่านง่ายได้นะ ลองอัปโหลดไฟล์เอง หรือใช้ไฟล์ตัวอย่างก็ได้',function(){
+      var c=el('<div class="row"><div class="chips2"><button class="chip" id="cup"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 19h14"/></svg>อัปโหลดไฟล์</button><button class="chip" id="cf"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"/><path d="M19 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>ใช้ไฟล์ตัวอย่าง</button></div></div>');
+      node(c);
+      c.querySelector('#cup').onclick=function(){c.remove();fileDemo(false);};
+      c.querySelector('#cf').onclick=function(){c.remove();fileDemo(true);};
+    });
+  }
+  function fileDemo(sample){
+    fileBubble('ทริปเชียงใหม่ 3 วัน.pdf', sample?'ไฟล์ตัวอย่าง':'อัปโหลดแล้ว');
+    bot('สรุปทริปเป็นการ์ดให้แล้ว ปัดดูแต่ละวันได้เลย'+sp(p()),function(){
+      var days=[
+        {d:'วันที่ 1',items:['ดอยสุเทพ','ย่านนิมมาน','ขันโตกมื้อเย็น']},
+        {d:'วันที่ 2',items:['ปางช้าง','ดอยอินทนนท์','น้ำตกวชิรธาร']},
+        {d:'วันที่ 3',items:['ตลาดวโรรส','คาเฟ่ในเมือง','ซื้อของฝาก']}
+      ];
+      var h='<div class="row"><div class="tripscroll">';
+      days.forEach(function(x){
+        h+='<div class="tcard"><div class="tstrip">'+x.d+' · เชียงใหม่</div><div class="tbody">';
+        x.items.forEach(function(it,i){h+='<div class="titem"><span class="n">'+(i+1)+'</span>'+it+'</div>';});
+        h+='</div></div>';
+      });
+      h+='</div></div>';
+      node(el(h));
+      voiceStep();
+    });
+  }
+  /* ----- bonus: talk to Pin (voice) ----- */
+  var voiceActive=false, voiceDone=false, micHint=document.getElementById('micHint');
+  function micDown(e){ if(!voiceActive)return; e.preventDefault(); send.classList.remove('attn'); send.classList.add('listening'); micHint.textContent='กำลังฟัง…'; }
+  function micUp(e){ if(!voiceActive)return; e.preventDefault(); send.classList.remove('listening'); var ex=['ตั้งข่าวทุกวันตอนแปดโมง','พรุ่งนี้อากาศเป็นยังไง']; handleVoice(ex[Math.floor(Math.random()*ex.length)]); }
+  send.addEventListener('mousedown',micDown); send.addEventListener('mouseup',micUp);
+  send.addEventListener('touchstart',micDown,{passive:false}); send.addEventListener('touchend',micUp,{passive:false});
+
+  function voiceStep(){
+    bot('ปิ่นฟังเสียงก็ได้นะ'+sp(p())+' กดปุ่มไมค์ค้างไว้แล้วลองพูดดูสิ จะพูดตามตัวอย่าง หรือพูดอะไรก็ได้',function(){
+      var micsvg='<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/></svg>';
+      var c=el('<div class="row"><div class="demohint">ลองพูดว่า:</div><div class="vchips">'+
+        '<div class="vsay">'+micsvg+'"ตั้งข่าวทุกวันตอนแปดโมง"</div>'+
+        '<div class="vsay">'+micsvg+'"พรุ่งนี้อากาศเป็นยังไง"</div>'+
+        '</div></div>');
+      node(c);
+      voiceActive=true; voiceDone=false;
+      send.classList.add('mic','attn'); send.disabled=false; iwrap.classList.remove('off');
+      sicon.innerHTML='<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/>';
+      micHint.style.display='block'; micHint.textContent='กดค้างที่ไมค์เพื่อพูด';
+    });
+  }
+  function handleVoice(text){
+    if(voiceDone)return; voiceDone=true; voiceActive=false;
+    micHint.style.display='none'; send.classList.remove('listening','mic','attn'); send.disabled=true; iwrap.classList.add('off');
+    user(text);
+    if(text.indexOf('ข่าว')>-1){
+      bot('ตั้งให้แล้ว'+sp(p())+' ปิ่นจะสรุปข่าวเช้าส่งให้ทุกวัน',function(){
+        node(el('<div class="row"><div class="resultcard"><div class="ricon news"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a1 1 0 0 0-1 1v12a2 2 0 0 0 2 2h13"/><path d="M4 5h13v14a1 1 0 0 0 1 1 2 2 0 0 0 2-2V8h-3"/><line x1="7" y1="9" x2="13" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg></div><div><div class="rt">ข่าวเช้า</div><div class="rs">ทุกวัน • 08:00 น.</div></div></div></div>'));
+        setTimeout(themeStep,520);
+      });
+    } else if(text.indexOf('อากาศ')>-1){
+      bot('พรุ่งนี้กรุงเทพ 32° มีฝนช่วงบ่าย พกร่มไปด้วยนะ'+sp(p()),function(){ setTimeout(themeStep,520); });
+    } else {
+      bot('ได้เลย'+sp(p())+' เดี๋ยว'+selfName()+'จัดการให้นะ',function(){ setTimeout(themeStep,520); });
+    }
+  }
+
+  /* ----- final: color theme ----- */
+  var PAL={green:['#46c266','#1f8a52','#d7ecdc','#e8f1ea'],blue:['#3b9be8','#1f6fb0','#d6e8f7','#e7f0f7'],purple:['#8b6fd6','#6b46c1','#e7ddf7','#efeaf8'],peach:['#ef9158','#c96a2e','#fbe4d4','#fbf0e8'],pink:['#ec6f9e','#c44a78','#fbdde9','#fbeaf1']};
+  function applyTheme(k){var p=PAL[k]||PAL.green,r=document.documentElement.style;r.setProperty('--bubble',p[0]);r.setProperty('--green',p[1]);r.setProperty('--green-soft',p[2]);r.setProperty('--app-bg',p[3]);}
+  var themeChosen=false;
+  function themeStep(){
+    prog.textContent='ใกล้เสร็จ';
+    bot('สุดท้ายแล้ว'+sp(p())+' เลือกธีมสีที่ชอบก่อนเริ่มใช้ แตะดูเปลี่ยนสีทันที',function(){
+      var TH=[{k:'green',n:'เขียว',c:'#46c266'},{k:'blue',n:'ฟ้า',c:'#3b9be8'},{k:'purple',n:'ม่วง',c:'#8b6fd6'},{k:'peach',n:'พีช',c:'#ef9158'},{k:'pink',n:'ชมพู',c:'#ec6f9e'}];
+      var h='<div class="row"><div class="themerow">';
+      TH.forEach(function(t){h+='<div class="themeitem"><button class="swatch" data-k="'+t.k+'" style="background:'+t.c+'"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button><span class="tname">'+t.n+'</span></div>';});
+      h+='</div></div>';
+      var c=el(h); node(c);
+      c.querySelectorAll('.swatch').forEach(function(b){b.onclick=function(){
+        c.querySelectorAll('.swatch').forEach(function(x){x.classList.remove('sel');});
+        b.classList.add('sel'); applyTheme(b.getAttribute('data-k'));
+        if(!themeChosen){ themeChosen=true; finishOnboarding(); }
+      };});
+    });
+  }
+
+  function finishOnboarding(){
+    prog.style.display='none';
+    var st=document.querySelector('.htitle .st'); if(st) st.textContent='ออนไลน์';
+    bot('เรียบร้อย ตั้งค่าเสร็จแล้ว'+sp(p())+' เปลี่ยนชื่อ คำเรียก หรือธีมทีหลังได้ในตั้งค่า คุยกับ'+S.asst+'ต่อได้เลย'+sp(p()),function(){
+      enableChat();
+    });
+  }
+  function enableChat(){
+    chatMode=true;
+    voiceActive=false; voiceDone=false; micHint.style.display='none';
+    send.classList.remove('mic','listening'); send.classList.add('active');
+    msg.disabled=false; send.disabled=false; iwrap.classList.remove('off');
+    msg.placeholder='พิมพ์คุยกับ'+S.asst+'...';
+    sicon.innerHTML='<line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/>';
+    msg.focus();
+  }
+  function genericReply(){
+    bot('ได้เลย'+sp(p())+' เดี๋ยว'+selfName()+'จัดการให้นะ');
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

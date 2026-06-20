@@ -30,13 +30,11 @@
   .preview{background:#dcefe1;border-radius:22px;padding:18px;}
   .preview .pl{font-size:13px;color:var(--green);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
   .pvchat{display:flex;gap:10px;align-items:flex-start;}
-  .pvava{width:36px;height:36px;border-radius:50%;background:#fff;color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto;font-size:16px;}
   .pvbubble{background:#fff;border-radius:18px;border-bottom-left-radius:5px;padding:12px 16px;font-size:17px;line-height:1.5;}
   .pvline2{margin-top:8px;}
 
   /* assistant name row */
   .namerow{display:flex;align-items:center;gap:14px;}
-  .navatar{width:50px;height:50px;border-radius:50%;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex:0 0 auto;}
   .field{flex:1;}
   .field input{width:100%;font-family:inherit;font-size:18px;padding:11px 14px;border:1.5px solid var(--line);border-radius:13px;outline:none;background:#fafbfa;}
   .field input:focus{border-color:var(--bubble);background:#fff;}
@@ -136,7 +134,7 @@
       <div class="special" id="special">
         <div class="si"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg></div>
         <div class="st"><div class="t">บุคลิกพิเศษ</div><div class="d">ให้ผู้ช่วยรับบทเป็นตัวละคร</div></div>
-        <span class="badge">18+</span>
+        
         <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </div>
@@ -152,7 +150,7 @@
 
 <script>
 (function(){
-  var DEF={asst:'ปิ่น',user:'บอล',tone:'female',addr:null,self:null};
+  var DEF={asst:'ปิ่น',user:'บอล',tone:'neutral',addr:null,self:null};
   var S=Object.assign({},DEF);
   var TONE={
     male:{label:'สุภาพ (ครับ)',s:'ครับ',q:'ครับ'},

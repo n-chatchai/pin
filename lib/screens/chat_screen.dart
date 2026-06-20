@@ -6,6 +6,7 @@ import '../services/prefs.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_composer.dart';
 import '../widgets/liquid_glass.dart';
+import '../widgets/onboard_card.dart';
 import '../theme/pin_theme.dart';
 import 'now_screen.dart';
 import '../services/now_controllers.dart';
@@ -33,6 +34,8 @@ class ChatScaffold extends StatefulWidget {
   // caller can route 'send' vs an action like 'scan'.
   final List<Map<String, String>> quickReplies;
   final ValueChanged<Map<String, String>>? onQuickReply;
+  // Tapped an inline onboarding option (chip/tone/pill rendered in the feed).
+  final ValueChanged<Map<String, String>>? onOnboardAction;
 
   const ChatScaffold({
     super.key,
@@ -52,6 +55,7 @@ class ChatScaffold extends StatefulWidget {
     this.onFlexAction,
     this.quickReplies = const [],
     this.onQuickReply,
+    this.onOnboardAction,
   });
 
   @override
@@ -114,6 +118,12 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                                 1 -
                                 (botTyping ? d - 1 : d);
                             final m = messages[i];
+                            // Onboarding demo cards render full-width, no bubble.
+                            if (m.onboard != null) {
+                              return OnboardCard(
+                                  spec: m.onboard!,
+                                  onAction: widget.onOnboardAction);
+                            }
                             final prev = i > 0 ? messages[i - 1] : null;
                             final newDay =
                                 prev == null || !_sameDay(prev.time, m.time);

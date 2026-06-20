@@ -64,16 +64,6 @@ class PinPalette {
       av: Color(0xFFD3DDEE),
     ),
     PinPalette(
-      key: 'amber',
-      name: 'น้ำผึ้ง',
-      accent: Color(0xFFCE8A2C),
-      deep: Color(0xFF8C5A12),
-      dd: Color(0xFFB0731C),
-      pale: Color(0xFFF3E7CF),
-      card: Color(0xFFF5EBD6),
-      av: Color(0xFFECD9B2),
-    ),
-    PinPalette(
       key: 'plum',
       name: 'พลัม',
       accent: Color(0xFF8A4A6B),
@@ -102,16 +92,6 @@ class PinPalette {
       pale: Color(0xFFEDEEEF),
       card: Color(0xFFE8E9EB),
       av: Color(0xFFD9DBDF),
-    ),
-    PinPalette(
-      key: 'wine',
-      name: 'ไวน์',
-      accent: Color(0xFF7A2E3A), // deep burgundy — rich, credible
-      deep: Color(0xFF561F28),
-      dd: Color(0xFF6A2832),
-      pale: Color(0xFFF2E7E9),
-      card: Color(0xFFEEE0E3),
-      av: Color(0xFFE5CCD1),
     ),
   ];
 

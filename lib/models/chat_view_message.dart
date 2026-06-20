@@ -24,6 +24,10 @@ class ChatViewMessage {
   /// ปิ่น Flex card spec (io.tokens2.flex), when this message is a rich card.
   final Map<String, dynamic>? flex;
 
+  /// Onboarding demo card (local, ephemeral) — {'type': 'reminder'|'news'|
+  /// 'trip'|'theme', ...}. Rendered by OnboardCard, never synced to the room.
+  final Map<String, dynamic>? onboard;
+
   /// emoji -> count
   final Map<String, int> reactions;
 
@@ -52,6 +56,7 @@ class ChatViewMessage {
     this.mediaUrl,
     this.localPath,
     this.flex,
+    this.onboard,
     this.reactions = const {},
     this.replyToEventId,
     this.replyToSender,
@@ -100,6 +105,7 @@ class ChatViewMessage {
         mediaUrl: mediaUrl,
         localPath: localPath,
         flex: flex,
+        onboard: onboard,
         reactions: reactions ?? this.reactions,
         replyToEventId: replyToEventId,
         replyToSender: replyToSender ?? this.replyToSender,

@@ -8,9 +8,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// (synced to the bot later).
 class PinPrefs {
   final String pinName; // เรียกปิ่นว่า
-  final String userCall; // ให้ปิ่นเรียกเราว่า
-  final String pinSelf; // ปิ่นแทนตัวเองว่า (เช่น ปิ่น/หนู/ผม)
-  final String pinEnding; // ปิ่นลงท้ายว่า (เช่น ครับ/คะ/จ้ะ)
+  final String userName; // ชื่อ/ชื่อเล่นของผู้ใช้ (ใช้สร้างตัวเลือกคำเรียก)
+  final String userCall; // ให้ปิ่นเรียกเราว่า (คำเรียกที่เลือก เช่น พี่บอล)
+  final String pinSelf; // ปิ่นแทนตัวเองว่า (เช่น ปิ่น/หนู/ผม) — auto จากคำเรียก
+  final String tone; // 'male' | 'female' | 'casual' | 'neutral'
+  final String pinEnding; // คำลงท้ายบอกเล่า (derive จาก tone; เก็บไว้ใช้ template)
   final String lang; // 'th' | 'en'
   final bool langExplicit; // true once the user picks a language by hand
   final bool morningReminder;
@@ -24,9 +26,11 @@ class PinPrefs {
 
   const PinPrefs({
     this.pinName = 'ปิ่น',
+    this.userName = '',
     this.userCall = 'พี่',
     this.pinSelf = 'ปิ่น',
-    this.pinEnding = 'ครับ',
+    this.tone = 'female',
+    this.pinEnding = 'ค่ะ',
     this.lang = 'th',
     this.langExplicit = false,
     this.morningReminder = true,
@@ -41,8 +45,10 @@ class PinPrefs {
 
   PinPrefs copyWith({
     String? pinName,
+    String? userName,
     String? userCall,
     String? pinSelf,
+    String? tone,
     String? pinEnding,
     String? lang,
     bool? langExplicit,
@@ -57,8 +63,10 @@ class PinPrefs {
   }) =>
       PinPrefs(
         pinName: pinName ?? this.pinName,
+        userName: userName ?? this.userName,
         userCall: userCall ?? this.userCall,
         pinSelf: pinSelf ?? this.pinSelf,
+        tone: tone ?? this.tone,
         pinEnding: pinEnding ?? this.pinEnding,
         lang: lang ?? this.lang,
         langExplicit: langExplicit ?? this.langExplicit,
@@ -74,8 +82,10 @@ class PinPrefs {
 
   Map<String, String> toMap() => {
         'pinName': pinName,
+        'userName': userName,
         'userCall': userCall,
         'pinSelf': pinSelf,
+        'tone': tone,
         'pinEnding': pinEnding,
         'lang': lang,
         'langExplicit': langExplicit ? '1' : '0',
@@ -91,9 +101,12 @@ class PinPrefs {
 
   static PinPrefs fromMap(Map<String, String> m) => PinPrefs(
         pinName: m['pinName'] ?? 'ปิ่น',
+        userName: m['userName'] ?? '',
         userCall: m['userCall'] ?? 'พี่',
         pinSelf: m['pinSelf'] ?? 'ปิ่น',
-        pinEnding: m['pinEnding'] ?? 'ครับ',
+        // Migrate pre-tone prefs: derive tone from the saved ending particle.
+        tone: m['tone'] ?? toneFromEnding(m['pinEnding'] ?? 'ค่ะ'),
+        pinEnding: m['pinEnding'] ?? 'ค่ะ',
         lang: m['lang'] ?? 'th',
         langExplicit: m['langExplicit'] == '1',
         morningReminder: m['morningReminder'] != '0',
@@ -105,6 +118,40 @@ class PinPrefs {
         tourDone: m['tourDone'] == '1',
         personaSetup: m['personaSetup'] == '1',
       );
+}
+
+/// Sentence-ending particle for a tone. female swaps ค่ะ↔คะ by sentence type
+/// (statement vs question); neutral has none. Used by the live settings preview
+/// and onboarding copy (the agent itself gets a prompt instruction, not this).
+String toneParticle(String tone, {bool question = false}) {
+  switch (tone) {
+    case 'male':
+      return 'ครับ';
+    case 'female':
+      return question ? 'คะ' : 'ค่ะ';
+    case 'casual':
+      return 'จ๊ะ';
+    default: // neutral
+      return '';
+  }
+}
+
+/// Reverse map (migration): an old saved ending particle → its tone.
+String toneFromEnding(String ending) {
+  switch (ending.trim()) {
+    case 'ครับ':
+      return 'male';
+    case 'ค่ะ':
+    case 'คะ':
+      return 'female';
+    case 'จ๊ะ':
+    case 'จ้ะ':
+      return 'casual';
+    case '':
+      return 'neutral';
+    default:
+      return 'female';
+  }
 }
 
 /// The user's chosen name for the assistant (defaults to 'ปิ่น'). Use this in

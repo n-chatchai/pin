@@ -14,16 +14,13 @@ import '../agent/agent_config.dart';
 import '../agent/agent_reply.dart';
 import '../agent/agent_session.dart';
 import '../agent/abilities.dart';
-import '../agent/showcase.dart';
 import '../models/chat_view_message.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import '../services/files_store.dart';
 import '../services/matrix_service.dart';
 import '../services/prefs.dart';
-import '../theme/pin_theme.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/pin_toast.dart';
-import 'abilities_screen.dart';
 import 'chat_screen.dart' show ChatScaffold;
 
 /// The main ปิ่น chat — same polished UI (ChatScaffold) but backed by the
@@ -61,9 +58,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   ChatViewMessage? _replyTo;
   bool _botTyping = false;
   int _seq = 0;
-  int _tourStep = -1; // -1 = not in the first-run showcase tour
-  int? _tourNextAfterReply; // step to offer once a live/action demo replies
-  int _personaStep = -1; // -1 = not in the in-chat persona/theme setup
+  int _personaStep = -1; // -1 = not in the in-chat onboarding (>=0 = active)
 
   @override
   void initState() {
@@ -110,13 +105,11 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       await personaF;
     }
     if (mounted) setState(() => _loading = null);
-    // First run (no history): persona/theme setup once (after the account/room
-    // exist, so it syncs to room state), then the showcase tour, then greeting.
+    // First run (no history): conversational onboarding once (after the
+    // account/room exist, so persona syncs to room state); else the greeting.
     if (_messages.isEmpty) {
       if (!PrefsController.instance.value.personaSetup) {
         _startPersonaSetup();
-      } else if (!PrefsController.instance.value.tourDone) {
-        _startTour();
       } else {
         _loadWelcome();
       }
@@ -140,8 +133,11 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       final cur = PrefsController.instance.value;
       await PrefsController.instance.update(cur.copyWith(
         pinName: p['pin_name'] ?? cur.pinName,
+        userName: p['user_name'] ?? cur.userName,
         userCall: p['user_call'] ?? cur.userCall,
         pinSelf: p['pin_self'] ?? cur.pinSelf,
+        // Migrate older rooms with no tone stored: derive it from the ending.
+        tone: p['tone'] ?? toneFromEnding(p['pin_ending'] ?? cur.pinEnding),
         pinEnding: p['pin_ending'] ?? cur.pinEnding,
         personaSetup: true,
       ));
@@ -311,208 +307,327 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         .replaceAll('{ending}', p.pinEnding);
   }
 
-  // ---- First-run persona/theme setup (in-chat, conversational) ------------
+  // ---- First-run conversational onboarding (persona + light demos) --------
+  // Order: ask the user's name → name the assistant → reminder demo → tone →
+  // how to address you (tone-aware) → file demo → done. pinSelf is derived from
+  // the chosen address (พี่X→น้องASST, น้องX→พี่ASST), not asked. Theme lives in
+  // Settings now. This replaces the old scripted showcase tour.
 
-  /// The setup questions, rebuilt each step so {pinName} reflects the just-made
-  /// choice. The user can tap a chip OR type a custom answer (handled in
-  /// _onSend). Theme is the only chip-only step.
-  List<({String q, String field, List<({String label, String value})> chips})>
-      _personaSetupSteps() {
-    final p = PrefsController.instance.value;
-    final name = p.pinName;
-    return [
-      (
-        q: 'สวัสดี ฉันคือผู้ช่วยส่วนตัวของคุณ — '
-            'อยากเรียกฉันว่าอะไรดี? พิมพ์ชื่อที่ชอบ หรือใช้ "ปิ่น" ก็ได้',
-        field: 'pinName',
-        chips: [
-          (label: 'ใช้ "ปิ่น"', value: 'ปิ่น'),
-        ],
-      ),
-      (
-        q: 'ได้เลย! แล้ว$name เรียกคุณว่าอะไรดี? (สรรพนาม หรือชื่อเล่นของคุณ)',
-        field: 'userCall',
-        chips: [
-          (label: 'พี่', value: 'พี่'),
-          (label: 'คุณ', value: 'คุณ'),
-          (label: 'เธอ', value: 'เธอ'),
-        ],
-      ),
-      (
-        q: 'เวลา$name พูดถึงตัวเอง อยากให้แทนตัวว่าอะไร?',
-        field: 'pinSelf',
-        chips: [
-          (label: name, value: name),
-          (label: 'หนู', value: 'หนู'),
-          (label: 'ผม', value: 'ผม'),
-          (label: 'เรา', value: 'เรา'),
-        ],
-      ),
-      (
-        q: 'ให้$name ลงท้ายประโยคยังไงดี?',
-        field: 'pinEnding',
-        chips: [
-          (label: 'ครับ', value: 'ครับ'),
-          (label: 'คะ', value: 'คะ'),
-          (label: 'จ้ะ', value: 'จ้ะ'),
-          (label: 'ไม่ลงท้าย', value: ''),
-        ],
-      ),
-      (
-        q: 'สุดท้าย เลือกสีที่ชอบ${p.pinEnding}',
-        field: 'theme',
-        chips: [for (final pal in PinPalette.all) (label: pal.name, value: pal.key)],
-      ),
-    ];
+  String _personaStage = ''; // which onboarding question the next answer fills
+
+  void _startPersonaSetup() {
+    _personaStep = 0; // >=0 marks onboarding active (typed input = an answer)
+    _askUserName();
   }
 
-  void _startPersonaSetup() => _postPersonaStep(0);
-
-  /// Post ปิ่น's question for step [i] + its chips. Past the last step → finish.
-  void _postPersonaStep(int i) {
-    final steps = _personaSetupSteps();
-    if (i < 0 || i >= steps.length) {
-      _finishPersonaSetup();
-      return;
-    }
-    _personaStep = i;
-    final s = steps[i];
+  /// Post ปิ่น's line for [stage] + its inline options (rendered IN the feed,
+  /// design-style — not the quick-reply bar). [kind] = chips | tone | addr.
+  void _postStage(String stage, String q, String kind,
+      [List<Map<String, String>> options = const []]) {
+    _personaStage = stage;
     setState(() {
-      _messages.add(_text(s.q, me: false));
-      _quickReplies = [
-        for (final c in s.chips)
-          {'label': c.label, 'action': 'persona', 'field': s.field, 'value': c.value},
-      ];
+      _messages.add(_text(q, me: false));
+      if (options.isNotEmpty) _messages.add(_optionsMsg(kind, options));
     });
-    _scrollToEnd();
+    // reverse:true ListView keeps the newest pinned at the bottom on its own —
+    // no manual animate (the old _scrollToEnd fought the pin and jittered).
   }
 
-  /// Apply one persona/theme answer to PrefsController (+ ThemeController).
-  void _applyPersonaField(String field, String value) {
-    final p = PrefsController.instance.value;
-    switch (field) {
-      case 'pinName':
-        PrefsController.instance
-            .update(p.copyWith(pinName: value.trim().isEmpty ? 'ปิ่น' : value.trim()));
-      case 'userCall':
-        PrefsController.instance.update(p.copyWith(userCall: value.trim()));
-      case 'pinSelf':
-        PrefsController.instance
-            .update(p.copyWith(pinSelf: value.trim().isEmpty ? p.pinName : value.trim()));
-      case 'pinEnding':
-        PrefsController.instance.update(p.copyWith(pinEnding: value.trim()));
-      case 'theme':
-        ThemeController.instance.select(value);
+  ChatViewMessage _optionsMsg(String kind, List<Map<String, String>> options) =>
+      ChatViewMessage(
+        eventId: 'm${_seq++}',
+        sender: '@pin',
+        body: '',
+        time: DateTime.now(),
+        isMe: false,
+        onboard: {'type': 'options', 'kind': kind, 'options': options},
+      );
+
+  Map<String, String> _pChip(String label, String value) =>
+      {'label': label, 'value': value};
+
+  /// Remove the trailing inline-options card once it's been answered (design
+  /// removes the buttons after a choice).
+  void _consumeOptions() {
+    if (_messages.isNotEmpty && _messages.last.onboard?['type'] == 'options') {
+      setState(() => _messages.removeLast());
     }
   }
 
-  void _handlePersonaChip(Map<String, String> r) {
+  void _echoUser(String t) {
     setState(() {
-      _messages.add(_text(r['label'] ?? r['value'] ?? '', me: true));
+      _messages.add(_text(t, me: true));
       _quickReplies = const [];
     });
-    _applyPersonaField(r['field'] ?? '', r['value'] ?? '');
-    _postPersonaStep(_personaStep + 1);
   }
 
-  /// Finish setup: persist persona + theme to the room state (source of truth)
-  /// and mark personaSetup done, then hand off to the greeting/tour.
+  void _botSay(String t) {
+    setState(() => _messages.add(_text(t, me: false)));
+  }
+
+  // ปิ่น's scripted onboarding lines speak in the chosen tone (neutral until the
+  // tone step). _pt = statement particle, _ptq = question particle.
+  String get _pt => toneParticle(PrefsController.instance.value.tone);
+  String get _ptq =>
+      toneParticle(PrefsController.instance.value.tone, question: true);
+
+  /// Add a local inline demo card (reminder/news/trip/theme) to the feed.
+  void _botCard(Map<String, dynamic> spec) {
+    setState(() => _messages.add(ChatViewMessage(
+        eventId: 'm${_seq++}',
+        sender: '@pin',
+        body: '',
+        time: DateTime.now(),
+        isMe: false,
+        onboard: spec)));
+  }
+
+  /// Tone-aware address options, built from the user's name.
+  List<String> _addrOptions() {
+    final p = PrefsController.instance.value;
+    final n = p.userName.trim().isEmpty ? 'คุณ' : p.userName.trim();
+    switch (p.tone) {
+      case 'casual':
+        return [n, 'แก', 'นาย', 'เพื่อน'];
+      case 'neutral':
+        return [n, 'คุณ$n'];
+      default:
+        return [n, 'คุณ$n', 'พี่$n', 'น้อง$n'];
+    }
+  }
+
+  /// The address tells the assistant's role: "พี่X" → it's the junior (น้องASST),
+  /// "น้องX" → it's the senior (พี่ASST); otherwise it goes by its own name.
+  String _deriveSelf(String addr, String asst) {
+    if (addr.startsWith('พี่')) return 'น้อง$asst';
+    if (addr.startsWith('น้อง')) return 'พี่$asst';
+    return asst;
+  }
+
+  // ----- stages (each posts a question, _applyPersonaAnswer advances) -----
+  // Pre-tone lines stay NEUTRAL (no particle); once the tone is picked the
+  // later lines speak in it (via _pt / _ptq).
+  void _askUserName() => _postStage(
+      'userName',
+      'สวัสดี! ฉันคือผู้ช่วยเอไอของคุณ ก่อนเริ่มใช้งาน ขอรู้จักกันสักนิดนะ — '
+          'ไม่ทราบว่าคุณชื่ออะไร พิมพ์ชื่อเล่นได้เลย',
+      'chips');
+
+  void _askPinName() {
+    final u = PrefsController.instance.value.userName;
+    _postStage(
+        'pinName',
+        'ยินดีที่ได้รู้จักนะ$u แล้วอยากเรียกผู้ช่วยว่าอะไรดี — พิมพ์ชื่อ หรือใช้ "ปิ่น" ก็ได้',
+        'chips',
+        [_pChip('ใช้ "ปิ่น"', 'ปิ่น')]);
+  }
+
+  void _reminderDemo() {
+    final name = PrefsController.instance.value.pinName;
+    _postStage(
+        'demo_reminder',
+        'เยี่ยมเลย ${name}พร้อมช่วยแล้ว มาลองใช้งานจริงกันนะ — แตะตัวอย่างด้านล่างให้${name}ตั้งเตือนให้ดู',
+        'chips',
+        [_pChip('เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง', 'go')]);
+  }
+
+  void _askTone() {
+    final name = PrefsController.instance.value.pinName;
+    _postStage(
+        'tone', 'แล้วอยากให้${name}ตอบแบบไหนดี — แตะเลือกที่ถูกใจเลย', 'tone', [
+      {'label': 'ตั้งเตือนให้แล้วครับ', 'sub': 'สุภาพ (ครับ)', 'value': 'male'},
+      {'label': 'ตั้งเตือนให้แล้วค่ะ', 'sub': 'สุภาพ (ค่ะ)', 'value': 'female'},
+      {'label': 'ตั้งเตือนให้แล้วจ๊ะ', 'sub': 'เป็นกันเอง (จ๊ะ)', 'value': 'casual'},
+      {'label': 'ตั้งเตือนให้แล้ว', 'sub': 'เป็นกลาง', 'value': 'neutral'},
+    ]);
+  }
+
+  void _askAddress() {
+    final p = PrefsController.instance.value;
+    final opts = [for (final o in _addrOptions()) _pChip(o, o)];
+    opts.add(_pChip('กำหนดเอง', '__custom'));
+    _postStage(
+        'address',
+        'แล้วอยากให้${p.pinName}เรียก${p.userName}ว่ายังไงดี$_ptq แตะเลือก หรือพิมพ์เองก็ได้',
+        'addr',
+        opts);
+  }
+
+  void _fileDemo() {
+    final self = PrefsController.instance.value;
+    _postStage(
+        'demo_file',
+        'ลองอีกอย่างไหม$_ptq ${self.pinName}รับไฟล์ที่${self.userCall}อัปโหลด แล้วสรุปให้เป็นการ์ดอ่านง่ายได้นะ ลองอัปโหลดไฟล์เอง หรือใช้ไฟล์ตัวอย่างก็ได้',
+        'chips',
+        [_pChip('อัปโหลดไฟล์', 'upload'), _pChip('ใช้ไฟล์ตัวอย่าง', 'go')]);
+  }
+
+  // Voice step: a display-only hint pointing at the composer mic. The real
+  // mic-hold drives it (intercepted in _onAudio while _personaStage == 'voice').
+  void _voiceStep() {
+    _personaStage = 'voice';
+    setState(() {
+      _messages.add(_text(
+          'ปิ่นฟังเสียงก็ได้นะ$_pt กดปุ่มไมค์ในช่องพิมพ์ค้างไว้แล้วลองพูดดูสิ — '
+          'จะพูดตามตัวอย่าง หรือพูดอะไรก็ได้',
+          me: false));
+      _messages.add(ChatViewMessage(
+          eventId: 'm${_seq++}',
+          sender: '@pin',
+          body: '',
+          time: DateTime.now(),
+          isMe: false,
+          onboard: {
+            'type': 'voice_hint',
+            'examples': ['ตั้งอ่านข่าวทุกวัน 8 โมง', 'พรุ่งนี้อากาศเป็นยังไง'],
+          }));
+    });
+  }
+
+  /// Onboarding "อัปโหลดไฟล์": pick a REAL file, let ปิ่น summarise it (the live
+  /// feature), then continue to the voice step.
+  Future<void> _uploadFileThenVoice() async {
+    await _onMedia('file');
+    if (mounted) _voiceStep();
+  }
+
+  /// Mic-hold during the voice step → a scripted news/weather demo, then theme.
+  void _voiceDemo() {
+    if (DateTime.now().millisecondsSinceEpoch % 2 == 0) {
+      _echoUser('ตั้งอ่านข่าวทุกวัน 8 โมง');
+      _botSay('ตั้งให้แล้ว$_pt ปิ่นจะสรุปข่าวเช้าส่งให้ทุกวัน');
+      _botCard({'type': 'news', 'title': 'ข่าวเช้า', 'sub': 'ทุกวัน • 08:00 น.'});
+    } else {
+      _echoUser('พรุ่งนี้อากาศเป็นยังไง');
+      _botSay('พรุ่งนี้กรุงเทพ 32° มีฝนช่วงบ่าย พกร่มไปด้วยนะ$_pt');
+      _botCard({
+        'type': 'weather',
+        'title': 'พรุ่งนี้ • กรุงเทพฯ',
+        'sub': '32° · มีฝนช่วงบ่าย · พกร่มไปด้วย'
+      });
+    }
+    _themeStep();
+  }
+
+  // Theme is the LAST step: picking a swatch live-applies AND finishes (v2 —
+  // no separate "done" button). The swatch tap fires onAction('done').
+  void _themeStep() {
+    _personaStage = 'theme';
+    setState(() {
+      _messages.add(_text(
+          'สุดท้ายแล้ว$_pt เลือกธีมสีที่ชอบก่อนเริ่มใช้ แตะดูเปลี่ยนสีทันที',
+          me: false));
+      _messages.add(ChatViewMessage(
+          eventId: 'm${_seq++}',
+          sender: '@pin',
+          body: '',
+          time: DateTime.now(),
+          isMe: false,
+          onboard: {'type': 'theme'}));
+    });
+  }
+
+  /// Apply a typed or tapped answer for [_personaStage], echo it, then advance.
+  /// [typed] answers only apply on the free-text stages (others are tap-only).
+  void _applyPersonaAnswer(String value, {String? label, bool typed = false}) {
+    final p = PrefsController.instance.value;
+    switch (_personaStage) {
+      case 'userName':
+        final v = value.trim();
+        if (v.isEmpty) return;
+        _echoUser(v);
+        PrefsController.instance.update(p.copyWith(userName: v));
+        _askPinName();
+      case 'pinName':
+        final v = value.trim().isEmpty ? 'ปิ่น' : value.trim();
+        _echoUser(label ?? v);
+        PrefsController.instance.update(p.copyWith(pinName: v));
+        _reminderDemo();
+      case 'demo_reminder':
+        if (value == 'go') {
+          _echoUser('เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง');
+          _botSay('จัดให้แล้ว!');
+          _botCard({
+            'type': 'reminder',
+            'title': 'รดน้ำต้นไม้',
+            'sub': 'พรุ่งนี้ • 07:00 น.'
+          });
+        }
+        _askTone();
+      case 'tone':
+        if (typed) return; // tone is tap-only
+        _echoUser(label ?? value);
+        PrefsController.instance
+            .update(p.copyWith(tone: value, pinEnding: toneParticle(value)));
+        _askAddress();
+      case 'address':
+        if (value == '__custom') {
+          _botSay('ได้เลย$_pt พิมพ์คำที่อยากให้เรียกมาได้เลย');
+          _personaStage = 'address'; // stay; the typed answer lands here next
+          setState(() => _quickReplies = const []);
+          return;
+        }
+        final addr = value.trim();
+        if (addr.isEmpty) return;
+        _echoUser(addr);
+        final self = _deriveSelf(addr, p.pinName);
+        PrefsController.instance.update(p.copyWith(userCall: addr, pinSelf: self));
+        _botSay('โอเค$addr! ตั้งแต่นี้${self}จะเรียกแบบนี้ตลอดนะ$_ptq');
+        _fileDemo();
+      case 'demo_file':
+        if (value == 'upload') {
+          _uploadFileThenVoice(); // real picker → ปิ่น summarises the actual file
+        } else {
+          _echoUser('📎 ทริปเชียงใหม่ 3 วัน.pdf · ไฟล์ตัวอย่าง');
+          _botSay('สรุปทริปเป็นการ์ดให้แล้ว ปัดดูแต่ละวันได้เลย$_pt');
+          _botCard({
+            'type': 'trip',
+            'days': [
+              {'d': 'วันที่ 1', 'items': ['ดอยสุเทพ', 'ย่านนิมมาน', 'ขันโตกมื้อเย็น']},
+              {'d': 'วันที่ 2', 'items': ['ปางช้าง', 'ดอยอินทนนท์', 'น้ำตกวชิรธาร']},
+              {'d': 'วันที่ 3', 'items': ['ตลาดวโรรส', 'คาเฟ่ในเมือง', 'ซื้อของฝาก']},
+            ],
+          });
+          _voiceStep();
+        }
+      case 'theme':
+        _finishPersonaSetup();
+    }
+  }
+
+  /// Tapped an inline onboarding option — strip the buttons, then advance.
+  void _handleOnboardTap(Map<String, String> r) {
+    _consumeOptions();
+    _applyPersonaAnswer(r['value'] ?? '', label: r['label']);
+  }
+
+  /// Persist persona to the room state (source of truth), mark setup done, post
+  /// the closing greeting. Onboarding is the whole intro now — no separate tour.
   Future<void> _finishPersonaSetup() async {
     _personaStep = -1;
+    _personaStage = '';
     final p = PrefsController.instance.value;
     await PrefsController.instance.update(p.copyWith(personaSetup: true));
     final rid = _roomId;
     if (rid != null) {
       await MatrixService.instance.savePersonaToRoom(rid, {
         'pin_name': p.pinName,
+        'user_name': p.userName,
         'user_call': p.userCall,
         'pin_self': p.pinSelf,
+        'tone': p.tone,
         'pin_ending': p.pinEnding,
         'theme': ThemeController.instance.value.key,
       });
     }
     if (!mounted) return;
-    if (!PrefsController.instance.value.tourDone) {
-      _startTour();
-    } else {
-      _loadWelcome();
-    }
-  }
-
-  // ---- First-run showcase tour -------------------------------------------
-
-  /// Begin the guided tour. Marked done immediately so it shows exactly once
-  /// per device even if the app is killed mid-tour.
-  void _startTour() {
-    final p = PrefsController.instance.value;
-    if (!p.tourDone) PrefsController.instance.update(p.copyWith(tourDone: true));
-    _postTourStep(0);
-  }
-
-  /// Post ปิ่น's line for step [i] and show its chips.
-  void _postTourStep(int i) {
-    if (i < 0 || i >= kTour.length) {
-      _endTour();
-      return;
-    }
-    _tourStep = i;
-    final step = kTour[i];
     setState(() {
-      _messages.add(_text(_fillPersona(step.text), me: false));
-      _quickReplies = step.chips.map(_tourChipMap).toList();
+      _messages.add(_text(
+          'ตั้งค่าเสร็จเรียบร้อย$_pt ${p.pinSelf}พร้อมช่วย${p.userCall}แล้วนะ — '
+          'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะ ⋯ ได้ตลอด',
+          me: false));
+      _quickReplies = const [];
     });
-  }
-
-  Map<String, String> _tourChipMap(TourChip c) => {
-        'label': _fillPersona(c.label),
-        'action': 'tour',
-        'kind': c.kind,
-        'payload': c.payload,
-        'next': '${c.next}',
-      };
-
-  /// Handle a tapped tour chip.
-  void _handleTourChip(Map<String, String> r) {
-    final next = int.tryParse(r['next'] ?? '-1') ?? -1;
-    setState(() => _quickReplies = const []);
-    switch (r['kind']) {
-      case 'next':
-        _postTourStep(next);
-      case 'live':
-        _tourNextAfterReply = next; // resume once the reply lands
-        _onSend(r['payload'] ?? '');
-      case 'action':
-        _tourNextAfterReply = next;
-        if (r['payload'] == 'scan') {
-          _scanDoc(prompt: 'ช่วยสรุปเอกสารนี้สั้น ๆ แล้วจำไว้ให้ด้วย');
-        } else {
-          _onMedia('file');
-        }
-      case 'route':
-        _endTour();
-        Navigator.of(context).push(MaterialPageRoute<void>(
-            builder: (_) => const AbilitiesScreen()));
-      case 'end':
-      default:
-        _endTour();
-    }
-  }
-
-  /// After a live/action demo replies, offer a single "ถัดไป" to keep the tour.
-  void _maybeResumeTour() {
-    final n = _tourNextAfterReply;
-    _tourNextAfterReply = null;
-    if (n == null || _tourStep < 0 || n < 0 || n >= kTour.length) return;
-    if (!mounted) return;
-    setState(() => _quickReplies = [
-          _tourChipMap(TourChip('ถัดไป', kind: 'next', next: n)),
-        ]);
-  }
-
-  void _endTour() {
-    _tourStep = -1;
-    _tourNextAfterReply = null;
-    if (mounted) setState(() => _quickReplies = const []);
   }
 
   ChatViewMessage _text(String body, {required bool me}) => ChatViewMessage(
@@ -600,7 +715,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       return null;
     } finally {
       setState(() => _botTyping = false);
-      _maybeResumeTour(); // tour live/action demo done → offer "ถัดไป"
     }
   }
 
@@ -711,18 +825,14 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   void _onSend(String text) {
     final t = text.trim();
     if (t.isEmpty) return;
-    // During persona setup, a typed message IS the custom answer (not a chat
-    // turn). Theme must be tapped, so ignore typing on that step.
+    // During onboarding, a typed message IS the answer (not a chat turn). Only
+    // the free-text stages accept typing; tap-only stages ignore it.
     if (_personaStep >= 0) {
-      final steps = _personaSetupSteps();
-      final field = steps[_personaStep].field;
-      if (field == 'theme') return;
-      setState(() {
-        _messages.add(_text(t, me: true));
-        _quickReplies = const [];
-      });
-      _applyPersonaField(field, t);
-      _postPersonaStep(_personaStep + 1);
+      const typable = {'userName', 'pinName', 'address'};
+      if (typable.contains(_personaStage)) {
+        _consumeOptions(); // remove the inline buttons for this stage, if any
+        _applyPersonaAnswer(t, typed: true);
+      }
       return;
     }
     // First message dismisses the quick replies.
@@ -841,6 +951,12 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// A recorded voice message → transcribe with Gemini audio (blind) → treat the
   /// transcript as what the user said.
   Future<void> _onAudio(String path) async {
+    // Onboarding voice step: the mic-hold is a scripted demo (news/weather),
+    // not a real turn — no transcription, then move on to the theme step.
+    if (_personaStep >= 0 && _personaStage == 'voice') {
+      _voiceDemo();
+      return;
+    }
     setState(() => _botTyping = true);
     final text = await devProxy().transcribe(path);
     if (!mounted) return;
@@ -991,6 +1107,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           onFlexAction: _onFlexAction,
           quickReplies: _quickReplies,
           onQuickReply: _onQuickReply,
+          onOnboardAction: _handleOnboardTap,
         ),
         if (_loading != null)
           Positioned(
@@ -1016,10 +1133,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   void _onQuickReply(Map<String, String> r) {
     if (_quickReplies.isNotEmpty) setState(() => _quickReplies = const []);
     switch (r['action']) {
-      case 'persona':
-        _handlePersonaChip(r);
-      case 'tour':
-        _handleTourChip(r);
       case 'scan':
         _scanDoc(
             prompt: r['send'] ?? 'ช่วยสรุปเอกสารนี้สั้น ๆ แล้วจำไว้ให้ด้วย');
