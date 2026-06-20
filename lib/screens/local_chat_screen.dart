@@ -331,17 +331,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   String get _ptq =>
       toneParticle(PrefsController.instance.value.tone, question: true);
 
-  /// Add a local inline demo card (reminder/news/trip/theme) to the feed.
-  void _botCard(Map<String, dynamic> spec) {
-    setState(() => _messages.add(ChatViewMessage(
-        eventId: 'm${_seq++}',
-        sender: '@pin',
-        body: '',
-        time: DateTime.now(),
-        isMe: false,
-        onboard: spec)));
-  }
-
   /// Tone-aware address options, built from the user's name.
   List<String> _addrOptions() {
     final p = PrefsController.instance.value;
@@ -382,15 +371,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         [_pChip('ใช้ "ปิ่น"', 'ปิ่น')]);
   }
 
-  void _reminderDemo() {
-    final name = PrefsController.instance.value.pinName;
-    _postStage(
-        'demo_reminder',
-        'เยี่ยมเลย ${name}พร้อมช่วยแล้ว มาลองใช้งานจริงกันนะ — แตะตัวอย่างด้านล่างให้${name}ตั้งเตือนให้ดู',
-        'chips',
-        [_pChip('เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง', 'go')]);
-  }
-
   void _askTone() {
     final name = PrefsController.instance.value.pinName;
     _postStage(
@@ -411,62 +391,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         'แล้วอยากให้${p.pinName}เรียก${p.userName}ว่ายังไงดี$_ptq แตะเลือก หรือพิมพ์เองก็ได้',
         'addr',
         opts);
-  }
-
-  void _fileDemo() {
-    final self = PrefsController.instance.value;
-    _postStage(
-        'demo_file',
-        'ลองอีกอย่างไหม$_ptq ${self.pinName}รับไฟล์ที่${self.userCall}อัปโหลด แล้วสรุปให้เป็นการ์ดอ่านง่ายได้นะ ลองอัปโหลดไฟล์เอง หรือใช้ไฟล์ตัวอย่างก็ได้',
-        'chips',
-        [_pChip('อัปโหลดไฟล์', 'upload'), _pChip('ใช้ไฟล์ตัวอย่าง', 'go')]);
-  }
-
-  // Voice step: a display-only hint pointing at the composer mic. The real
-  // mic-hold drives it (intercepted in _onAudio while _personaStage == 'voice').
-  void _voiceStep() {
-    _personaStage = 'voice';
-    setState(() {
-      _messages.add(_text(
-          'ปิ่นฟังเสียงก็ได้นะ$_pt กดปุ่มไมค์ในช่องพิมพ์ค้างไว้แล้วลองพูดดูสิ — '
-          'จะพูดตามตัวอย่าง หรือพูดอะไรก็ได้',
-          me: false));
-      _messages.add(ChatViewMessage(
-          eventId: 'm${_seq++}',
-          sender: '@pin',
-          body: '',
-          time: DateTime.now(),
-          isMe: false,
-          onboard: {
-            'type': 'voice_hint',
-            'examples': ['ตั้งอ่านข่าวทุกวัน 8 โมง', 'พรุ่งนี้อากาศเป็นยังไง'],
-          }));
-    });
-  }
-
-  /// Onboarding "อัปโหลดไฟล์": pick a REAL file, let ปิ่น summarise it (the live
-  /// feature), then continue to the voice step.
-  Future<void> _uploadFileThenVoice() async {
-    await _onMedia('file');
-    if (mounted) _voiceStep();
-  }
-
-  /// Mic-hold during the voice step → a scripted news/weather demo, then theme.
-  void _voiceDemo() {
-    if (DateTime.now().millisecondsSinceEpoch % 2 == 0) {
-      _echoUser('ตั้งอ่านข่าวทุกวัน 8 โมง');
-      _botSay('ตั้งให้แล้ว$_pt ปิ่นจะสรุปข่าวเช้าส่งให้ทุกวัน');
-      _botCard({'type': 'news', 'title': 'ข่าวเช้า', 'sub': 'ทุกวัน • 08:00 น.'});
-    } else {
-      _echoUser('พรุ่งนี้อากาศเป็นยังไง');
-      _botSay('พรุ่งนี้กรุงเทพ 32° มีฝนช่วงบ่าย พกร่มไปด้วยนะ$_pt');
-      _botCard({
-        'type': 'weather',
-        'title': 'พรุ่งนี้ • กรุงเทพฯ',
-        'sub': '32° · มีฝนช่วงบ่าย · พกร่มไปด้วย'
-      });
-    }
-    _themeStep();
   }
 
   // Theme is the LAST step: picking a swatch live-applies AND finishes (v2 —
@@ -546,19 +470,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           _echoUser(label ?? v);
           PrefsController.instance
               .update(PrefsController.instance.value.copyWith(pinName: v));
-          _reminderDemo();
+          _askTone();
         });
-      case 'demo_reminder':
-        if (value == 'go') {
-          _echoUser('เตือนรดน้ำต้นไม้พรุ่งนี้เช้า 7 โมง');
-          _botSay('จัดให้แล้ว!');
-          _botCard({
-            'type': 'reminder',
-            'title': 'รดน้ำต้นไม้',
-            'sub': 'พรุ่งนี้ • 07:00 น.'
-          });
-        }
-        _askTone();
       case 'tone':
         if (typed) return; // tone is tap-only
         _echoUser(label ?? value);
@@ -579,24 +492,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           PrefsController.instance
               .update(cur.copyWith(userCall: addr, pinSelf: self));
           _botSay('โอเค$addr! ตั้งแต่นี้${self}จะเรียกแบบนี้ตลอดนะ$_ptq');
-          _fileDemo();
+          _themeStep();
         });
-      case 'demo_file':
-        if (value == 'upload') {
-          _uploadFileThenVoice(); // real picker → ปิ่น summarises the actual file
-        } else {
-          _echoUser('📎 ทริปเชียงใหม่ 3 วัน.pdf · ไฟล์ตัวอย่าง');
-          _botSay('สรุปทริปเป็นการ์ดให้แล้ว ปัดดูแต่ละวันได้เลย$_pt');
-          _botCard({
-            'type': 'trip',
-            'days': [
-              {'d': 'วันที่ 1', 'items': ['ดอยสุเทพ', 'ย่านนิมมาน', 'ขันโตกมื้อเย็น']},
-              {'d': 'วันที่ 2', 'items': ['ปางช้าง', 'ดอยอินทนนท์', 'น้ำตกวชิรธาร']},
-              {'d': 'วันที่ 3', 'items': ['ตลาดวโรรส', 'คาเฟ่ในเมือง', 'ซื้อของฝาก']},
-            ],
-          });
-          _voiceStep();
-        }
       case 'theme':
         _finishPersonaSetup();
     }
@@ -958,12 +855,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// A recorded voice message → transcribe with Gemini audio (blind) → treat the
   /// transcript as what the user said.
   Future<void> _onAudio(String path) async {
-    // Onboarding voice step: the mic-hold is a scripted demo (news/weather),
-    // not a real turn — no transcription, then move on to the theme step.
-    if (_personaStep >= 0 && _personaStage == 'voice') {
-      _voiceDemo();
-      return;
-    }
     setState(() => _botTyping = true);
     final text = await devProxy().transcribe(path);
     if (!mounted) return;
