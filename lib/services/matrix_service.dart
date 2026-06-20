@@ -331,9 +331,12 @@ class MatrixService {
     MemoryController.instance.value = const [];
     // Close the per-account files DB so the next account opens its own.
     await FilesStore.instance.reset();
-    // Re-login is a fresh device: it needs to run onboarding again so the
-    // recovery/restore step can pull the E2EE keys back — otherwise past
-    // messages stay undecryptable and history shows up empty.
+    // Reset onboarded so a re-login re-runs the gate. For the SAME account the
+    // crypto store is kept (rust logout no longer wipes it), so AfterAuth's
+    // rehydrate finds the ปิ่น room + persona, flips onboarded back to true and
+    // skips straight to chat with keys intact — no recovery prompt. A genuinely
+    // different account (no room on this device) still falls through to the
+    // recovery step to pull ITS keys.
     await PrefsController.instance
         .update(PrefsController.instance.value.copyWith(onboarded: false));
   }

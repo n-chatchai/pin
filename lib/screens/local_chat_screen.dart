@@ -36,6 +36,11 @@ class LocalChatScreen extends StatefulWidget {
   State<LocalChatScreen> createState() => _LocalChatScreenState();
 }
 
+/// Debug hook — the live chat registers its persona-setup starter here so dev
+/// tools (Settings) can re-trigger the conversational onboarding without a fresh
+/// account. Null when no chat is mounted.
+void Function()? debugForcePersonaSetup;
+
 class _LocalChatScreenState extends State<LocalChatScreen>
     with WidgetsBindingObserver {
   static const _room = 'pin';
@@ -64,12 +69,16 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    debugForcePersonaSetup = () {
+      if (mounted) _startPersonaSetup();
+    };
     _boot();
   }
 
   @override
   void dispose() {
     _dmSub?.cancel();
+    debugForcePersonaSetup = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -313,17 +322,15 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     final name = p.pinName;
     return [
       (
-        q: 'สวัสดี 🌿 ฉันคือผู้ช่วยส่วนตัวของคุณ — ตั้งชื่อให้ฉันได้เลย '
-            'อยากเรียกฉันว่าอะไรดี? (แตะเลือก หรือพิมพ์ชื่อที่ชอบ)',
+        q: 'สวัสดี ฉันคือผู้ช่วยส่วนตัวของคุณ — '
+            'อยากเรียกฉันว่าอะไรดี? พิมพ์ชื่อที่ชอบ หรือใช้ "ปิ่น" ก็ได้',
         field: 'pinName',
         chips: [
-          (label: 'ปิ่น', value: 'ปิ่น'),
-          (label: 'น้อง', value: 'น้อง'),
-          (label: 'เพื่อน', value: 'เพื่อน'),
+          (label: 'ใช้ "ปิ่น"', value: 'ปิ่น'),
         ],
       ),
       (
-        q: 'ได้เลย! แล้ว$name เรียกคุณว่าอะไรดี?',
+        q: 'ได้เลย! แล้ว$name เรียกคุณว่าอะไรดี? (สรรพนาม หรือชื่อเล่นของคุณ)',
         field: 'userCall',
         chips: [
           (label: 'พี่', value: 'พี่'),

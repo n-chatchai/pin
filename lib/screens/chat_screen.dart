@@ -100,7 +100,10 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                           // chat always opens at the latest message regardless of
                           // variable item heights / async images — no jump hack.
                           reverse: true,
-                          padding: const EdgeInsets.fromLTRB(0, 62, 0, 152),
+                          // Reserve extra bottom space for the quick-reply bar so
+                          // the newest bubble/timestamp isn't covered by the chips.
+                          padding: EdgeInsets.fromLTRB(
+                              0, 62, 0, widget.quickReplies.isNotEmpty ? 196 : 152),
                           // +1 trailing slot for the typing indicator (bottom).
                           itemCount: messages.length + (botTyping ? 1 : 0),
                           itemBuilder: (context, d) {
@@ -247,34 +250,36 @@ class _QuickReplyBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // LINE-style quick replies: compact, low-height pills that scroll
+    // horizontally just above the composer.
     return SizedBox(
-      height: 50,
+      height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+        padding: const EdgeInsets.fromLTRB(14, 2, 14, 4),
         itemCount: replies.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 9),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final r = replies[i];
           return GestureDetector(
             onTap: () => onTap?.call(r),
             child: Container(
               alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: scheme.primary, width: 1.4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.primary, width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.16),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3)),
+                      color: scheme.primary.withValues(alpha: 0.10),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2)),
                 ],
               ),
               child: Text(r['label'] ?? '',
                   style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: scheme.secondary)),
             ),

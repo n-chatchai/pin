@@ -203,8 +203,8 @@ pub fn login(
     block(async move {
         // Explicit password login starts a fresh device + crypto store. Stop any
         // lingering sync loop FOR THIS ROLE (so its Client clone can't rewrite the
-        // store mid wipe) then wipe any stale store at this path so a re-login
-        // can't collide with a prior device id (restore() reuses the store).
+        // store mid wipe) then wipe any stale store at this path — login_username
+        // can't reuse a store that already holds a different device's OlmAccount.
         stop_sync(&role);
         let _ = std::fs::remove_dir_all(&db_path);
         let client = build_client(&homeserver, &db_path).await?;

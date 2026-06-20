@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>บุคลิกของผู้ช่วย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --app-bg:#eef4f0; --bubble:#46c266; --bubble-text:#fff; --txt:#1f2421; --txt-2:#8a938c;
+    --card:#fff; --green:#1f8a52; --green-soft:#d7ecdc; --line:#e7eee9; --pageframe:#cdd8d0; --warn-bg:#fdf1d2; --warn:#b9850f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Anuphan',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--pageframe);display:flex;justify-content:center;min-height:100vh;color:var(--txt);}
+  .phone{width:100%;max-width:430px;background:var(--app-bg);display:flex;flex-direction:column;min-height:100vh;}
+
+  .nav{display:flex;align-items:center;gap:8px;padding:16px 16px 12px;position:sticky;top:0;background:var(--app-bg);z-index:5;border-bottom:0.5px solid var(--line);}
+  .nav .back{width:42px;height:42px;border-radius:50%;background:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.05);cursor:pointer;}
+  .nav .back svg{width:22px;height:22px;stroke:#3a4540;}
+  .nav h1{font-size:20px;font-weight:600;}
+
+  .scroll{flex:1;overflow-y:auto;padding:16px;}
+  .sec{margin-bottom:22px;}
+  .sec>.lbl{font-size:14px;font-weight:600;color:var(--txt-2);margin:0 4px 10px;letter-spacing:.2px;}
+  .card{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+
+  /* live preview */
+  .preview{background:#dcefe1;border-radius:22px;padding:18px;}
+  .preview .pl{font-size:13px;color:var(--green);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+  .pvchat{display:flex;gap:10px;align-items:flex-start;}
+  .pvava{width:36px;height:36px;border-radius:50%;background:#fff;color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto;font-size:16px;}
+  .pvbubble{background:#fff;border-radius:18px;border-bottom-left-radius:5px;padding:12px 16px;font-size:17px;line-height:1.5;}
+  .pvline2{margin-top:8px;}
+
+  /* assistant name row */
+  .namerow{display:flex;align-items:center;gap:14px;}
+  .navatar{width:50px;height:50px;border-radius:50%;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex:0 0 auto;}
+  .field{flex:1;}
+  .field input{width:100%;font-family:inherit;font-size:18px;padding:11px 14px;border:1.5px solid var(--line);border-radius:13px;outline:none;background:#fafbfa;}
+  .field input:focus{border-color:var(--bubble);background:#fff;}
+  .field .sub{font-size:13px;color:var(--txt-2);margin-top:6px;}
+
+  /* tone cards */
+  .tonegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .opt{background:#fafbfa;border:2px solid var(--line);border-radius:15px;padding:14px;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .12s,background .12s;}
+  .opt.sel{border-color:var(--bubble);background:#f1faf3;}
+  .opt .s{font-size:16px;font-weight:600;color:#243029;}
+  .opt .l{font-size:12px;color:var(--txt-2);margin-top:4px;}
+
+  /* pill choices */
+  .pills{display:flex;flex-wrap:wrap;gap:9px;}
+  .pill{background:#fafbfa;border:2px solid var(--line);border-radius:14px;padding:11px 18px;font-size:16px;font-weight:600;color:#243029;cursor:pointer;font-family:inherit;transition:border-color .12s,background .12s;}
+  .pill.sel{border-color:var(--bubble);background:#f1faf3;}
+  .hint{font-size:13px;color:var(--txt-2);margin-top:10px;line-height:1.5;}
+  .hint b{color:var(--green);font-weight:600;}
+
+  /* special persona row */
+  .special{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:18px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.04);cursor:pointer;}
+  .special .si{width:46px;height:46px;border-radius:13px;background:#efe7fb;color:#6b46c1;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .special .si svg{width:24px;height:24px;stroke:#6b46c1;}
+  .special .st{flex:1;}
+  .special .st .t{font-size:17px;font-weight:600;}
+  .special .st .d{font-size:13px;color:var(--txt-2);margin-top:2px;}
+  .special .badge{font-size:12px;background:var(--warn-bg);color:var(--warn);padding:3px 9px;border-radius:10px;font-weight:600;}
+  .special .chev{stroke:#b9c2bb;width:22px;height:22px;}
+
+  .savebar{position:sticky;bottom:0;background:var(--app-bg);padding:12px 16px 22px;border-top:0.5px solid var(--line);display:flex;gap:10px;}
+  .save{flex:1;font-family:inherit;font-size:18px;font-weight:600;color:#fff;background:var(--bubble);border:none;padding:15px;border-radius:16px;cursor:pointer;}
+  .save:active{transform:scale(.99);}
+  .reset{font-family:inherit;font-size:16px;color:var(--txt-2);background:#fff;border:1.5px solid var(--line);padding:15px 18px;border-radius:16px;cursor:pointer;}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:#243029;color:#fff;padding:12px 22px;border-radius:20px;font-size:15px;opacity:0;transition:.3s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="nav">
+    <button class="back" aria-label="ย้อนกลับ"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>บุคลิกของผู้ช่วย</h1>
+  </div>
+
+  <div class="scroll">
+
+    <div class="sec">
+      <div class="preview">
+        <div class="pl"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#1f8a52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg> ตัวอย่างการพูด</div>
+        <div class="pvchat">
+          <div>
+            <div class="pvbubble" id="pv1">…</div>
+            <div class="pvbubble pvline2" id="pv2">…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">ชื่อผู้ช่วย</div>
+      <div class="card namerow">
+        <div class="field"><input id="asstName" value="ปิ่น" maxlength="20"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">ชื่อของคุณ</div>
+      <div class="card namerow">
+        <div class="field"><input id="userName" value="บอล" maxlength="20"><div class="sub">ใช้สร้างตัวเลือกคำเรียกด้านล่าง</div></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">น้ำเสียง</div>
+      <div class="tonegrid" id="toneGrid"></div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">ให้เรียกคุณว่า</div>
+      <div class="card">
+        <div class="pills" id="addrPills"></div>
+        <div class="hint" id="addrHint"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">ผู้ช่วยแทนตัวเองว่า</div>
+      <div class="card">
+        <div class="pills" id="selfPills"></div>
+        <div class="hint">ปรับอัตโนมัติตามคำเรียก แต่เปลี่ยนเองได้</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">เพิ่มเติม</div>
+      <div class="special" id="special">
+        <div class="si"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg></div>
+        <div class="st"><div class="t">บุคลิกพิเศษ</div><div class="d">ให้ผู้ช่วยรับบทเป็นตัวละคร</div></div>
+        <span class="badge">18+</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="savebar">
+    <button class="reset" id="reset">รีเซ็ต</button>
+    <button class="save" id="save">บันทึก</button>
+  </div>
+</div>
+<div class="toast" id="toast">บันทึกบุคลิกแล้ว</div>
+
+<script>
+(function(){
+  var DEF={asst:'ปิ่น',user:'บอล',tone:'female',addr:null,self:null};
+  var S=Object.assign({},DEF);
+  var TONE={
+    male:{label:'สุภาพ (ครับ)',s:'ครับ',q:'ครับ'},
+    female:{label:'สุภาพ (ค่ะ)',s:'ค่ะ',q:'คะ'},
+    casual:{label:'เป็นกันเอง (จ๊ะ)',s:'จ๊ะ',q:'จ๊ะ'},
+    neutral:{label:'เป็นกลาง',s:'',q:''}
+  };
+  var $=function(id){return document.getElementById(id);};
+
+  function addrOptions(){
+    var n=S.user||'คุณ';
+    if(S.tone==='casual') return [n,'แก','นาย','เพื่อน'];
+    if(S.tone==='neutral') return [n,'คุณ'+n];
+    return [n,'คุณ'+n,'พี่'+n,'น้อง'+n];
+  }
+  function suggestSelf(){
+    if(!S.addr) return 'name';
+    if(S.addr.indexOf('พี่')===0) return 'nong';   // user is senior → bot junior
+    if(S.addr.indexOf('น้อง')===0) return 'pee';   // user is junior → bot senior
+    return 'name';
+  }
+  function selfOptions(){
+    var a=S.asst||'ผู้ช่วย';
+    return [
+      {k:'name',label:a},
+      {k:'pee',label:'พี่'+a},
+      {k:'nong',label:'น้อง'+a},
+      {k:'noo',label:'หนู'}
+    ];
+  }
+  function selfDisplay(){
+    var a=S.asst||'ผู้ช่วย', k=S.self||suggestSelf();
+    if(k==='pee')return 'พี่'+a; if(k==='nong')return 'น้อง'+a; if(k==='noo')return 'หนู'; return a;
+  }
+  function p(){return TONE[S.tone].s;}
+
+  /* ----- renderers ----- */
+  function renderTone(){
+    var g=$('toneGrid');g.innerHTML='';
+    Object.keys(TONE).forEach(function(k){
+      var b=document.createElement('button');
+      b.className='opt'+(S.tone===k?' sel':'');
+      b.innerHTML='<div class="s">ตั้งเตือนให้แล้ว'+TONE[k].s+'</div><div class="l">'+TONE[k].label+'</div>';
+      b.onclick=function(){S.tone=k;S.addr=null;S.self=null;renderAll();};
+      g.appendChild(b);
+    });
+  }
+  function renderAddr(){
+    var box=$('addrPills');box.innerHTML='';
+    var opts=addrOptions();
+    if(!S.addr) S.addr=opts[0];
+    opts.forEach(function(o){
+      var b=document.createElement('button');
+      b.className='pill'+(S.addr===o?' sel':'');
+      b.textContent=o;
+      b.onclick=function(){S.addr=o;S.self=null;renderAll();};
+      box.appendChild(b);
+    });
+    var role='';
+    if(S.addr.indexOf('พี่')===0) role='ผู้ช่วยจะวางตัวเป็น <b>น้อง</b>';
+    else if(S.addr.indexOf('น้อง')===0) role='ผู้ช่วยจะวางตัวเป็น <b>พี่</b>';
+    $('addrHint').innerHTML=role?('เรียกคุณว่า "'+S.addr+'" → '+role):'';
+  }
+  function renderSelf(){
+    var box=$('selfPills');box.innerHTML='';
+    var cur=S.self||suggestSelf();
+    selfOptions().forEach(function(o){
+      var b=document.createElement('button');
+      b.className='pill'+(cur===o.k?' sel':'');
+      b.textContent=o.label;
+      b.onclick=function(){S.self=o.k;renderAll();};
+      box.appendChild(b);
+    });
+  }
+  function renderPreview(){
+    var call=S.addr||S.user, self=selfDisplay(), pt=p();
+    var l1=self+'ตั้งเตือนให้'+call+'แล้ว'+(pt?pt:'');
+    var l2='สวัสดี'+call+' '+self+'พร้อมช่วยแล้ว'+(pt?pt:'');
+    $('pv1').textContent=l1;
+    $('pv2').textContent=l2;
+  }
+  function renderAll(){renderTone();renderAddr();renderSelf();renderPreview();}
+
+  /* ----- inputs ----- */
+  $('asstName').addEventListener('input',function(){S.asst=this.value.trim();renderAll();});
+  $('userName').addEventListener('input',function(){S.user=this.value.trim();S.addr=null;renderAll();});
+
+  $('save').onclick=function(){
+    var t=$('toast');t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);
+  };
+  $('reset').onclick=function(){
+    S=Object.assign({},DEF);
+    $('asstName').value=DEF.asst;$('userName').value=DEF.user;
+    renderAll();
+  };
+  $('special').onclick=function(){
+    var t=$('toast');t.textContent='เปิดแกลเลอรีบุคลิกพิเศษ…';t.classList.add('show');
+    setTimeout(function(){t.classList.remove('show');t.textContent='บันทึกบุคลิกแล้ว';},1600);
+  };
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

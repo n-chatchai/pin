@@ -20,6 +20,7 @@ import '../agent/agent_session.dart';
 import '../widgets/flex_card_view.dart';
 import 'abilities_screen.dart';
 import 'device_data_screen.dart';
+import 'local_chat_screen.dart' show debugForcePersonaSetup;
 import 'welcome_screen.dart';
 
 /// Dev-only debug tools (test runners) are gated behind this flag and stripped
@@ -85,10 +86,11 @@ class SettingsScreen extends StatelessWidget {
                 LucideIcons.user,
                 'ให้${p.pinName}เรียกเราว่า',
                 p.userCall,
-                () => _pick(context, 'ให้${p.pinName}เรียกเราว่า',
-                    ['พี่', 'คุณ', 'ท่าน'],
-                    p.userCall,
-                    (v) => _updatePersona(p.copyWith(userCall: v))),
+                () => _editText(
+                    context, 'ให้${p.pinName}เรียกเราว่า (สรรพนาม หรือชื่อเล่น)',
+                    p.userCall, ['พี่', 'คุณ', 'เธอ'],
+                    (v) => _updatePersona(
+                        p.copyWith(userCall: v.isEmpty ? p.userCall : v))),
               ),
               _navRow(
                 context,
@@ -96,9 +98,9 @@ class SettingsScreen extends StatelessWidget {
                 '${p.pinName}แทนตัวเองว่า',
                 p.pinSelf,
                 () => _editText(context, '${p.pinName}แทนตัวเองว่า', p.pinSelf,
-                    ['ปิ่น', 'หนู', 'ผม', 'เรา'],
+                    [p.pinName, 'หนู', 'ผม', 'เรา'],
                     (v) => _updatePersona(
-                        p.copyWith(pinSelf: v.isEmpty ? 'ปิ่น' : v))),
+                        p.copyWith(pinSelf: v.isEmpty ? p.pinName : v))),
               ),
               _navRow(
                 context,
@@ -124,8 +126,10 @@ class SettingsScreen extends StatelessWidget {
                 title: const Text('ภาษา · Language'),
                 trailing: _LangToggle(
                   lang: p.lang,
-                  onChanged: (v) =>
-                      PrefsController.instance.update(p.copyWith(lang: v)),
+                  // English not ready yet — show a toast and stay on Thai.
+                  onChanged: (v) => v == 'en'
+                      ? PinToast.show(context, 'English is coming soon')
+                      : PrefsController.instance.update(p.copyWith(lang: v)),
                 ),
               ),
               ValueListenableBuilder<PinPalette>(
@@ -235,38 +239,6 @@ class SettingsScreen extends StatelessWidget {
         ),
         onTap: onTap,
       );
-
-  void _pick(BuildContext context, String title, List<String> options,
-      String current, ValueChanged<String> onPick) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(title, style: PinPalette.brand(size: 16)),
-            ),
-            for (final o in options)
-              ListTile(
-                title: Text(o),
-                trailing: o == current
-                    ? Icon(LucideIcons.check,
-                        color: Theme.of(context).colorScheme.primary)
-                    : null,
-                onTap: () {
-                  onPick(o);
-                  Navigator.pop(context);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// Free-text edit with quick preset chips (for pronoun / ending particle).
   void _editText(BuildContext context, String title, String current,
@@ -645,6 +617,20 @@ class _E2eeDebugState extends State<_E2eeDebug> {
                   'paginate ข้อความกลับมา — ดูว่า provision สำเร็จ + ถอดรหัสได้',
               run: _runPinDmTest,
             )),
+          ),
+          _div(),
+          _tile(
+            LucideIcons.messageCircle,
+            'รัน persona setup ใหม่',
+            'ปิดหน้านี้แล้วเริ่มถามตั้งชื่อ/เรียกขาน ในแชตอีกครั้ง',
+            onTap: () {
+              if (debugForcePersonaSetup == null) {
+                PinToast.show(context, 'เปิดหน้าแชตก่อน');
+                return;
+              }
+              Navigator.of(context).popUntil((r) => r.isFirst);
+              debugForcePersonaSetup?.call();
+            },
           ),
           ],
           _div(),

@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../main.dart';
 import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
-import '../widgets/lang_pick.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_route.dart';
 import '../widgets/pin_scaffold.dart';
@@ -25,14 +25,30 @@ class WelcomeScreen extends StatelessWidget {
             final en = prefs.lang == 'en';
             return Stack(
               children: [
-                // Language: quiet utility, top-right.
+                // English isn't ready yet — static badge, no toggle.
                 Positioned(
-                  top: 8,
+                  top: 14,
                   right: 16,
-                  child: LangPick(
-                    lang: prefs.lang,
-                    onChanged: (v) => PrefsController.instance
-                        .update(prefs.copyWith(lang: v, langExplicit: true)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: PinPalette.line),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(LucideIcons.globe, size: 14, color: PinPalette.ink2),
+                        SizedBox(width: 6),
+                        Text('English coming soon',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: PinPalette.ink2)),
+                      ],
+                    ),
                   ),
                 ),
                 Padding(

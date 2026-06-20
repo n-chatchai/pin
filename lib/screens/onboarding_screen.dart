@@ -54,7 +54,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool get _isEn => PrefsController.instance.value.lang == 'en';
 
   _RecoveryStep get _recovery => _RecoveryStep(
-      onSaved: () => setState(() => _recoverySaved = true));
+      onSaved: () => setState(() => _recoverySaved = true),
+      // Restore succeeded → nothing left to do on this step, advance for them.
+      onRestored: _next);
 
   /// Steps + their bottom-button labels. Account-only now: persona + theme are
   /// collected IN-CHAT after the account/room exist (so they sync to room state
@@ -463,7 +465,8 @@ class _ThemeTile extends StatelessWidget {
 /// Step 4: enables E2EE recovery and shows the recovery key to save.
 class _RecoveryStep extends StatefulWidget {
   final VoidCallback? onSaved; // call when it's safe to advance (key saved)
-  const _RecoveryStep({this.onSaved});
+  final VoidCallback? onRestored; // call to auto-advance after a successful restore
+  const _RecoveryStep({this.onSaved, this.onRestored});
 
   @override
   State<_RecoveryStep> createState() => _RecoveryStepState();
@@ -504,8 +507,9 @@ class _RecoveryStepState extends State<_RecoveryStep> {
       if (hasBackup || state == 'enabled') {
         // Returning user on a new device → restore with the existing key
         // (generating a new one would overwrite the backup and lock them out).
+        // "Next" stays gated until the restore actually succeeds (onSaved fires
+        // in _restore), so a user can't silently skip past locked chats.
         setState(() => _mode = 'restore');
-        widget.onSaved?.call(); // restore flow isn't gated on copy/save
       } else {
         setState(() => _mode = 'create');
         // Build the combined QR: email + user key + ปิ่น key (both accounts).
@@ -523,11 +527,11 @@ class _RecoveryStepState extends State<_RecoveryStep> {
       // raw error; switch to restore so the user enters their existing key.
       if ('$e'.contains('backup already exists')) {
         if (mounted) {
+          // Gated until a successful restore (onSaved fires in _restore).
           setState(() {
             _mode = 'restore';
             _error = null;
           });
-          widget.onSaved?.call();
         }
         return;
       }
@@ -627,8 +631,16 @@ class _RecoveryStepState extends State<_RecoveryStep> {
       // Accepts the combined QR JSON (user + ปิ่น keys + email) or a raw key.
       await MatrixService.instance.restoreFromRecoveryQr(key);
       if (mounted) setState(() => _mode = 'restored');
+      widget.onSaved?.call(); // unlock "Next" only after a successful restore
+      // Show "กู้คืนสำเร็จ" briefly, then advance for them — nothing left to do here.
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (mounted) widget.onRestored?.call();
     } catch (e) {
-      if (mounted) setState(() => _error = 'กุญแจไม่ถูกต้อง ลองใหม่');
+      if (mounted) {
+        setState(() => _error =
+            'กุญแจไม่ถูกต้อง — ถ้าไม่มีกุญแจที่ถูกต้อง แชตเข้ารหัสเก่าจะกู้คืนไม่ได้ '
+            'ลองกรอกกุญแจหรืออัพโหลด QR อีกครั้ง หรือกด ไม่มีกุญแจ เพื่อเริ่มใหม่');
+      }
     } finally {
       if (mounted) setState(() => _restoring = false);
     }
@@ -648,7 +660,9 @@ class _RecoveryStepState extends State<_RecoveryStep> {
           const SizedBox(height: 18),
           if (restore) ...[
             const Text(
-                'เครื่องนี้เป็นเครื่องใหม่ ใส่กุญแจกู้คืนเดิมเพื่อปลดล็อกแชต (ปิ่นไม่เห็นกุญแจ)',
+                'คุณเคยใช้บัญชีนี้มาก่อน แชตเก่าถูกเข้ารหัสไว้ — '
+                'กรอกกุญแจกู้คืน หรืออัพโหลด QR ที่บันทึกไว้ตอนสมัคร เพื่อปลดล็อก\n'
+                'กุญแจอยู่ที่คุณคนเดียว ระบบไม่บันทึก ถ้าไม่มีกุญแจที่ถูกต้อง แชตเก่าจะกู้คืนไม่ได้',
                 style: TextStyle(color: PinPalette.ink2, height: 1.5)),
             const SizedBox(height: 16),
           ] else ...[
@@ -946,7 +960,7 @@ class _SignupStepState extends State<_SignupStep> {
         children: [
           Text('สร้างบัญชี', style: PinPalette.brand(size: 27)),
           const SizedBox(height: 8),
-          const Text('ตั้งชื่อผู้ใช้ไว้เข้าสู่ระบบ (ไม่ต้องใช้อีเมล)',
+          const Text('ตั้งชื่อผู้ใช้ไว้เข้าสู่ระบบ',
               style: TextStyle(color: PinPalette.ink2)),
           const SizedBox(height: 24),
           PinField(

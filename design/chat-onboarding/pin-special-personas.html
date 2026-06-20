@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>บุคลิกพิเศษ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --app-bg:#eef4f0; --bubble:#46c266; --txt:#1f2421; --txt-2:#8a938c; --card:#fff;
+    --green:#1f8a52; --line:#e7eee9; --pageframe:#cdd8d0;
+    --purple:#6b46c1; --purple-bg:#efe7fb; --warn-bg:#fdf1d2; --warn:#b9850f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Anuphan',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--pageframe);display:flex;justify-content:center;min-height:100vh;color:var(--txt);}
+  .phone{width:100%;max-width:430px;background:var(--app-bg);display:flex;flex-direction:column;min-height:100vh;position:relative;}
+
+  .nav{display:flex;align-items:center;gap:8px;padding:16px;position:sticky;top:0;background:var(--app-bg);z-index:5;border-bottom:0.5px solid var(--line);}
+  .nav .back{width:42px;height:42px;border-radius:50%;background:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.05);cursor:pointer;}
+  .nav .back svg{width:22px;height:22px;stroke:#3a4540;}
+  .nav h1{font-size:20px;font-weight:600;}
+
+  .scroll{flex:1;overflow-y:auto;padding:16px;}
+  .intro{font-size:15px;color:var(--txt-2);line-height:1.55;margin:0 4px 16px;}
+
+  .active{display:none;align-items:center;gap:12px;background:#f1faf3;border:1.5px solid #bfe6cb;border-radius:16px;padding:14px 16px;margin-bottom:16px;}
+  .active.show{display:flex;}
+  .active .ai{width:40px;height:40px;border-radius:11px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .active .ai svg{width:22px;height:22px;stroke:#fff;}
+  .active .at{flex:1;font-size:15px;}
+  .active .at b{font-weight:600;}
+  .active .off{font-family:inherit;font-size:14px;color:var(--green);background:none;border:1.5px solid #bfe6cb;border-radius:12px;padding:8px 12px;cursor:pointer;}
+
+  .pcard{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.04);margin-bottom:12px;cursor:pointer;border:2px solid transparent;transition:border-color .12s;}
+  .pcard.on{border-color:var(--bubble);}
+  .pcard .top{display:flex;align-items:center;gap:13px;}
+  .pic{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:24px;}
+  .pic.friend{background:#e3f1e7;} .pic.butler{background:var(--purple-bg);} .pic.mom{background:#fbe7f0;} .pic.cute{background:#fdeef0;} .pic.custom{background:#eef1f5;}
+  .pic svg{width:26px;height:26px;}
+  .pcard .ti{flex:1;}
+  .pcard .ti .nm{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .pcard .ti .sub{font-size:14px;color:var(--txt-2);margin-top:2px;}
+  .badge{font-size:11px;background:var(--warn-bg);color:var(--warn);padding:2px 8px;border-radius:9px;font-weight:600;}
+  .check{width:24px;height:24px;border-radius:50%;background:var(--bubble);display:none;align-items:center;justify-content:center;flex:0 0 auto;}
+  .pcard.on .check{display:flex;}
+  .check svg{width:15px;height:15px;stroke:#fff;}
+  .sample{margin-top:12px;background:#f6f8f6;border-radius:12px;padding:11px 14px;font-size:15px;color:#3a443e;font-style:italic;}
+
+  .customform{display:none;margin-top:14px;border-top:0.5px solid var(--line);padding-top:14px;}
+  .customform.show{display:block;}
+  .customform label{display:block;font-size:13px;color:var(--txt-2);margin:8px 0 5px;}
+  .customform input{width:100%;font-family:inherit;font-size:16px;padding:10px 13px;border:1.5px solid var(--line);border-radius:12px;outline:none;background:#fafbfa;}
+  .customform input:focus{border-color:var(--bubble);background:#fff;}
+  .customform .go{width:100%;margin-top:12px;font-family:inherit;font-size:16px;font-weight:600;color:#fff;background:var(--bubble);border:none;padding:12px;border-radius:13px;cursor:pointer;}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(20,28,22,.5);display:none;align-items:flex-end;justify-content:center;z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:#fff;width:100%;max-width:430px;border-radius:24px 24px 0 0;padding:22px 20px 26px;animation:up .25s ease;}
+  @keyframes up{from{transform:translateY(40px);opacity:.4;}to{transform:none;opacity:1;}}
+  .modal .mh{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:600;margin-bottom:14px;}
+  .modal .mh svg{width:22px;height:22px;stroke:var(--warn);}
+  .modal ul{list-style:none;margin:0 0 14px;}
+  .modal ul li{display:flex;gap:10px;font-size:16px;padding:7px 0;color:#2a352e;}
+  .modal ul li b{font-weight:600;}
+  .modal .note{background:#f1faf3;border-radius:13px;padding:12px 14px;font-size:14px;color:#3a544a;line-height:1.5;margin-bottom:16px;}
+  .agree{display:flex;align-items:flex-start;gap:11px;font-size:15px;cursor:pointer;margin-bottom:18px;line-height:1.4;}
+  .agree .box{width:24px;height:24px;border-radius:7px;border:2px solid #c3ccc6;flex:0 0 auto;display:flex;align-items:center;justify-content:center;transition:.12s;margin-top:1px;}
+  .agree.on .box{background:var(--bubble);border-color:var(--bubble);}
+  .agree .box svg{width:15px;height:15px;stroke:#fff;opacity:0;}
+  .agree.on .box svg{opacity:1;}
+  .mbtns{display:flex;gap:10px;}
+  .mbtns button{flex:1;font-family:inherit;font-size:17px;font-weight:600;padding:14px;border-radius:14px;cursor:pointer;border:none;}
+  .mcancel{background:#f0f3f1;color:#4a554e;}
+  .mok{background:var(--bubble);color:#fff;}
+  .mok:disabled{background:#c8d6cd;cursor:not-allowed;}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#243029;color:#fff;padding:12px 22px;border-radius:20px;font-size:15px;opacity:0;transition:.3s;pointer-events:none;z-index:60;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="nav">
+    <button class="back" aria-label="ย้อนกลับ"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>บุคลิกพิเศษ</h1>
+  </div>
+
+  <div class="scroll">
+    <p class="intro">เปลี่ยนผู้ช่วยให้รับบทเป็นตัวละคร — เปลี่ยนแค่คำเรียกและน้ำเสียง ยังช่วยงานเหมือนเดิม เปิดหรือปิดทีหลังได้ตลอด</p>
+
+    <div class="active" id="activeBar">
+      <div class="ai"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg></div>
+      <div class="at">กำลังใช้ <b id="activeName">—</b></div>
+      <button class="off" id="turnOff">กลับเป็นปกติ</button>
+    </div>
+
+    <div id="gallery"></div>
+
+    <div class="pcard" id="customCard">
+      <div class="top">
+        <div class="pic custom"><svg viewBox="0 0 24 24" fill="none" stroke="#5a665e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.83 2.83 0 0 0-4-4L4 16z"/><line x1="13.5" y1="6.5" x2="17.5" y2="10.5"/></svg></div>
+        <div class="ti"><div class="nm">กำหนดเอง</div><div class="sub">เลือกคำเรียก 2 ฝั่งด้วยตัวเอง</div></div>
+        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+      <div class="customform" id="customForm">
+        <label>ให้เรียกคุณว่า</label>
+        <input id="cuUser" placeholder="เช่น เจ้านาย, พี่, มิ้น" maxlength="14">
+        <label>ผู้ช่วยแทนตัวเองว่า</label>
+        <input id="cuSelf" placeholder="เช่น หนู, เรา, ชื่อผู้ช่วย" maxlength="14">
+        <button class="go" id="cuGo">เปิดใช้</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="mh"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>ยืนยันก่อนเปิดบุคลิกนี้</div>
+    <ul id="mList"></ul>
+    <div class="note">ผู้ช่วยยังเป็นผู้ช่วยทำงานเหมือนเดิม เปลี่ยนแค่คำเรียกและน้ำเสียง ไม่รวมบทสนทนานอกขอบเขตผู้ช่วย</div>
+    <div class="agree" id="agree"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span>ฉันอายุ 18 ปีขึ้นไป และเข้าใจว่านี่เป็นโหมดสมมุติบทบาท</span></div>
+    <div class="mbtns"><button class="mcancel" id="mCancel">ยกเลิก</button><button class="mok" id="mOk" disabled>เปิดใช้</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">เปิดบุคลิกแล้ว</div>
+
+<script>
+(function(){
+  var ASST='ปิ่น';
+  var FR='<svg viewBox="0 0 24 24" fill="none" stroke="#1f8a52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M16 3.7a3 3 0 0 1 0 6.6"/><path d="M21 21v-1a5 5 0 0 0-3-4.6"/></svg>';
+  var BU='<svg viewBox="0 0 24 24" fill="none" stroke="#6b46c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l1 10H6z"/><line x1="3" y1="16" x2="21" y2="16"/><line x1="5" y1="20" x2="19" y2="20"/></svg>';
+  var MO='<svg viewBox="0 0 24 24" fill="none" stroke="#c2456f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/><path d="M10 20v-5h4v5"/></svg>';
+  var CU='<svg viewBox="0 0 24 24" fill="none" stroke="#d4537e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 5.5a4 4 0 0 0-5.7 0L12 7.3l-1.8-1.8a4 4 0 1 0-5.7 5.7L12 19l7.5-7.8a4 4 0 0 0 0-5.7z"/></svg>';
+  var P=[
+    {k:'friend',icon:FR,cls:'friend',name:'เพื่อนซี้',adult:false,callUser:'แก / นาย',self:'เรา / '+ASST,sample:'เดี๋ยวเราจัดให้แกเอง',tone:'เป็นกันเอง ลงท้าย จ๊ะ/นะ'},
+    {k:'butler',icon:BU,cls:'butler',name:'บ่าวรับใช้',adult:true,callUser:'นายท่าน',self:'กระหม่อม / บ่าว',sample:'กระหม่อมจัดการให้แล้วนายท่าน',tone:'สุภาพแบบรับใช้ ลงท้าย ขอรับ'},
+    {k:'mom',icon:MO,cls:'mom',name:'แม่–ลูก',adult:true,callUser:'ลูก / หนู',self:'แม่',sample:'เดี๋ยวแม่เตือนลูกเองนะ',tone:'อบอุ่น ดูแลแบบแม่'},
+    {k:'cute',icon:CU,cls:'cute',name:'น่ารัก / ใกล้ชิด',adult:true,callUser:'ตัวเอง / ที่รัก',self:'เค้า / '+ASST,sample:'เค้าทำให้ตัวเองแล้วน้า',tone:'หวาน ใกล้ชิด'}
+  ];
+  var $=function(id){return document.getElementById(id);};
+  var active=null, pending=null;
+
+  function toast(t){var e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(function(){e.classList.remove('show');},1600);}
+
+  function renderGallery(){
+    var g=$('gallery');g.innerHTML='';
+    P.forEach(function(o){
+      var c=document.createElement('div');
+      c.className='pcard'+(active===o.k?' on':'');
+      c.innerHTML='<div class="top"><div class="pic '+o.cls+'">'+o.icon+'</div>'+
+        '<div class="ti"><div class="nm">'+o.name+(o.adult?' <span class="badge">18+</span>':'')+'</div>'+
+        '<div class="sub">เรียกคุณ "'+o.callUser.split(' / ')[0]+'" · แทนตัว "'+o.self.split(' / ')[0]+'"</div></div>'+
+        '<div class="check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>'+
+        '<div class="sample">"'+o.sample+'"</div>';
+      c.onclick=function(){ pick(o); };
+      g.appendChild(c);
+    });
+  }
+
+  function pick(o){
+    if(active===o.k){ return; }
+    if(o.adult){ openModal(o); }
+    else { apply(o.k,o.name); }
+  }
+
+  function openModal(o){
+    pending=o;
+    $('mList').innerHTML=
+      '<li>• เรียกคุณว่า <b>'+o.callUser+'</b></li>'+
+      '<li>• แทนตัวเองว่า <b>'+o.self+'</b></li>'+
+      '<li>• น้ำเสียง: '+o.tone+'</li>';
+    $('agree').classList.remove('on');$('mOk').disabled=true;
+    $('overlay').classList.add('show');
+  }
+  function closeModal(){$('overlay').classList.remove('show');pending=null;}
+
+  $('agree').onclick=function(){this.classList.toggle('on');$('mOk').disabled=!this.classList.contains('on');};
+  $('mCancel').onclick=closeModal;
+  $('mOk').onclick=function(){ if(pending){var o=pending;closeModal();apply(o.k,o.name);} };
+
+  function apply(k,name){
+    active=k;
+    $('activeName').textContent=name;
+    $('activeBar').classList.add('show');
+    $('customCard').classList.toggle('on',k==='custom');
+    renderGallery();
+    toast('เปิดบุคลิก "'+name+'" แล้ว');
+  }
+
+  $('turnOff').onclick=function(){
+    active=null;$('activeBar').classList.remove('show');
+    $('customCard').classList.remove('on');$('customForm').classList.remove('show');
+    renderGallery();toast('กลับเป็นบุคลิกปกติแล้ว');
+  };
+
+  /* custom */
+  $('customCard').querySelector('.top').onclick=function(e){
+    e.stopPropagation();
+    $('customForm').classList.toggle('show');
+  };
+  $('cuGo').onclick=function(e){
+    e.stopPropagation();
+    var u=$('cuUser').value.trim(), s=$('cuSelf').value.trim();
+    if(!u||!s){toast('กรอกคำเรียกให้ครบทั้ง 2 ช่อง');return;}
+    $('customForm').classList.remove('show');
+    apply('custom','กำหนดเอง');
+  };
+
+  renderGallery();
+})();
+</script>
+</body>
+</html>

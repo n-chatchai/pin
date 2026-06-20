@@ -34,8 +34,8 @@ class TourStep {
 const List<TourStep> kTour = [
   // 0 — greeting + ask to start the tour
   TourStep(
-    'สวัสดี{ending} {pinName} เอง 🌿 เป็นคู่หูที่คอย จำ · เตือน · หาข้อมูล · '
-        'ลงมือทำ ให้ — ขอพา{userCall}ดูสั้น ๆ ว่าทำอะไรได้บ้างไหม?',
+    'สวัสดี! {pinName}พร้อมเป็นคู่หูช่วย{userCall}แล้ว — '
+        'ขอเวลาสั้น ๆ พาดูว่าเราทำอะไรด้วยกันได้บ้าง เอาไหม{ending}',
     [
       TourChip('ดูเลย', kind: 'next', next: 1),
       TourChip('เริ่มคุยก่อน', kind: 'end'),
