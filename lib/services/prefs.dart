@@ -129,18 +129,20 @@ class PinPrefs {
         'customSelf': customSelf,
       };
 
-  /// The subset persisted to on-device storage. The persona identity
-  /// (pinName/userName/userCall/pinSelf/tone/pinEnding/personaMode/customCall/
-  /// customSelf) is DELIBERATELY excluded — it is user data and lives only in
-  /// the ปิ่น room state (single source of truth), never on the device, so it
-  /// can't diverge across devices. Only device-local settings/flags persist.
-  static const _personaKeys = {
+  /// Keys NOT persisted on device — they are derived from the ปิ่น room state
+  /// (the single source of truth) on every launch, so they can't go stale or
+  /// diverge across devices. The persona identity, AND `onboarded`/`personaSetup`
+  /// (which mean "the room already has a persona") all live in the room, not
+  /// here. Only true device-local settings (language, reminders, dev flags)
+  /// persist. This is why a fresh account on a shared device never inherits the
+  /// previous one's name or "already onboarded" state.
+  static const _roomDerivedKeys = {
     'pinName', 'userName', 'userCall', 'pinSelf', 'tone', 'pinEnding',
-    'personaMode', 'customCall', 'customSelf',
+    'personaMode', 'customCall', 'customSelf', 'onboarded', 'personaSetup',
   };
   Map<String, String> toLocalMap() {
     final m = toMap();
-    m.removeWhere((k, _) => _personaKeys.contains(k));
+    m.removeWhere((k, _) => _roomDerivedKeys.contains(k));
     return m;
   }
 
@@ -228,6 +230,10 @@ class PrefsController extends ValueNotifier<PinPrefs> {
         if (pair.contains('=')) pair.split('=').first: pair.split('=').skip(1).join('='),
     };
     var p = PinPrefs.fromMap(map);
+    // onboarded/personaSetup are room-derived — never trust a persisted value
+    // (older builds wrote them, and they go stale). Start false; AfterAuth's
+    // rehydrate flips them true iff the ปิ่น room actually carries a persona.
+    p = p.copyWith(onboarded: false, personaSetup: false);
     // Until the user picks a language by hand, keep following the device — so
     // an English phone shows English even if old saved prefs defaulted to Thai.
     if (!p.langExplicit) p = p.copyWith(lang: detected);

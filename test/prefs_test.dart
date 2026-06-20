@@ -7,13 +7,15 @@ import 'package:pin/services/prefs.dart';
 void main() {
   // The persona identity fields — the ones that must stay room-only and must
   // all round-trip through the room state.
-  const personaKeys = {
+  // Persona identity + the room-derived flags (onboarded/personaSetup) must NOT
+  // be persisted — they all come from the room.
+  const roomDerivedKeys = {
     'pinName', 'userName', 'userCall', 'pinSelf', 'tone', 'pinEnding',
-    'personaMode', 'customCall', 'customSelf',
+    'personaMode', 'customCall', 'customSelf', 'onboarded', 'personaSetup',
   };
 
-  group('toLocalMap (no persona on device)', () {
-    test('excludes every persona key', () {
+  group('toLocalMap (room-derived state never persists)', () {
+    test('excludes every persona key + onboarded/personaSetup', () {
       final local = const PinPrefs(
         pinName: 'มะลิ',
         userName: 'บอล',
@@ -24,21 +26,22 @@ void main() {
         personaMode: 'custom',
         customCall: 'นาย',
         customSelf: 'ข้า',
+        onboarded: true,
+        personaSetup: true,
       ).toLocalMap();
-      for (final k in personaKeys) {
-        expect(local.containsKey(k), isFalse, reason: 'persona key "$k" leaked to local storage');
+      for (final k in roomDerivedKeys) {
+        expect(local.containsKey(k), isFalse,
+            reason: 'room-derived key "$k" must not be on device');
       }
     });
 
-    test('keeps device-local settings', () {
+    test('keeps true device-local settings', () {
       final local = const PinPrefs(
         lang: 'en',
-        onboarded: true,
         debugBot: true,
         morningTime: '09:30',
       ).toLocalMap();
       expect(local['lang'], 'en');
-      expect(local['onboarded'], '1');
       expect(local['debugBot'], '1');
       expect(local['morningTime'], '09:30');
     });

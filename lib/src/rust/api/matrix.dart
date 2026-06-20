@@ -9,6 +9,13 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These functions are ignored because they are not marked as `pub`: `block`, `build_client`, `client_for`, `current_client`, `emit`, `map_timeline_to_chat`, `register_handlers`, `room_by_id_role`, `room_by_id`, `source_url`, `spawn_sync_loop`, `stop_sync`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`
 
+/// Whether `room_id` is present in the user client's local store (no network).
+/// A cached room id from a previous account isn't in this client → every room
+/// read ("room not found") fails; callers use this to drop a stale cache and
+/// re-resolve. Also false for a valid room not yet synced into a fresh store.
+Future<bool> roomInStore({required String roomId}) =>
+    RustLib.instance.api.crateApiMatrixRoomInStore(roomId: roomId);
+
 /// Password login against `homeserver`, persisting crypto + state at `db_path`.
 /// Returns the session so Dart can store it in the Keychain/Keystore.
 Future<Session> login({

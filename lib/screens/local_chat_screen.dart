@@ -511,7 +511,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     _personaStep = -1;
     _personaStage = '';
     final p = PrefsController.instance.value;
-    await PrefsController.instance.update(p.copyWith(personaSetup: true));
+    // Room state is the source of truth → write it FIRST. Only after it lands do
+    // we set the (room-derived, non-persisted) personaSetup flag, so we never
+    // mark "done" without the room actually carrying the persona.
     final rid = _roomId;
     if (rid != null) {
       await MatrixService.instance.savePersonaToRoom(rid, {
@@ -527,11 +529,12 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         'theme': ThemeController.instance.value.key,
       });
     }
+    await PrefsController.instance.update(p.copyWith(personaSetup: true));
     if (!mounted) return;
     setState(() {
       _messages.add(_text(
           'ตั้งค่าเสร็จเรียบร้อย$_pt ${p.pinSelf}พร้อมช่วย${p.userCall}แล้วนะ — '
-          'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะ ⋯ ได้ตลอด',
+          'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะตั้งค่า ⋯ ได้ตลอด',
           me: false));
     });
   }

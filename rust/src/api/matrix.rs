@@ -171,6 +171,22 @@ async fn room_by_id(room_id: &str) -> Result<Room, String> {
     room_by_id_role(USER_ROLE, room_id).await
 }
 
+/// Whether `room_id` is present in the user client's local store (no network).
+/// A cached room id from a previous account isn't in this client → every room
+/// read ("room not found") fails; callers use this to drop a stale cache and
+/// re-resolve. Also false for a valid room not yet synced into a fresh store.
+pub fn room_in_store(room_id: String) -> bool {
+    block(async move {
+        let Ok(client) = client_for(USER_ROLE).await else {
+            return false;
+        };
+        match RoomId::parse(&room_id) {
+            Ok(rid) => client.get_room(&rid).is_some(),
+            Err(_) => false,
+        }
+    })
+}
+
 async fn build_client(homeserver: &str, db_path: &str) -> Result<Client, String> {
     // The /sync long-poll holds for up to 30s server-side; the per-request HTTP
     // timeout MUST exceed that or every sync errors ("error sending request")

@@ -354,6 +354,9 @@ class MatrixService {
     // are kept, so no recovery prompt); a different account has no room here and
     // falls through to the recovery step to pull ITS keys.
     await PrefsController.instance.reset();
+    // Drop the cached ปิ่น room id — it's per-account; leaking it makes the next
+    // account resolve a room its client doesn't have ("room not found").
+    await const FlutterSecureStorage().delete(key: _pinRoomKey);
   }
 
   // -------------------------------------------------------------------------
@@ -451,9 +454,16 @@ class MatrixService {
     if (pin == null) throw Exception('pin session not ready');
     const storage = FlutterSecureStorage();
     // Fast path: reuse the cached room id so boot doesn't pay a full sync_once
-    // (+ pin join sync) on every launch — that was the main chat-open lag.
+    // (+ pin join sync) on every launch — that was the main chat-open lag. But
+    // VALIDATE it belongs to this account's client first: the cache is global,
+    // so a stale id from a previous account makes every room read fail "room
+    // not found" (→ persona defaults, empty history). Valid → keep the fast
+    // path; stale → drop it and re-resolve below.
     final cached = await storage.read(key: _pinRoomKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+    if (cached != null && cached.isNotEmpty) {
+      if (await rust.roomInStore(roomId: cached)) return cached;
+      await storage.delete(key: _pinRoomKey);
+    }
     final roomId = await timed(
         'getOrCreatePinDm.syncOnce', () => rust.getOrCreatePinDm(pinUid: pin));
     await storage.write(key: _pinRoomKey, value: roomId);
