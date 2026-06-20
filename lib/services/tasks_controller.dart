@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'matrix_service.dart';
+
 /// A task ปิ่น is tracking for the user.
 class PinTask {
   final String group; // รอคุณ / รอเขา / เดดไลน์ / เงินค้าง
@@ -36,5 +38,16 @@ class TasksController extends ValueNotifier<List<PinTask>> {
           ),
       ];
     } catch (_) {/* ignore malformed */}
+  }
+
+  /// Seed tasks from the ปิ่น DM room (the single source of truth). Reuses
+  /// [updateFromJson], which reads the same `{group,text,due}` shape written to
+  /// `io.tokens2.tasks`. Best-effort.
+  Future<void> loadFromRoom(String roomId) async {
+    try {
+      final items = await MatrixService.instance
+          .loadListFromRoom(roomId, 'io.tokens2.tasks');
+      if (items.isNotEmpty) updateFromJson(jsonEncode(items));
+    } catch (_) {/* best-effort */}
   }
 }

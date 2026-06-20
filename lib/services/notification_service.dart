@@ -96,6 +96,40 @@ class NotificationService {
   /// Cancel a scheduled reminder by its id (no-op if already fired/gone).
   Future<void> cancel(int id) => _plugin.cancel(id: id);
 
+  /// (Re)arm OS reminders from the ปิ่น room's `io.tokens2.reminders` state — the
+  /// single source of truth. Called on boot + app resume so reminders survive
+  /// relaunch and a fresh device. One-shots fire at their absolute `at`; daily
+  /// ones repeat at `time`. Past one-shots + agentic jobs are skipped.
+  Future<void> rescheduleFromRoom() async {
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid == null) return;
+    final items =
+        await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.reminders');
+    await _plugin.cancelAll();
+    final now = DateTime.now();
+    for (final r in items) {
+      if (r['kind'] == 'agentic') continue; // runs in-app, not an OS notification
+      final text = '${r['text'] ?? ''}';
+      if (text.isEmpty) continue;
+      final id = int.tryParse('${r['id']}') ?? ('${r['id']}'.hashCode & 0x7fffffff);
+      final daily = r['repeat'] == 'daily';
+      DateTime? when;
+      if (daily) {
+        final hm = '${r['time'] ?? ''}'.split(':');
+        if (hm.length == 2) {
+          when = DateTime(now.year, now.month, now.day,
+              int.tryParse(hm[0]) ?? 8, int.tryParse(hm[1]) ?? 0);
+        }
+      } else {
+        final at = (r['at'] as num?)?.toInt();
+        if (at != null) when = DateTime.fromMillisecondsSinceEpoch(at);
+      }
+      if (when == null) continue;
+      if (!daily && when.isBefore(now)) continue; // past one-shot — skip
+      await scheduleReminder(id: id, body: text, when: when, daily: daily);
+    }
+  }
+
   Future<void> _show(String roomId, String body) async {
     await _plugin.show(
       id: roomId.hashCode,

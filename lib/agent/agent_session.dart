@@ -6,6 +6,7 @@ import 'agent_reply.dart';
 import 'agent_config.dart';
 import 'catalog_client.dart';
 import 'device_brain.dart';
+import 'now_tools.dart';
 import 'proxy_client.dart';
 import 'abilities.dart';
 import 'remote_tools.dart';
@@ -89,7 +90,11 @@ class AgentSession {
         'เมื่อผู้ใช้ขอวาด/สร้าง/เนรมิตรูป หรือสั่งแก้/วาดใหม่ (รวมถึงสั่งแบบอ้อม เช่น '
         '"ไม่ใช่ เอาผู้ชาย") ต้องเรียกเครื่องมือ generate_image ทุกครั้ง '
         'ห้ามสัญญาว่าจะวาดแล้วพิมพ์ prompt หรือ JSON เป็นข้อความเด็ดขาด — '
-        'ถ้ายังไม่ได้เรียกเครื่องมือ ถือว่ายังไม่ได้วาด.\n\n$persona';
+        'ถ้ายังไม่ได้เรียกเครื่องมือ ถือว่ายังไม่ได้วาด.\n'
+        'เมื่อผู้ใช้ขอให้เตือน/นัดเวลา ให้เรียก schedule_reminder; เมื่อบอกให้จำ/'
+        '"จำไว้" ให้เรียก remember_fact (เรื่องสั้น ๆ) หรือ save_knowledge '
+        '(เนื้อหายาว); เมื่อมีงานที่ต้องติดตาม ให้เรียก add_task — '
+        'อย่าตอบแค่ว่ารับทราบโดยไม่เรียกเครื่องมือ.\n\n$persona';
     // Catalog skill instructions (all on — the local skill toggle was removed
     // with on-device memory; capability gating will move to room state later).
     final blocks = <String>[
@@ -129,6 +134,9 @@ class AgentSession {
     final base = <AgentTool>[
         // Remote, minimal-arg tools (weather / currency / web_search).
         ...remoteTools(proxy),
+        // On-device "ตอนนี้" tools: reminders / jobs / tasks / memory, all
+        // written through to the ปิ่น DM room state (source of truth).
+        ...nowTools(),
         // On-device rich render: HTML card shown as-is (terminal).
         AgentTool(
           fnDecl('render_html',

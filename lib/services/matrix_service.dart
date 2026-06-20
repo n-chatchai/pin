@@ -54,18 +54,11 @@ class MatrixService {
   String? _userEmail;
 
   Stream<rust.ChatMessage> get messages {
-    if (_messages == null) {
-      _messages = rust.startSync().asBroadcastStream();
-      _subs.add(_messages!
-          .where((m) => m.kind == 'tasks')
-          .listen((m) => TasksController.instance.updateFromJson(m.flexJson)));
-      _subs.add(_messages!
-          .where((m) => m.kind == 'events')
-          .listen((m) => EventsController.instance.updateFromJson(m.flexJson)));
-      _subs.add(_messages!
-          .where((m) => m.kind == 'jobs')
-          .listen((m) => JobsController.instance.updateFromJson(m.flexJson)));
-    }
+    // The tasks/events/jobs controllers used to be fed here by the SERVER BOT's
+    // io.tokens2.* message payloads. That bot is gone (on-device agent now), so
+    // those listeners fed nothing — removed. The controllers are seeded from the
+    // ปิ่น ROOM STATE instead (loadListFromRoom), the single source of truth.
+    _messages ??= rust.startSync().asBroadcastStream();
     return _messages!;
   }
 
@@ -519,6 +512,67 @@ class MatrixService {
     final raw = await rust.getState(role: role, roomId: roomId, eventType: type);
     if (raw == null) return null;
     try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---- Room-backed stores (single source of truth for the agent's
+  // reminders/tasks/events/files; mirrors how persona uses io.tokens2.prefs) ----
+
+  static const _stateCapBytes = 60000; // headroom under Matrix's ~64KB state cap
+
+  /// Save a list to a room STATE event as `{items:[...]}` (state content must be
+  /// a JSON object). Prunes oldest entries until it fits the cap. Best-effort.
+  Future<void> saveListToRoom(
+      String roomId, String type, List<Map<String, dynamic>> items) async {
+    var list = items;
+    while (list.length > 1 &&
+        jsonEncode({'items': list}).length > _stateCapBytes) {
+      list = list.sublist(1); // drop oldest
+    }
+    try {
+      await setStateEvent(roomId, type, {'items': list});
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Read a list back from a room state event's `items`.
+  Future<List<Map<String, dynamic>>> loadListFromRoom(
+      String roomId, String type) async {
+    final content = await getStateEvent(roomId, type);
+    final items = content?['items'];
+    if (items is! List) return [];
+    return [for (final e in items) Map<String, dynamic>.from(e as Map)];
+  }
+
+  /// Save a PRIVATE blob (the agent's memory) as an E2EE timeline event, and
+  /// store its event id in a plaintext state-event POINTER so it can be fetched
+  /// back reliably (scanning the timeline for it would be unreliable once it's
+  /// buried under chat). The homeserver can't read the content (unlike a state
+  /// event, which is plaintext).
+  Future<void> saveEncryptedBlob(
+      String roomId, String type, Map<String, dynamic> content) async {
+    try {
+      final eventId = await rust.sendCustomEvent(
+          role: 'user',
+          roomId: roomId,
+          eventType: type,
+          contentJson: jsonEncode(content));
+      await setStateEvent(roomId, '$type.ptr', {'event_id': eventId});
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Read a PRIVATE blob back: pointer state → fetch + decrypt that event.
+  Future<Map<String, dynamic>?> loadEncryptedBlob(
+      String roomId, String type) async {
+    final ptr = await getStateEvent(roomId, '$type.ptr');
+    final eid = ptr?['event_id'] as String?;
+    if (eid == null || eid.isEmpty) return null;
+    try {
+      final raw = await rust.fetchEventContent(
+          role: 'user', roomId: roomId, eventId: eid);
+      if (raw == null) return null;
       return jsonDecode(raw) as Map<String, dynamic>;
     } catch (_) {
       return null;

@@ -18,6 +18,7 @@ class FileItem {
   final String summary; // ปิ่น's short summary (may be empty)
   final String uri; // local file path OR remote url ('' = nothing to open)
   final int createdAt; // ms since epoch
+  final String? eventId; // ปิ่น DM attachment event id (resolve bytes via downloadMedia)
 
   const FileItem({
     required this.id,
@@ -26,6 +27,7 @@ class FileItem {
     required this.summary,
     required this.uri,
     required this.createdAt,
+    this.eventId,
   });
 
   bool get isImage => type == 'รูป' && uri.isNotEmpty;
@@ -39,7 +41,21 @@ class FileItem {
         summary: '${r['summary'] ?? ''}',
         uri: '${r['uri'] ?? ''}',
         createdAt: (r['created_at'] as int?) ?? 0,
+        eventId: (r['event_id'] as String?)?.isEmpty == true
+            ? null
+            : r['event_id'] as String?,
       );
+
+  /// Row map for mirroring metadata to the ปิ่น DM room state.
+  Map<String, dynamic> toRoomMap() => {
+        'id': id,
+        'name': name,
+        'type': type,
+        'summary': summary,
+        'uri': uri,
+        'created_at': createdAt,
+        if (eventId != null) 'event_id': eventId,
+      };
 }
 
 /// On-device SQLite store of processed files, kept newest-first and read in
@@ -103,7 +119,7 @@ class FilesStore {
     _dbAccount = acct;
     _db = await openDatabase(
       p.join(dir.path, name),
-      version: 2,
+      version: 3,
       onCreate: (db, _) => db.execute('''
         CREATE TABLE files(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,10 +127,16 @@ class FilesStore {
           type TEXT,
           summary TEXT,
           uri TEXT,
-          created_at INTEGER NOT NULL
+          created_at INTEGER NOT NULL,
+          event_id TEXT
         )'''),
       onUpgrade: (db, old, _) async {
         if (old < 2) await db.execute('ALTER TABLE files ADD COLUMN uri TEXT');
+        // event_id: the ปิ่น DM attachment event for this file's bytes, so the
+        // ไฟล์ tab can re-download them via downloadMedia after a reinstall.
+        if (old < 3) {
+          await db.execute('ALTER TABLE files ADD COLUMN event_id TEXT');
+        }
       },
     );
     return _db!;
@@ -153,6 +175,12 @@ class FilesStore {
 
   /// Record an artifact. [when] lets the caller pass the timestamp; defaults
   /// to now. [uri] is a local path or remote url for re-opening (media only).
+  ///
+  /// If [uri] is a LOCAL file, its bytes are uploaded to the ปิ่น DM as an E2EE
+  /// attachment (the single source of truth) and the returned event id is stored
+  /// so the ไฟล์ tab can re-download them later via [MatrixService.downloadMedia].
+  /// The SQLite row is the per-account read cache; the room metadata list is the
+  /// source on load. Both room calls are best-effort.
   Future<void> add({
     required String name,
     required String type,
@@ -161,14 +189,116 @@ class FilesStore {
     int? when,
   }) async {
     final db = await _open();
+
+    // Upload local bytes to the ปิ่น DM so they survive reinstall/restore. Remote
+    // urls and empty uris carry no bytes — nothing to upload.
+    String? eventId;
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid != null && uri.isNotEmpty && !uri.startsWith('http')) {
+      try {
+        final local = await absPath(uri);
+        if (await File(local).exists()) {
+          eventId = await MatrixService.instance
+              .sendUserAttachment(rid, local, _mimeFor(local));
+        }
+      } catch (_) {/* best-effort — keep the local-only row */}
+    }
+
     await db.insert('files', {
       'name': name,
       'type': type,
       'summary': summary,
       'uri': uri,
       'created_at': when ?? DateTime.now().millisecondsSinceEpoch,
+      'event_id': eventId,
     });
+
+    // Mirror the whole metadata list (incl. event ids) to the room state.
+    if (rid != null) await _persistMetadata(rid);
     FilesController.instance.bump();
+  }
+
+  /// Write every file row (as room maps, newest-first) to the ปิ่น DM room state
+  /// so metadata syncs cross-device. Best-effort.
+  Future<void> _persistMetadata(String roomId) async {
+    try {
+      final db = await _open();
+      final rows = await db.query('files', orderBy: 'created_at DESC');
+      await MatrixService.instance.saveListToRoom(
+        roomId,
+        'io.tokens2.files',
+        [for (final r in rows) FileItem.fromRow(r).toRoomMap()],
+      );
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Seed the file metadata cache from the ปิ่น DM room (the single source of
+  /// truth): upsert each room row into SQLite by id so paging still works, then
+  /// refresh the ไฟล์ tab. Bytes are resolved lazily via [event_id] +
+  /// [MatrixService.downloadMedia]. Best-effort.
+  Future<void> loadFromRoom() async {
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid == null) return;
+    try {
+      final items = await MatrixService.instance
+          .loadListFromRoom(rid, 'io.tokens2.files');
+      if (items.isEmpty) return;
+      final db = await _open();
+      for (final m in items) {
+        final id = m['id'];
+        if (id is! int) continue;
+        await db.insert(
+          'files',
+          {
+            'id': id,
+            'name': '${m['name'] ?? ''}',
+            'type': '${m['type'] ?? ''}',
+            'summary': '${m['summary'] ?? ''}',
+            'uri': '${m['uri'] ?? ''}',
+            'created_at': (m['created_at'] as int?) ?? 0,
+            'event_id': m['event_id'] as String?,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      FilesController.instance.bump();
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Best-effort mime type from a file extension (no `mime` package on board).
+  static String _mimeFor(String path) {
+    switch (p.extension(path).toLowerCase()) {
+      case '.png':
+        return 'image/png';
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.gif':
+        return 'image/gif';
+      case '.webp':
+        return 'image/webp';
+      case '.heic':
+        return 'image/heic';
+      case '.m4a':
+        return 'audio/mp4';
+      case '.mp3':
+        return 'audio/mpeg';
+      case '.wav':
+        return 'audio/wav';
+      case '.aac':
+        return 'audio/aac';
+      case '.ogg':
+        return 'audio/ogg';
+      case '.pdf':
+        return 'application/pdf';
+      case '.txt':
+        return 'text/plain';
+      case '.html':
+      case '.htm':
+        return 'text/html';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   /// A page of files, newest first. Used by the infinite-scroll list.
@@ -203,6 +333,9 @@ class FilesStore {
         if (await f.exists()) await f.delete();
       } catch (_) {/* best effort */}
     }
+    // Rewrite the room metadata list without this id (room is the source).
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid != null) await _persistMetadata(rid);
     FilesController.instance.bump();
   }
 }

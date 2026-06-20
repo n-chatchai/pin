@@ -101,6 +101,37 @@ Future<String> sendText({
   metaJson: metaJson,
 );
 
+/// Send an arbitrary E2EE timeline event (`event_type` ≠ m.room.message) with
+/// `content_json` as the content. matrix-sdk encrypts it in an E2EE room. It does
+/// NOT render in the chat list (which filters to m.room.message). Used to store
+/// private data (e.g. the agent's memory) encrypted — the homeserver can't read
+/// it, unlike a plaintext state event. Returns the event id (store it in a
+/// plaintext state-event pointer so it can be fetched back reliably).
+Future<String> sendCustomEvent({
+  required String role,
+  required String roomId,
+  required String eventType,
+  required String contentJson,
+}) => RustLib.instance.api.crateApiMatrixSendCustomEvent(
+  role: role,
+  roomId: roomId,
+  eventType: eventType,
+  contentJson: contentJson,
+);
+
+/// Fetch + decrypt a single timeline event by id, returning its `content` as a
+/// JSON string (None if absent). Pairs with [`send_custom_event`]: read the
+/// event id from a state-event pointer, then fetch the encrypted content here.
+Future<String?> fetchEventContent({
+  required String role,
+  required String roomId,
+  required String eventId,
+}) => RustLib.instance.api.crateApiMatrixFetchEventContent(
+  role: role,
+  roomId: roomId,
+  eventId: eventId,
+);
+
 /// Upload `bytes` as an attachment to `room_id` from the `role` client. In an
 /// E2EE room matrix-sdk encrypts the upload automatically. Returns the event id.
 Future<String> sendAttachment({

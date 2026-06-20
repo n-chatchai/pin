@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'matrix_service.dart';
+
 /// A timed event in the "วันนี้" section (bot io.tokens2.events).
 class PinEvent {
   final String id;
@@ -43,6 +45,15 @@ class EventsController extends ValueNotifier<List<PinEvent>> {
           ),
       ];
     } catch (_) {/* ignore malformed */}
+  }
+
+  /// Seed events from the ปิ่น DM room (the single source of truth). Best-effort.
+  Future<void> loadFromRoom(String roomId) async {
+    try {
+      final items = await MatrixService.instance
+          .loadListFromRoom(roomId, 'io.tokens2.events');
+      if (items.isNotEmpty) updateFromJson(jsonEncode(items));
+    } catch (_) {/* best-effort */}
   }
 }
 
@@ -90,5 +101,16 @@ class JobsController extends ValueNotifier<List<PinJob>> {
           ),
       ];
     } catch (_) {/* ignore malformed */}
+  }
+
+  /// Seed jobs/reminders from the ปิ่น DM room (the single source of truth).
+  /// Reuses [updateFromJson], which reads the same `{id,time,text,repeat,kind}`
+  /// shape AgentStore writes to `io.tokens2.reminders`. Best-effort.
+  Future<void> loadFromRoom(String roomId) async {
+    try {
+      final items = await MatrixService.instance
+          .loadListFromRoom(roomId, 'io.tokens2.reminders');
+      if (items.isNotEmpty) updateFromJson(jsonEncode(items));
+    } catch (_) {/* best-effort */}
   }
 }

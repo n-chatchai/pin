@@ -20,6 +20,10 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
   Map<String, String>? _roomPrefs;
   String? _roomId;
   bool _loading = true;
+  // Room-store dumps (verification that data lives in Matrix, not local).
+  final Map<String, int> _storeCounts = {};
+  int? _memFacts;
+  int? _memKnow;
 
   @override
   void initState() {
@@ -29,10 +33,26 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final roomId = await MatrixService.instance.pinRoomId();
+    final m = MatrixService.instance;
+    final roomId = await m.pinRoomId();
     Map<String, String>? rp;
+    _storeCounts.clear();
+    _memFacts = _memKnow = null;
     if (roomId != null) {
-      rp = await MatrixService.instance.loadPrefsFromRoom(roomId);
+      rp = await m.loadPrefsFromRoom(roomId);
+      for (final t in const [
+        'io.tokens2.reminders',
+        'io.tokens2.tasks',
+        'io.tokens2.events',
+        'io.tokens2.files',
+      ]) {
+        _storeCounts[t] = (await m.loadListFromRoom(roomId, t)).length;
+      }
+      final mem = await m.loadEncryptedBlob(roomId, 'io.tokens2.memory');
+      if (mem != null) {
+        _memFacts = _countNested(mem['facts']);
+        _memKnow = _countNested(mem['knowledge']);
+      }
     }
     if (!mounted) return;
     setState(() {
@@ -40,6 +60,19 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
       _roomPrefs = rp;
       _loading = false;
     });
+  }
+
+  // facts/knowledge are per-room maps {roomId: [...]} → total across rooms.
+  static int _countNested(dynamic v) {
+    if (v is List) return v.length;
+    if (v is Map) {
+      var n = 0;
+      for (final e in v.values) {
+        if (e is List) n += e.length;
+      }
+      return n;
+    }
+    return 0;
   }
 
   @override
@@ -92,6 +125,21 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
                           ? const Color(0xFF2E9E63)
                           : const Color(0xFFC0392B)));
             }),
+          ],
+          const SizedBox(height: 16),
+
+          _label('ROOM STORES · ของที่ปิ่นเก็บบน Matrix (source of truth)'),
+          if (_loading)
+            const SizedBox.shrink()
+          else if (_roomId == null)
+            const Text('ยังไม่มีห้องปิ่น', style: TextStyle(color: PinPalette.ink2))
+          else ...[
+            _kv('reminders', '${_storeCounts['io.tokens2.reminders'] ?? 0} รายการ'),
+            _kv('tasks', '${_storeCounts['io.tokens2.tasks'] ?? 0} รายการ'),
+            _kv('events', '${_storeCounts['io.tokens2.events'] ?? 0} รายการ'),
+            _kv('files', '${_storeCounts['io.tokens2.files'] ?? 0} รายการ'),
+            _kv('memory',
+                _memFacts == null ? '— (ยังไม่มี/E2EE)' : '$_memFacts facts · $_memKnow knowledge (E2EE)'),
           ],
           const SizedBox(height: 16),
 

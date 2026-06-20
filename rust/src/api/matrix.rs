@@ -710,6 +710,52 @@ pub fn send_text(
     })
 }
 
+/// Send an arbitrary E2EE timeline event (`event_type` ≠ m.room.message) with
+/// `content_json` as the content. matrix-sdk encrypts it in an E2EE room. It does
+/// NOT render in the chat list (which filters to m.room.message). Used to store
+/// private data (e.g. the agent's memory) encrypted — the homeserver can't read
+/// it, unlike a plaintext state event. Returns the event id (store it in a
+/// plaintext state-event pointer so it can be fetched back reliably).
+pub fn send_custom_event(
+    role: String,
+    room_id: String,
+    event_type: String,
+    content_json: String,
+) -> Result<String, String> {
+    block(async move {
+        let room = room_by_id_role(&role, &room_id).await?;
+        let content: serde_json::Value =
+            serde_json::from_str(&content_json).map_err(|e| e.to_string())?;
+        let resp = room
+            .send_raw(&event_type, content)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(resp.response.event_id.to_string())
+    })
+}
+
+/// Fetch + decrypt a single timeline event by id, returning its `content` as a
+/// JSON string (None if absent). Pairs with [`send_custom_event`]: read the
+/// event id from a state-event pointer, then fetch the encrypted content here.
+pub fn fetch_event_content(
+    role: String,
+    room_id: String,
+    event_id: String,
+) -> Result<Option<String>, String> {
+    block(async move {
+        let room = room_by_id_role(&role, &room_id).await?;
+        let eid = matrix_sdk::ruma::EventId::parse(&event_id)
+            .map_err(|_| "bad event id".to_string())?;
+        let ev = room.event(&eid, None).await.map_err(|e| e.to_string())?;
+        Ok(ev
+            .raw()
+            .get_field::<serde_json::Value>("content")
+            .ok()
+            .flatten()
+            .map(|v| v.to_string()))
+    })
+}
+
 /// Upload `bytes` as an attachment to `room_id` from the `role` client. In an
 /// E2EE room matrix-sdk encrypts the upload automatically. Returns the event id.
 pub fn send_attachment(

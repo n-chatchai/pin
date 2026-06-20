@@ -13,13 +13,17 @@ import 'package:path_provider/path_provider.dart';
 import '../agent/agent_config.dart';
 import '../agent/agent_reply.dart';
 import '../agent/agent_session.dart';
+import '../agent/agent_store.dart';
 import '../agent/abilities.dart';
 import '../models/chat_view_message.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import '../services/files_store.dart';
 import '../services/matrix_service.dart';
 import '../services/name_filter.dart';
+import '../services/notification_service.dart';
+import '../services/now_controllers.dart';
 import '../services/prefs.dart';
+import '../services/tasks_controller.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/pin_toast.dart';
 import 'chat_screen.dart' show ChatScaffold;
@@ -103,6 +107,10 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       if (mounted) setState(() => _loading = 'กำลังโหลดข้อความ…');
       await _loadFromDm();
       await personaF;
+      // Seed the "ตอนนี้" stores (reminders/tasks/events/files/memory) from the
+      // ปิ่น room — the single source of truth — and (re)arm the OS reminders.
+      // Off the critical render path.
+      unawaited(_seedNowFromRoom(_roomId!));
     }
     if (mounted) setState(() => _loading = null);
     // First run (no history): conversational onboarding once (after the
@@ -114,6 +122,33 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // Load the catalog in the background — it doesn't block the chat render, and
     // send() refreshes a stale catalog before the first turn anyway.
     unawaited(_session!.loadCatalog());
+  }
+
+  /// Pull the "ตอนนี้" data (reminders/tasks/events/files/memory) from the ปิ่น
+  /// room — the single source of truth — into the controllers, and re-arm the OS
+  /// reminders. Best-effort; never blocks the chat.
+  Future<void> _seedNowFromRoom(String rid) async {
+    try {
+      await Future.wait([
+        TasksController.instance.loadFromRoom(rid),
+        EventsController.instance.loadFromRoom(rid),
+        JobsController.instance.loadFromRoom(rid),
+        FilesStore.instance.loadFromRoom(),
+        AgentStore().load(), // seeds memory→MemoryController + reminders→JobsController
+      ]);
+      await NotificationService.instance.rescheduleFromRoom();
+    } catch (e) {
+      debugPrint('seed now-from-room failed: $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // On resume, re-pull the room-backed "now" data + re-arm reminders (a daily
+    // one that fired needs re-scheduling; another device may have changed them).
+    if (state == AppLifecycleState.resumed && _roomId != null) {
+      unawaited(_seedNowFromRoom(_roomId!));
+    }
   }
 
   /// Persona + theme live in the ปิ่น room state (io.tokens2.prefs) so they're

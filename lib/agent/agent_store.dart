@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../services/matrix_service.dart';
+import '../services/now_controllers.dart';
 import 'embed_client.dart';
 
 /// A saved piece of knowledge with its embedding (for on-device semantic recall).
@@ -57,26 +58,119 @@ class AgentStore {
 
   Future<void> load() async {
     _file = await _storeFile();
-    if (!await _file!.exists()) return;
+    if (await _file!.exists()) {
+      try {
+        final j =
+            jsonDecode(await _file!.readAsString()) as Map<String, dynamic>;
+        for (final e in (j['history'] as Map? ?? {}).entries) {
+          _history[e.key] = (e.value as List).cast<Map<String, dynamic>>();
+        }
+        for (final e in (j['facts'] as Map? ?? {}).entries) {
+          _facts[e.key] = (e.value as List).map((x) => '$x').toList();
+        }
+        for (final e in (j['knowledge'] as Map? ?? {}).entries) {
+          _knowledge[e.key] = (e.value as List)
+              .map((x) => KnowledgeItem.fromJson(x as Map<String, dynamic>))
+              .toList();
+        }
+        _reminders
+          ..clear()
+          ..addAll((j['reminders'] as List? ?? [])
+              .map((x) => (x as Map).cast<String, dynamic>()));
+        prefs = (j['prefs'] as Map?)?.cast<String, dynamic>() ?? {};
+      } catch (_) {/* ignore corrupt store */}
+    }
+
+    // The Matrix DM is the single source of truth: overlay the room copy on top
+    // of the local cache. The local JSON above is just a write-through cache for
+    // offline boot; the room wins whenever it has data. Best-effort — a network
+    // failure (or no ปิ่น room yet) leaves the local cache untouched.
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid != null) {
+      try {
+        final fromRoom = await MatrixService.instance
+            .loadListFromRoom(rid, 'io.tokens2.reminders');
+        if (fromRoom.isNotEmpty) {
+          _reminders
+            ..clear()
+            ..addAll(fromRoom);
+        }
+      } catch (_) {/* keep local cache */}
+
+      try {
+        final blob = await MatrixService.instance
+            .loadEncryptedBlob(rid, 'io.tokens2.memory');
+        if (blob != null) _restoreMemory(blob);
+      } catch (_) {/* keep local cache */}
+    }
+
+    // Prune stale one-shots, then write back the cleaned cache and seed the UI.
+    await pruneReminders(DateTime.now());
+    JobsController.instance.updateFromJson(jsonEncode(_reminders));
+    _refreshMemoryController();
+  }
+
+  /// Repopulate per-room [_facts]/[_knowledge] from a flat memory blob written
+  /// by [_persistMemory]. Embeddings are intentionally dropped (excluded from
+  /// the blob); [searchKnowledge] falls back to recency when embedding is null.
+  void _restoreMemory(Map<String, dynamic> blob) {
+    final facts = blob['facts'];
+    if (facts is Map) {
+      _facts.clear();
+      for (final e in facts.entries) {
+        if (e.value is List) {
+          _facts['${e.key}'] = (e.value as List).map((x) => '$x').toList();
+        }
+      }
+    }
+    final knowledge = blob['knowledge'];
+    if (knowledge is Map) {
+      _knowledge.clear();
+      for (final e in knowledge.entries) {
+        if (e.value is List) {
+          _knowledge['${e.key}'] = (e.value as List)
+              .map((x) => KnowledgeItem(
+                    '${(x as Map)['title'] ?? ''}',
+                    '${x['summary'] ?? ''}',
+                    '${x['content'] ?? ''}',
+                    null, // embeddings excluded from the blob
+                  ))
+              .toList();
+        }
+      }
+    }
+  }
+
+  /// Push the WHOLE memory (facts + knowledge across all rooms) to the ปิ่น DM
+  /// as an E2EE blob. Embeddings are excluded (too big for a timeline event and
+  /// private). Best-effort — no ปิ่น room or a network failure is a silent no-op.
+  Future<void> _persistMemory() async {
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid == null) return;
     try {
-      final j = jsonDecode(await _file!.readAsString()) as Map<String, dynamic>;
-      for (final e in (j['history'] as Map? ?? {}).entries) {
-        _history[e.key] = (e.value as List).cast<Map<String, dynamic>>();
-      }
-      for (final e in (j['facts'] as Map? ?? {}).entries) {
-        _facts[e.key] = (e.value as List).map((x) => '$x').toList();
-      }
-      for (final e in (j['knowledge'] as Map? ?? {}).entries) {
-        _knowledge[e.key] = (e.value as List)
-            .map((x) => KnowledgeItem.fromJson(x as Map<String, dynamic>))
-            .toList();
-      }
-      _reminders
-        ..clear()
-        ..addAll((j['reminders'] as List? ?? [])
-            .map((x) => (x as Map).cast<String, dynamic>()));
-      prefs = (j['prefs'] as Map?)?.cast<String, dynamic>() ?? {};
-    } catch (_) {/* ignore corrupt store */}
+      await MatrixService.instance
+          .saveEncryptedBlob(rid, 'io.tokens2.memory', {
+        'facts': {for (final e in _facts.entries) e.key: e.value},
+        'knowledge': {
+          for (final e in _knowledge.entries)
+            e.key: [
+              for (final k in e.value)
+                {'title': k.title, 'summary': k.summary, 'content': k.content},
+            ],
+        },
+      });
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Feed the "ความรู้ใหม่" section: facts then knowledge titles, newest first.
+  void _refreshMemoryController() {
+    final items = <MemoryItem>[
+      for (final list in _facts.values)
+        for (final f in list.reversed) MemoryItem(f, 'fact'),
+      for (final list in _knowledge.values)
+        for (final k in list.reversed) MemoryItem(k.title, 'knowledge'),
+    ];
+    MemoryController.instance.setItems(items);
   }
 
   Future<void> save() async {
@@ -125,6 +219,8 @@ class AgentStore {
       f.add(text);
       if (f.length > _maxFacts) f.removeRange(0, f.length - _maxFacts);
       await save();
+      await _persistMemory();
+      _refreshMemoryController();
     }
   }
 
@@ -137,6 +233,8 @@ class AgentStore {
     k.add(item);
     if (k.length > _maxKnowledge) k.removeRange(0, k.length - _maxKnowledge);
     await save();
+    await _persistMemory();
+    _refreshMemoryController();
   }
 
   // -- skills ----------------------------------------------------------------
@@ -176,11 +274,27 @@ class AgentStore {
     _reminders.removeWhere((x) => x['id'] == r['id']);
     _reminders.add(r);
     await save();
+    await _persistReminders();
   }
 
   Future<void> removeReminder(String id) async {
     _reminders.removeWhere((x) => '${x['id']}' == id);
     await save();
+    await _persistReminders();
+  }
+
+  /// Mirror the whole reminders list to the ปิ่น DM room state (the source of
+  /// truth) and refresh the "ตั้งเวลา" list. Best-effort — the room write is a
+  /// silent no-op when there's no ปิ่น room or the network is down.
+  Future<void> _persistReminders() async {
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid != null) {
+      try {
+        await MatrixService.instance
+            .saveListToRoom(rid, 'io.tokens2.reminders', _reminders.cast());
+      } catch (_) {/* best-effort */}
+    }
+    JobsController.instance.updateFromJson(jsonEncode(_reminders));
   }
 
   /// Drop one-shot reminders whose time has already passed (called on load).
