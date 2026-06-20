@@ -67,7 +67,7 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
           _kv('room', _roomId ?? '—'),
           const SizedBox(height: 16),
 
-          _label('ROOM STATE · io.tokens2.prefs (source of truth)'),
+          _label('เทียบ persona · ROOM (source) ↔ LOCAL (in-memory)'),
           if (_loading)
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -75,22 +75,86 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
           else if (_roomPrefs == null)
             const Text('ยังไม่มี persona ใน room (จะถูกตั้งตอน setup ในแชต)',
                 style: TextStyle(color: PinPalette.ink2))
-          else
-            for (final e in _roomPrefs!.entries) _kv(e.key, e.value),
+          else ...[
+            _cmpHeader(),
+            for (final c in _comparisons(p)) _cmp(c.$1, c.$2, c.$3),
+            const SizedBox(height: 6),
+            Builder(builder: (_) {
+              final diff = _comparisons(p)
+                  .where((c) => (_roomPrefs![c.$2] ?? '') != c.$3)
+                  .length;
+              return Text(
+                  diff == 0 ? '✓ ตรงกันทุกฟิลด์' : '✗ ต่างกัน $diff ฟิลด์',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: diff == 0
+                          ? const Color(0xFF2E9E63)
+                          : const Color(0xFFC0392B)));
+            }),
+          ],
           const SizedBox(height: 16),
 
-          _label('LOCAL · PrefsController (cache)'),
-          _kv('pin_name', p.pinName),
-          _kv('user_call', p.userCall),
-          _kv('pin_self', p.pinSelf),
-          _kv('pin_ending', p.pinEnding),
-          _kv('theme', ThemeController.instance.value.key),
+          _label('LOCAL-ONLY · device settings (ไม่อยู่ใน room)'),
           _kv('lang', p.lang),
           _kv('onboarded', p.onboarded ? '1' : '0'),
           _kv('personaSetup', p.personaSetup ? '1' : '0'),
-          _kv('tourDone', p.tourDone ? '1' : '0'),
+          _kv('debugBot', p.debugBot ? '1' : '0'),
         ],
       ),
+    );
+  }
+
+  /// (display key, room-state key, local in-memory value) for each persona
+  /// field that lives in the room. Room is the source; local should match.
+  List<(String, String, String)> _comparisons(PinPrefs p) => [
+        ('pin_name', 'pin_name', p.pinName),
+        ('user_name', 'user_name', p.userName),
+        ('user_call', 'user_call', p.userCall),
+        ('pin_self', 'pin_self', p.pinSelf),
+        ('tone', 'tone', p.tone),
+        ('pin_ending', 'pin_ending', p.pinEnding),
+        ('persona_mode', 'persona_mode', p.personaMode),
+        ('custom_call', 'custom_call', p.customCall),
+        ('custom_self', 'custom_self', p.customSelf),
+        ('theme', 'theme', ThemeController.instance.value.key),
+      ];
+
+  static const _mono = TextStyle(fontSize: 11, fontFamily: 'monospace');
+
+  Widget _cmpHeader() => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(children: [
+          const SizedBox(
+              width: 84, child: Text('field', style: _mono)),
+          const Expanded(child: Text('room', style: _mono)),
+          const Expanded(child: Text('local', style: _mono)),
+          const SizedBox(width: 18),
+        ]),
+      );
+
+  Widget _cmp(String label, String roomKey, String localVal) {
+    final roomVal = _roomPrefs?[roomKey] ?? '—';
+    final match = roomVal == localVal;
+    const bad = Color(0xFFC0392B);
+    const good = Color(0xFF2E9E63);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+            width: 84,
+            child: Text(label, style: _mono.copyWith(color: PinPalette.ink2))),
+        Expanded(
+            child:
+                Text(roomVal, style: _mono.copyWith(color: PinPalette.ink))),
+        Expanded(
+            child: Text(localVal.isEmpty ? '∅' : localVal,
+                style: _mono.copyWith(color: match ? PinPalette.ink : bad))),
+        SizedBox(
+            width: 18,
+            child: Icon(match ? Icons.check : Icons.close,
+                size: 14, color: match ? good : bad)),
+      ]),
     );
   }
 

@@ -229,60 +229,6 @@ class SettingsScreen extends StatelessWidget {
         onTap: onTap,
       );
 
-  /// Free-text edit with quick preset chips (for pronoun / ending particle).
-  void _editText(BuildContext context, String title, String current,
-      List<String> presets, ValueChanged<String> onSave) {
-    final ctl = TextEditingController(text: current);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheet) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(sheet).viewInsets.bottom + 16,
-          top: 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: PinPalette.brand(size: 16)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctl,
-              autofocus: true,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final v in presets)
-                  ActionChip(
-                    label: Text(v.isEmpty ? 'ไม่ลงท้าย' : v),
-                    onPressed: () => ctl.text = v,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  onSave(ctl.text.trim());
-                  Navigator.pop(sheet);
-                },
-                child: const Text('บันทึก'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _logout(BuildContext context) async {
     await MatrixService.instance.logout();
     if (!context.mounted) return;

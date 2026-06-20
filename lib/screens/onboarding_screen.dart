@@ -20,7 +20,6 @@ import '../widgets/recovery_qr.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
 import '../widgets/pin_route.dart';
-import '../theme/theme_controller.dart';
 
 /// Onboarding. New users (signup=true): welcome → naming → theme → SIGNUP →
 /// recovery key → ready (account created mid-flow, before recovery which needs
@@ -39,15 +38,6 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _page = PageController();
   int _index = 0;
-  // Each persona picker = a preset chip selection + a custom input ("ใส่เอง").
-  // The custom text wins when non-empty.
-  final _nameCtl = TextEditingController();
-  final _userCtl = TextEditingController();
-  final _endCtl = TextEditingController();
-  final _selfCtl = TextEditingController(text: 'ปิ่น');
-  String _namePreset = 'ปิ่น';
-  String _userPreset = 'พี่';
-  String _endPreset = 'ครับ';
   bool _recoverySaved = false; // gate: next disabled until key is saved/restored
 
   _RecoveryStep get _recovery => _RecoveryStep(
@@ -73,10 +63,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
-    _nameCtl.dispose();
-    _userCtl.dispose();
-    _selfCtl.dispose();
-    _endCtl.dispose();
     _page.dispose();
     super.dispose();
   }
@@ -166,168 +152,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _naming() => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('เรียกกันแบบไหนดี', style: PinPalette.brand(size: 27)),
-            const SizedBox(height: 6),
-            const Text('ปิ่นอยากเป็นกันเอง — เลือกแบบที่สบายใจ',
-                style: TextStyle(color: PinPalette.ink2, fontSize: 13)),
-            const SizedBox(height: 26),
-            // Each = one horizontal row (chips + "ใส่เอง" input); scrolls
-            // sideways if it doesn't fit.
-            _pickRow('อยากเรียกปิ่นว่า', const ['น้อง', 'แก', 'เพื่อน', 'ปิ่น'],
-                _nameCtl, _namePreset, (v) => setState(() => _namePreset = v)),
-            const SizedBox(height: 22),
-            _pickRow('ให้ปิ่นเรียกคุณว่า', const ['เธอ', 'นาย', 'พี่', 'คุณ'],
-                _userCtl, _userPreset, (v) => setState(() => _userPreset = v)),
-            const SizedBox(height: 22),
-            _pickRow('ปิ่นลงท้ายว่า', const ['จ้ะ', 'ครับ', 'คะ', ''],
-                _endCtl, _endPreset, (v) => setState(() => _endPreset = v)),
-            const SizedBox(height: 24),
-            const Row(children: [
-              Icon(PhosphorIconsRegular.gearSix, size: 13, color: PinPalette.ink3),
-              SizedBox(width: 6),
-              Text('เปลี่ยนได้ภายหลังในการตั้งค่า',
-                  style: TextStyle(fontSize: 12, color: PinPalette.ink3)),
-            ]),
-          ],
-        ),
-      );
-
-  /// label + a single horizontal row: preset chips then a chip-sized custom
-  /// input ("ใส่เอง"). Custom text wins; picking a chip clears the custom text.
-  Widget _pickRow(String label, List<String> presets, TextEditingController ctl,
-      String preset, ValueChanged<String> onPreset) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label(label),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final v in presets) ...[
-                _pickChip(v.isEmpty ? 'ไม่ลงท้าย' : v,
-                    ctl.text.isEmpty && preset == v, () {
-                  setState(() {
-                    onPreset(v);
-                    ctl.clear();
-                  });
-                }),
-                const SizedBox(width: 8),
-              ],
-              _customChip(ctl),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _label(String t) =>
-      Text(t, style: const TextStyle(color: PinPalette.ink2, fontSize: 13));
-
-  /// Chip-sized text input that lives in the same row as the preset chips;
-  /// typing deselects the presets. Highlighted when it holds a value.
-  Widget _customChip(TextEditingController ctl) {
-    final active = ctl.text.isNotEmpty;
-    return SizedBox(
-      width: 120,
-      height: 38,
-      child: TextField(
-        controller: ctl,
-        onChanged: (_) => setState(() {}),
-        textAlignVertical: TextAlignVertical.center,
-        style: const TextStyle(fontSize: 13.5, color: PinPalette.ink),
-        decoration: InputDecoration(
-          hintText: 'ใส่เอง',
-          hintStyle: const TextStyle(fontSize: 13.5, color: Color(0xFFB7AE9A)),
-          isDense: true,
-          filled: true,
-          fillColor: active ? const Color(0xFFE4EFDE) : Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(
-                color: active
-                    ? const Color(0xFF34B06A)
-                    : const Color(0xFFE7E0D1),
-                width: active ? 1.4 : 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF34B06A), width: 1.4),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _pickChip(String label, bool selected, VoidCallback onTap) =>
-      GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFFE4EFDE) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: selected
-                    ? const Color(0xFF34B06A)
-                    : const Color(0xFFE7E0D1),
-                width: selected ? 1.4 : 1),
-          ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 13.5,
-                  color: selected ? const Color(0xFF34B06A) : PinPalette.ink,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500)),
-        ),
-      );
-
-  Widget _theme() => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('เลือกธีมที่สบายใจ', style: PinPalette.brand(size: 27)),
-            const SizedBox(height: 6),
-            const Text('เปลี่ยนทีหลังได้ในการตั้งค่า',
-                style: TextStyle(color: PinPalette.ink2, fontSize: 13)),
-            const SizedBox(height: 20),
-            ValueListenableBuilder<PinPalette>(
-              valueListenable: ThemeController.instance,
-              builder: (context, current, _) => LayoutBuilder(
-                builder: (context, c) {
-                  final w = (c.maxWidth - 14) / 2; // 2 columns
-                  return Wrap(
-                    spacing: 14,
-                    runSpacing: 14,
-                    children: [
-                      for (final p in PinPalette.all)
-                        SizedBox(
-                          width: w,
-                          child: _ThemeTile(
-                            palette: p,
-                            selected: p.key == current.key,
-                            onTap: () =>
-                                ThemeController.instance.select(p.key),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      );
-
   Widget _ready() {
     final scheme = Theme.of(context).colorScheme;
     return Center(
@@ -358,105 +182,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-}
-
-class _ThemeTile extends StatelessWidget {
-  final PinPalette palette;
-  final bool selected;
-  final VoidCallback onTap;
-  const _ThemeTile(
-      {required this.palette, required this.selected, required this.onTap});
-
-  Widget _line(double widthFactor, double alpha) => FractionallySizedBox(
-        widthFactor: widthFactor,
-        child: Container(
-          height: 7,
-          margin: const EdgeInsets.only(bottom: 6),
-          decoration: BoxDecoration(
-            color: palette.accent.withValues(alpha: alpha),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? palette.accent : const Color(0xFFEDE7DA),
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x0F282822),
-                blurRadius: 10,
-                offset: Offset(0, 3)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Mini-UI preview: a coloured dot + a few text lines on the theme's
-            // soft surface.
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              decoration: BoxDecoration(
-                color: palette.pale,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                        color: palette.accent, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _line(1.0, 0.85),
-                        _line(0.6, 0.4),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text(palette.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, color: PinPalette.ink)),
-                const Spacer(),
-                if (selected)
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                        color: palette.accent, shape: BoxShape.circle),
-                    child: const Icon(PhosphorIconsRegular.check,
-                        size: 15, color: Colors.white),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// Step 4: enables E2EE recovery and shows the recovery key to save.

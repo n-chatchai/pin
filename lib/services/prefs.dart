@@ -22,7 +22,6 @@ class PinPrefs {
   final String quietEnd;
   final bool onboarded;
   final bool debugBot; // show the agent's tool-call trace in chat
-  final bool tourDone; // first-run in-chat showcase tour shown once
   final bool personaSetup; // in-chat persona/theme setup done once (after account)
   final String personaMode; // 'basic' | special key (friend/butler/mom/cute) | 'custom'
   final String customCall; // persona=custom: how ปิ่น calls the user
@@ -43,7 +42,6 @@ class PinPrefs {
     this.quietEnd = '07:00',
     this.onboarded = false,
     this.debugBot = false,
-    this.tourDone = false,
     this.personaSetup = false,
     this.personaMode = 'basic',
     this.customCall = '',
@@ -65,7 +63,6 @@ class PinPrefs {
     String? quietEnd,
     bool? onboarded,
     bool? debugBot,
-    bool? tourDone,
     bool? personaSetup,
     String? personaMode,
     String? customCall,
@@ -86,7 +83,6 @@ class PinPrefs {
         quietEnd: quietEnd ?? this.quietEnd,
         onboarded: onboarded ?? this.onboarded,
         debugBot: debugBot ?? this.debugBot,
-        tourDone: tourDone ?? this.tourDone,
         personaSetup: personaSetup ?? this.personaSetup,
         personaMode: personaMode ?? this.personaMode,
         customCall: customCall ?? this.customCall,
@@ -127,7 +123,6 @@ class PinPrefs {
         'quietEnd': quietEnd,
         'onboarded': onboarded ? '1' : '0',
         'debugBot': debugBot ? '1' : '0',
-        'tourDone': tourDone ? '1' : '0',
         'personaSetup': personaSetup ? '1' : '0',
         'personaMode': personaMode,
         'customCall': customCall,
@@ -165,7 +160,6 @@ class PinPrefs {
         quietEnd: m['quietEnd'] ?? '07:00',
         onboarded: m['onboarded'] == '1',
         debugBot: m['debugBot'] == '1',
-        tourDone: m['tourDone'] == '1',
         personaSetup: m['personaSetup'] == '1',
         personaMode: m['personaMode'] ?? 'basic',
         customCall: m['customCall'] ?? '',
