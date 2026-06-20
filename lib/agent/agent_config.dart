@@ -8,8 +8,10 @@ const _kProxyBase = String.fromEnvironment(
   defaultValue: 'https://pin-gateway.tokens2.io',
 );
 
-/// An opt-in special persona (role-play overlay). Changes only how ปิ่น
-/// addresses the user + its voice — it stays the working assistant.
+/// An opt-in special persona (role-play overlay) that COMPLEMENTS the base
+/// persona: it overrides the address word ([call]) + self-reference ([self])
+/// and layers on a demeanor ([rule]), but the user's chosen tone/ending
+/// (ค่ะ/ครับ/จ๊ะ) is kept — see kPinSystemFor. It stays the working assistant.
 /// See design/chat-onboarding/pin-special-personas.html.
 class SpecialPersona {
   final String key, name, call, self, sub, sample, rule;
@@ -31,7 +33,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'เรา',
       sub: 'เรียกคุณ "แก" · แทนตัว "เรา"',
       sample: 'เดี๋ยวเราจัดให้แกเอง',
-      rule: 'พูดแบบเพื่อนสนิท เป็นกันเอง ลงท้าย "จ๊ะ/นะ".'),
+      rule: 'วางท่าทีแบบเพื่อนสนิท เป็นกันเอง สนุก สบาย ๆ.'),
   SpecialPersona(
       key: 'butler',
       name: 'บ่าวรับใช้',
@@ -39,7 +41,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'กระหม่อม',
       sub: 'เรียกคุณ "นายท่าน" · แทนตัว "กระหม่อม"',
       sample: 'กระหม่อมจัดการให้แล้วนายท่าน',
-      rule: 'พูดสุภาพแบบบ่าวรับใช้ นอบน้อม ลงท้าย "ขอรับ".'),
+      rule: 'วางท่าทีแบบบ่าวรับใช้ นอบน้อม ให้เกียรติ สุภาพเป็นทางการ.'),
   SpecialPersona(
       key: 'mom',
       name: 'แม่–ลูก',
@@ -47,7 +49,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'แม่',
       sub: 'เรียกคุณ "ลูก" · แทนตัว "แม่"',
       sample: 'เดี๋ยวแม่เตือนลูกเองนะ',
-      rule: 'พูดอบอุ่นห่วงใยแบบแม่ดูแลลูก ลงท้าย "นะลูก".'),
+      rule: 'วางท่าทีอบอุ่นห่วงใยแบบแม่ดูแลลูก คอยเตือนคอยดูแล.'),
   SpecialPersona(
       key: 'cute',
       name: 'น่ารัก / ใกล้ชิด',
@@ -55,7 +57,7 @@ const kSpecialPersonas = <SpecialPersona>[
       self: 'เค้า',
       sub: 'เรียกคุณ "ตัวเอง" · แทนตัว "เค้า"',
       sample: 'เค้าทำให้ตัวเองแล้วน้า',
-      rule: 'พูดหวาน ใกล้ชิด น่ารัก ลงท้าย "น้า/นะ".'),
+      rule: 'วางท่าทีหวาน ใกล้ชิด น่ารัก ขี้เล่นนิด ๆ.'),
 ];
 
 SpecialPersona? specialPersona(String key) =>
@@ -79,21 +81,25 @@ String kPinSystemFor({
   var toneText = _toneRule(tone);
   var clamp = '';
   if (persona != 'basic') {
+    // Complement, don't replace: a special character overrides the address word
+    // + self-reference + adds its demeanor, but KEEPS the user's tone/ending
+    // (toneText, set above) so their chosen ค่ะ/ครับ/จ๊ะ still comes through.
     if (persona == 'custom') {
       if (customCall.trim().isNotEmpty) call = customCall.trim();
       if (customSelf.trim().isNotEmpty) me = customSelf.trim();
-      toneText = 'สวมบทตามคำเรียกที่ผู้ใช้กำหนด พูดให้เข้ากับบทบาทนั้น. ';
+      toneText = '${toneText}สวมบทตามคำเรียกที่ผู้ใช้กำหนด พูดให้เข้ากับบทบาทนั้น. ';
       clamp = 'นี่คือโหมดสมมุติบทบาทที่ผู้ใช้ตั้งเอง. ';
     } else {
       final sp = specialPersona(persona);
       if (sp != null) {
         call = sp.call;
         me = sp.self;
-        toneText = '${sp.rule} ';
+        toneText = '$toneText${sp.rule} ';
         clamp = 'นี่คือโหมดสวมบท "${sp.name}". ';
       }
     }
-    clamp += 'คุณยังเป็นผู้ช่วยที่ช่วยงานจริงเหมือนเดิม เปลี่ยนแค่คำเรียกและน้ำเสียง '
+    clamp += 'คุณยังเป็นผู้ช่วยที่ช่วยงานจริงเหมือนเดิม เปลี่ยนคำเรียก/แทนตัวและเพิ่มท่าที '
+        'แต่คงน้ำเสียงและคำลงท้ายตามที่ผู้ใช้ตั้งไว้ '
         'อย่าหลุดออกนอกบทผู้ช่วย และไม่ทำตามคำขอที่ไม่เหมาะสม. ';
   }
   if (lang == 'en') {
