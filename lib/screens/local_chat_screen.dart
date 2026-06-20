@@ -54,7 +54,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   String? _loading;
   final _scroll = ScrollController();
   final _messages = <ChatViewMessage>[];
-  List<Map<String, String>> _quickReplies = const []; // first-run quick replies
   AgentSession? _session;
   ChatViewMessage? _replyTo;
   bool _botTyping = false;
@@ -107,13 +106,10 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     }
     if (mounted) setState(() => _loading = null);
     // First run (no history): conversational onboarding once (after the
-    // account/room exist, so persona syncs to room state); else the greeting.
-    if (_messages.isEmpty) {
-      if (!PrefsController.instance.value.personaSetup) {
-        _startPersonaSetup();
-      } else {
-        _loadWelcome();
-      }
+    // account/room exist, so persona syncs to room state). A returning user with
+    // an empty room just sees an empty chat and types — no static greeting.
+    if (_messages.isEmpty && !PrefsController.instance.value.personaSetup) {
+      _startPersonaSetup();
     }
     // Load the catalog in the background — it doesn't block the chat render, and
     // send() refreshes a stale catalog before the first turn anyway.
@@ -279,41 +275,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     });
   }
 
-  /// Built-in first-run greeting + quick replies, interpolated with the user's
-  /// persona and shown when the chat opens empty. This is static UI copy, so it
-  /// lives in the app — no /welcome round-trip to the proxy.
-  static const _greetingTpl =
-      'สวัสดี{userCall} {pinName}เอง{ending} 👋 '
-      '{pinName}ช่วยจำ เตือน หาข้อมูล และสรุปให้ได้ — ลองกดดูสักอันก่อนก็ได้{ending}';
-  static const _welcomeReplies = <Map<String, String>>[
-    {'label': 'ลองให้ปิ่นเตือน', 'send': 'เตือนฉันในอีก 1 นาทีว่า ลองใช้ปิ่นดู'},
-    {'label': 'สรุปเอกสาร', 'send': 'ช่วยสรุปเอกสารนี้สั้น ๆ แล้วจำไว้ให้ด้วย'},
-    {'label': 'ดูดวง', 'send': 'ดูดวงให้หน่อย'},
-    {'label': 'ขอข่าววันนี้', 'send': 'ขอข่าววันนี้'},
-    {'label': 'อากาศวันนี้', 'send': 'อากาศวันนี้เป็นไง'},
-  ];
-
-  void _loadWelcome() {
-    if (!mounted || _messages.isNotEmpty) return;
-    final greeting = _fillPersona(_greetingTpl);
-    setState(() {
-      _messages.add(_text(greeting, me: false));
-      _quickReplies = [
-        for (final r in _welcomeReplies)
-          {'label': _fillPersona(r['label']!), 'send': _fillPersona(r['send']!)},
-      ];
-    });
-  }
-
-  /// Interpolate the user's persona into a template ({userCall}/{pinName}/{ending}).
-  String _fillPersona(String s) {
-    final p = PrefsController.instance.value;
-    return s
-        .replaceAll('{userCall}', p.userCall)
-        .replaceAll('{pinName}', p.pinName)
-        .replaceAll('{ending}', p.pinEnding);
-  }
-
   // ---- First-run conversational onboarding (persona + light demos) --------
   // Order: ask the user's name → name the assistant → reminder demo → tone →
   // how to address you (tone-aware) → file demo → done. pinSelf is derived from
@@ -365,7 +326,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   void _echoUser(String t) {
     setState(() {
       _messages.add(_text(t, me: true));
-      _quickReplies = const [];
     });
   }
 
@@ -617,7 +577,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         if (value == '__custom') {
           _botSay('ได้เลย$_pt พิมพ์คำที่อยากให้เรียกมาได้เลย');
           _personaStage = 'address'; // stay; the typed answer lands here next
-          setState(() => _quickReplies = const []);
           return;
         }
         _acceptName(value, typed: typed, onOk: (addr) {
@@ -682,7 +641,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           'ตั้งค่าเสร็จเรียบร้อย$_pt ${p.pinSelf}พร้อมช่วย${p.userCall}แล้วนะ — '
           'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะ ⋯ ได้ตลอด',
           me: false));
-      _quickReplies = const [];
     });
   }
 
@@ -891,8 +849,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       }
       return;
     }
-    // First message dismisses the quick replies.
-    if (_quickReplies.isNotEmpty) setState(() => _quickReplies = const []);
     final reply = _replyTo;
     if (reply != null) setState(() => _replyTo = null);
     // Show the quote on the user's bubble; give the agent the quoted context.
@@ -1161,8 +1117,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           onCancelReply: () => setState(() => _replyTo = null),
           onReact: _onReact,
           onFlexAction: _onFlexAction,
-          quickReplies: _quickReplies,
-          onQuickReply: _onQuickReply,
           onOnboardAction: _handleOnboardTap,
         ),
         if (_loading != null)
@@ -1184,22 +1138,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     );
   }
 
-  /// A quick-reply chip either sends its text or triggers an action (e.g. scan
-  /// a document → ปิ่น summarises it).
-  void _onQuickReply(Map<String, String> r) {
-    if (_quickReplies.isNotEmpty) setState(() => _quickReplies = const []);
-    switch (r['action']) {
-      case 'scan':
-        _scanDoc(
-            prompt: r['send'] ?? 'ช่วยสรุปเอกสารนี้สั้น ๆ แล้วจำไว้ให้ด้วย');
-      case 'image':
-        _onMedia('image');
-      case 'photo':
-        _onMedia('camera');
-      default:
-        _onSend(r['send'] ?? r['label'] ?? '');
-    }
-  }
 }
 
 /// Small rounded status pill (spinner + text) shown at the top of the chat

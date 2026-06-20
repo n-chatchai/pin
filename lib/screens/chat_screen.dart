@@ -31,11 +31,6 @@ class ChatScaffold extends StatefulWidget {
   final VoidCallback onCancelReply;
   final void Function(ChatViewMessage, String) onReact;
   final ValueChanged<String>? onFlexAction;
-  // LINE-style quick replies: one horizontal-scroll row above the composer.
-  // Each is {label, send, action?}. onQuickReply gets the whole map so the
-  // caller can route 'send' vs an action like 'scan'.
-  final List<Map<String, String>> quickReplies;
-  final ValueChanged<Map<String, String>>? onQuickReply;
   // Tapped an inline onboarding option (chip/tone/pill rendered in the feed).
   final ValueChanged<Map<String, String>>? onOnboardAction;
 
@@ -55,8 +50,6 @@ class ChatScaffold extends StatefulWidget {
     required this.onCancelReply,
     required this.onReact,
     this.onFlexAction,
-    this.quickReplies = const [],
-    this.onQuickReply,
     this.onOnboardAction,
   });
 
@@ -114,8 +107,7 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                               0,
                               62,
                               0,
-                              (widget.quickReplies.isNotEmpty ? 196 : 152) +
-                                  MediaQuery.of(context).viewPadding.bottom),
+                              152 + MediaQuery.of(context).viewPadding.bottom),
                           // +1 trailing slot for the typing indicator (bottom).
                           itemCount: messages.length + (botTyping ? 1 : 0),
                           itemBuilder: (context, d) {
@@ -178,10 +170,6 @@ class _ChatScaffoldState extends State<ChatScaffold> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.quickReplies.isNotEmpty)
-                    _QuickReplyBar(
-                        replies: widget.quickReplies,
-                        onTap: widget.onQuickReply),
                   MessageComposer(
                     onSend: onSend,
                     onMedia: onMedia,
@@ -263,56 +251,6 @@ class _ChatScaffoldState extends State<ChatScaffold> {
       if (messages[i].isMe) return i;
     }
     return -1;
-  }
-}
-
-/// LINE-style quick replies — one horizontal-scroll row above the composer.
-/// Tapping a chip sends its `send` text to ปิ่น.
-class _QuickReplyBar extends StatelessWidget {
-  final List<Map<String, String>> replies;
-  final ValueChanged<Map<String, String>>? onTap;
-  const _QuickReplyBar({required this.replies, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // LINE-style quick replies: compact, low-height pills that scroll
-    // horizontally just above the composer.
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 2, 14, 4),
-        itemCount: replies.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final r = replies[i];
-          return GestureDetector(
-            onTap: () => onTap?.call(r),
-            child: Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: scheme.primary, width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.10),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2)),
-                ],
-              ),
-              child: Text(r['label'] ?? '',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.secondary)),
-            ),
-          );
-        },
-      ),
-    );
   }
 }
 
