@@ -1,30 +1,76 @@
 import 'package:flutter/foundation.dart';
 
-/// One recorded API/network call: name, how long it took, and whether it threw.
+/// One recorded call. For HTTP calls the request/response detail is filled in
+/// (Chuck-style); for plain timed (rust/FFI) calls only name/ms/ok are set.
 class ApiLogEntry {
-  final String name;
+  final String name; // "POST /infer" for http, or the rust call name
   final int ms;
   final DateTime at;
   final bool ok;
-  const ApiLogEntry(this.name, this.ms, this.at, this.ok);
+  final String? method;
+  final String? url;
+  final int? status;
+  final String? reqBody;
+  final String? respBody;
+  const ApiLogEntry(
+    this.name,
+    this.ms,
+    this.at,
+    this.ok, {
+    this.method,
+    this.url,
+    this.status,
+    this.reqBody,
+    this.respBody,
+  });
+
+  bool get isHttp => url != null;
 }
 
-/// In-memory ring buffer of recent API calls, shown in the Settings debug panel
-/// so we can see which call is slow (e.g. a 30s sync) without a USB log cable.
-/// Newest first; capped so it can't grow unbounded.
+/// In-memory ring buffer of recent calls, shown in the Settings "API call log"
+/// (a lightweight Chuck-style HTTP inspector). Newest first; capped.
 class ApiLog extends ValueNotifier<List<ApiLogEntry>> {
   ApiLog._() : super(const []);
   static final ApiLog instance = ApiLog._();
   static const _max = 120;
+  static const _bodyCap = 6000; // keep bodies bounded
 
-  void add(String name, int ms, bool ok) {
-    final next = <ApiLogEntry>[
-      ApiLogEntry(name, ms, DateTime.now(), ok),
-      ...value,
-    ];
+  void _push(ApiLogEntry e) {
+    final next = <ApiLogEntry>[e, ...value];
     if (next.length > _max) next.removeRange(_max, next.length);
     value = next;
   }
+
+  /// Plain timed (non-HTTP) call.
+  void add(String name, int ms, bool ok) =>
+      _push(ApiLogEntry(name, ms, DateTime.now(), ok));
+
+  /// A full HTTP round-trip (method + path label, status, request/response).
+  void addHttp({
+    required String method,
+    required String url,
+    required int status,
+    required int ms,
+    String? reqBody,
+    String? respBody,
+  }) {
+    final path = Uri.tryParse(url)?.path ?? url;
+    _push(ApiLogEntry(
+      '$method $path',
+      ms,
+      DateTime.now(),
+      status >= 200 && status < 400,
+      method: method,
+      url: url,
+      status: status,
+      reqBody: _cap(reqBody),
+      respBody: _cap(respBody),
+    ));
+  }
+
+  static String? _cap(String? s) => s == null
+      ? null
+      : (s.length > _bodyCap ? '${s.substring(0, _bodyCap)}\n…(ตัด)' : s);
 
   void clear() => value = const [];
 }

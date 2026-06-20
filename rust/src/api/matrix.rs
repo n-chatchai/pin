@@ -38,7 +38,7 @@ use matrix_sdk::{
 /// Dedicated multi-threaded tokio runtime that drives all matrix-sdk futures.
 /// frb invokes our (non-async) functions on its own worker threads, so blocking
 /// on this runtime never stalls the Dart isolate.
-static RT: Lazy<Runtime> = Lazy::new(|| Runtime::new().expect("tokio runtime"));
+pub(crate) static RT: Lazy<Runtime> = Lazy::new(|| Runtime::new().expect("tokio runtime"));
 
 /// Logged-in clients, keyed by ROLE: "user" = the human's account, "pin" = the
 /// companion ปิ่น account the on-device agent posts as. Two concurrent matrix
@@ -172,6 +172,21 @@ async fn room_by_id(room_id: &str) -> Result<Room, String> {
 }
 
 async fn build_client(homeserver: &str, db_path: &str) -> Result<Client, String> {
+    // DEBUG-only: when the in-process inspector has been started, route matrix-sdk
+    // through the LOCAL plaintext proxy (http://127.0.0.1:PORT) so the full
+    // request/response of every Matrix HTTPS call can be logged. We record the
+    // real homeserver as the proxy's upstream and hand matrix-sdk the loopback
+    // URL. In production the inspector is never started → INSPECTOR_PORT is None,
+    // this branch is skipped, and `homeserver` is used unchanged (byte-identical).
+    let homeserver_url = match *crate::api::inspector::INSPECTOR_PORT.lock().unwrap() {
+        Some(port) => {
+            *crate::api::inspector::INSPECTOR_UPSTREAM.lock().unwrap() =
+                Some(homeserver.to_string());
+            format!("http://127.0.0.1:{port}")
+        }
+        None => homeserver.to_string(),
+    };
+
     // The /sync long-poll holds for up to 30s server-side; the per-request HTTP
     // timeout MUST exceed that or every sync errors ("error sending request")
     // right as the server is about to respond, and the reconnect loop never
@@ -179,7 +194,7 @@ async fn build_client(homeserver: &str, db_path: &str) -> Result<Client, String>
     let request_config = matrix_sdk::config::RequestConfig::new()
         .timeout(std::time::Duration::from_secs(60));
     Client::builder()
-        .homeserver_url(homeserver)
+        .homeserver_url(&homeserver_url)
         .sqlite_store(db_path, None)
         .request_config(request_config)
         .build()

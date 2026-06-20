@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../config.dart';
 import '../models/chat_view_message.dart';
 import '../services/prefs.dart';
 import '../widgets/message_bubble.dart';
@@ -10,6 +11,7 @@ import '../widgets/onboard_card.dart';
 import '../theme/pin_theme.dart';
 import 'now_screen.dart';
 import '../services/now_controllers.dart';
+import 'api_log_screen.dart';
 import 'settings_screen.dart';
 
 /// Pure-presentation chat scaffold, used by [LocalChatScreen] and the preview
@@ -227,16 +229,24 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                     }),
               ),
             ),
-            // fab-cluster (design): slides the menu in from the right.
+            // fab-cluster (design): slides in from the right. In debug builds the
+            // API-log + ⋯ menu share ONE glass pill; otherwise just the ⋯ circle.
             Positioned(
               top: 8,
               right: 12,
               child: Builder(
-                builder: (context) =>
-                    _FabTop(
-                        onTap: () => Navigator.of(context, rootNavigator: true)
-                            .push(MaterialPageRoute(
-                                builder: (_) => const SettingsScreen()))),
+                builder: (context) {
+                  void openMenu() => Navigator.of(context, rootNavigator: true)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const SettingsScreen()));
+                  if (!kDebugBuild) return _FabTop(onTap: openMenu);
+                  return _FabCluster(
+                    onLog: () => Navigator.of(context, rootNavigator: true)
+                        .push(MaterialPageRoute(
+                            builder: (_) => const ApiLogScreen())),
+                    onMenu: openMenu,
+                  );
+                },
               ),
             ),
           ],
@@ -424,6 +434,39 @@ class _FabTop extends StatelessWidget {
       child: Icon(PhosphorIconsRegular.dotsThree, size: 21, color: scheme.secondary),
     );
   }
+}
+
+/// Debug-only glass pill holding the API-log + ⋯ menu icons in ONE box.
+class _FabCluster extends StatelessWidget {
+  final VoidCallback onLog;
+  final VoidCallback onMenu;
+  const _FabCluster({required this.onLog, required this.onMenu});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return LiquidGlass(
+      borderRadius: const BorderRadius.all(Radius.circular(22)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _iconBtn(PhosphorIconsRegular.pulse, 20, onLog, scheme),
+          _iconBtn(PhosphorIconsRegular.dotsThree, 21, onMenu, scheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconBtn(
+          IconData icon, double size, VoidCallback onTap, ColorScheme scheme) =>
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Icon(icon, size: size, color: scheme.secondary),
+        ),
+      );
 }
 
 /// Floating round button (design `.fab-now`) — white circle, top-LEFT, agenda

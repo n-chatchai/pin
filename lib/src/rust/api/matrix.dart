@@ -227,7 +227,6 @@ Future<void> recoverWithKey({required String recoveryKey}) =>
 Future<String> ensureRecoveryFor({required String role}) =>
     RustLib.instance.api.crateApiMatrixEnsureRecoveryFor(role: role);
 
-/// Restore E2EE keys on `role`'s account from a saved recovery key.
 Future<void> recoverWithKeyFor({
   required String role,
   required String recoveryKey,

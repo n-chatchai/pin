@@ -150,8 +150,9 @@ class SettingsScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const ApiLogScreen())),
               ),
+              // Merged into one card — was two separate boxes.
+              _E2eeDebug(),
             ]),
-            _card([_E2eeDebug()]),
             _section('บัญชี'),
             _card([
               if (userId != null)

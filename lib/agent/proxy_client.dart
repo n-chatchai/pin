@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../services/api_log.dart';
+
 /// Client for ปิ่น's blind LLM proxy. Speaks the OpenAI chat-completions schema;
 /// the proxy routes free→Gemini (our key) / paid→OpenRouter (the user's key).
 /// The provider key never lives in the app.
@@ -41,13 +43,23 @@ class ProxyClient {
       if (tier == 'paid' && openrouterKey != null)
         'X-OpenRouter-Key': openrouterKey!,
     };
+    final sw = Stopwatch()..start();
+    final reqJson = jsonEncode(body);
     final r = await http
-        .post(Uri.parse('$baseUrl/infer'), headers: headers, body: jsonEncode(body))
+        .post(Uri.parse('$baseUrl/infer'), headers: headers, body: reqJson)
         .timeout(const Duration(seconds: 90));
+    final respText = utf8.decode(r.bodyBytes);
+    ApiLog.instance.addHttp(
+        method: 'POST',
+        url: '$baseUrl/infer',
+        status: r.statusCode,
+        ms: sw.elapsedMilliseconds,
+        reqBody: reqJson,
+        respBody: respText);
     if (r.statusCode != 200) {
       throw Exception('proxy ${r.statusCode}: ${r.body}');
     }
-    return jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+    return jsonDecode(respText) as Map<String, dynamic>;
   }
 
   /// LLM moderation for a persona name (assistant / user / address word). The
@@ -88,11 +100,19 @@ class ProxyClient {
   /// server-side and not stored.
   Future<Map<String, dynamic>?> convertFile(String path) async {
     try {
+      final sw = Stopwatch()..start();
       final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/convert'))
         ..headers['Authorization'] = 'Bearer $token'
         ..files.add(await http.MultipartFile.fromPath('file', path));
       final streamed = await req.send().timeout(const Duration(seconds: 120));
       final body = await streamed.stream.bytesToString();
+      ApiLog.instance.addHttp(
+          method: 'POST',
+          url: '$baseUrl/convert',
+          status: streamed.statusCode,
+          ms: sw.elapsedMilliseconds,
+          reqBody: 'file: $path',
+          respBody: body);
       if (streamed.statusCode != 200) return null;
       return jsonDecode(body) as Map<String, dynamic>;
     } catch (_) {
@@ -103,11 +123,19 @@ class ProxyClient {
   /// Voice file → text via Gemini audio (blind). Returns the transcript or ''.
   Future<String> transcribe(String path) async {
     try {
+      final sw = Stopwatch()..start();
       final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/transcribe'))
         ..headers['Authorization'] = 'Bearer $token'
         ..files.add(await http.MultipartFile.fromPath('file', path));
       final streamed = await req.send().timeout(const Duration(seconds: 70));
       final body = await streamed.stream.bytesToString();
+      ApiLog.instance.addHttp(
+          method: 'POST',
+          url: '$baseUrl/transcribe',
+          status: streamed.statusCode,
+          ms: sw.elapsedMilliseconds,
+          reqBody: 'file: $path',
+          respBody: body);
       if (streamed.statusCode != 200) return '';
       return '${(jsonDecode(body) as Map)['text'] ?? ''}'.trim();
     } catch (_) {
@@ -119,11 +147,19 @@ class ProxyClient {
   /// any failure → the app falls back to its built-in greeting.
   Future<Map<String, dynamic>?> fetchWelcome() async {
     try {
+      final sw = Stopwatch()..start();
       final r = await http.get(Uri.parse('$baseUrl/welcome'),
           headers: {'Authorization': 'Bearer $token'}).timeout(
           const Duration(seconds: 8));
+      final respText = utf8.decode(r.bodyBytes);
+      ApiLog.instance.addHttp(
+          method: 'GET',
+          url: '$baseUrl/welcome',
+          status: r.statusCode,
+          ms: sw.elapsedMilliseconds,
+          respBody: respText);
       if (r.statusCode != 200) return null;
-      return jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      return jsonDecode(respText) as Map<String, dynamic>;
     } catch (_) {
       return null;
     }
