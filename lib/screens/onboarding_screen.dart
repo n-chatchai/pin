@@ -497,17 +497,35 @@ class _RecoveryStepState extends State<_RecoveryStep> {
       // before the first sync, so trusting it on a fresh device could send us
       // into "create" → which DELETES the existing backup and locks every other
       // device out.
-      final hasBackup =
-          await MatrixService.instance.backupExists().catchError((_) => false);
-      final state = await MatrixService.instance.recoveryState();
+      // Distinguish "definitely no backup" from "couldn't reach the server".
+      // A FAILED check must never fall through to create: creating runs
+      // resetRecovery, which DELETES the server backup and mints a new key —
+      // destroying a backup that may well exist and locking other devices out.
+      bool? hasBackup;
+      try {
+        hasBackup = await MatrixService.instance.backupExists();
+      } catch (_) {
+        hasBackup = null; // server unreachable → unknown, treat as "maybe yes"
+      }
+      final state = await MatrixService.instance
+          .recoveryState()
+          .catchError((_) => 'unknown');
       if (!mounted) return;
-      if (hasBackup || state == 'enabled') {
+      if (hasBackup == true || state == 'enabled') {
         // Returning user on a new device → restore with the existing key
         // (generating a new one would overwrite the backup and lock them out).
         // "Next" stays gated until the restore actually succeeds (onSaved fires
         // in _restore), so a user can't silently skip past locked chats.
         setState(() => _mode = 'restore');
+      } else if (hasBackup == null) {
+        // Couldn't verify → refuse to create (would risk deleting a real
+        // backup). Send to restore and explain; the user can retry once online.
+        setState(() {
+          _mode = 'restore';
+          _error = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบกุญแจสำรองไม่สำเร็จ';
+        });
       } else {
+        // hasBackup == false, definitively → safe to create a fresh key.
         setState(() => _mode = 'create');
         // Full bootstrap (cross-signing + backup + recovery) with the signup
         // password, then the combined QR (email + user key + ปิ่น key). Plain

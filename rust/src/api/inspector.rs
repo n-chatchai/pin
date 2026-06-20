@@ -43,6 +43,12 @@ pub(crate) static INSPECTOR_UPSTREAM: Lazy<Mutex<Option<String>>> =
 static FORWARD_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(65))
+        // DEBUG-only inspector forwarding to the user's own homeserver over the
+        // loopback: skip cert verification so this separate client never fails
+        // the handshake (matrix-sdk uses rustls-platform-verifier; ours may not
+        // pick up the same trust anchors). Not a security boundary — the real
+        // matrix-sdk connection still verifies normally in production.
+        .danger_accept_invalid_certs(true)
         .build()
         .expect("forwarding reqwest client")
 });
@@ -140,8 +146,9 @@ async fn proxy_request(
     let resp = match fwd.send().await {
         Ok(r) => r,
         Err(e) => {
+            eprintln!("inspector forward failed: {url}: {e}");
             emit_log(error_line(&method, &url, 0, started, &format!("forward: {e}")));
-            return Ok(plain_response(502, "inspector: upstream request failed"));
+            return Ok(plain_response(502, &format!("inspector: upstream request failed: {e}")));
         }
     };
 

@@ -28,10 +28,11 @@ const _preview = String.fromEnvironment('PIN_PREVIEW');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
-  // DEBUG-only: start the in-process Matrix HTTP inspector BEFORE any login/
-  // restore (which builds the matrix-sdk client) so build_client routes through
-  // the loopback proxy. Each JSON line → the Chuck-style API log.
-  if (kDebugBuild) _startMatrixInspector();
+  // Opt-in only (PIN_INSPECTOR, not PIN_DEBUG): start the Matrix HTTP inspector
+  // BEFORE any login/restore so build_client routes through the loopback proxy.
+  // OFF by default — the proxy MITMs all Matrix traffic, so it must never be on
+  // for normal debug use. Each JSON line → the Chuck-style API log.
+  if (kInspectorBuild) _startMatrixInspector();
   await ThemeController.instance.load();
   await PrefsController.instance.load();
   await NotificationService.instance.init();
