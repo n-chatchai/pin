@@ -247,9 +247,14 @@ pub fn start_matrix_inspector(sink: StreamSink<String>) -> Result<u16, String> {
             let io = hyper_util::rt::TokioIo::new(stream);
             RT.spawn(async move {
                 let service = hyper::service::service_fn(proxy_request);
-                let builder =
-                    hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
-                if let Err(e) = builder.serve_connection(io, service).await {
+                // matrix-sdk talks plaintext HTTP/1.1 to the loopback, so serve
+                // http1 directly. (The auto builder needs hyper's http2 feature,
+                // which we don't enable — using it dropped connections with an
+                // empty reply.) Keep-alive on so matrix-sdk can reuse the socket.
+                if let Err(e) = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(io, service)
+                    .await
+                {
                     eprintln!("inspector connection error: {e}");
                 }
             });
