@@ -351,6 +351,10 @@ class _FilesTabState extends State<FilesTab> {
     _scroll.addListener(_onScroll);
     FilesController.instance.addListener(_reload);
     _loadMore();
+    // Re-pull the file metadata from the ปิ่น room so files uploaded on ANOTHER
+    // device show up here too — not only those seeded at boot / via a live chat
+    // event. loadFromRoom upserts the cache then bumps → _reload re-queries.
+    FilesStore.instance.loadFromRoom();
   }
 
   @override
