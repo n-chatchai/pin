@@ -290,6 +290,12 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       setState(() => _messages.add(view));
       _scrollToEnd();
     }
+    // A file/media uploaded on ANOTHER device → re-pull io.tokens2.files so the
+    // ไฟล์ drawer shows it live too (the state event has no live stream of its
+    // own; the accompanying message is our signal to re-sync the metadata).
+    if (const {'file', 'image', 'audio', 'video'}.contains(m.kind)) {
+      unawaited(FilesStore.instance.loadFromRoom());
+    }
   }
 
   void _scrollToEnd() {
