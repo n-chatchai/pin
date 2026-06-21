@@ -753,12 +753,14 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// attachment (the user turn) + post ปิ่น's reply. Event ids are marked seen so
   /// the live echo doesn't double-render the local optimistic bubble.
   Future<void> _mirrorImageToRoom(String imagePath, AgentReply? r) async {
+    _lastFileEventId = null;
     final rid = _roomId;
     if (rid == null) return;
     try {
       final ue = await MatrixService.instance
           .sendUserAttachment(rid, imagePath, 'image/jpeg');
       _seenEvents.add(ue);
+      _lastFileEventId = ue; // so the ไฟล์ tab references this, no 2nd upload
       if (r != null) {
         final body = (r.text?.isNotEmpty ?? false)
             ? r.text!
@@ -1152,7 +1154,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       name: label,
       type: 'รูป',
       summary: r?.text?.trim() ?? '',
-      uri: saved,
+      uri: saved, // local copy for an instant thumbnail on this device
+      eventId: _lastFileEventId, // already mirrored — don't upload a 2nd copy
     );
   }
 
