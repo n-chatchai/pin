@@ -187,14 +187,16 @@ class FilesStore {
     String summary = '',
     String uri = '',
     int? when,
+    String? eventId,
   }) async {
     final db = await _open();
 
     // Upload local bytes to the ปิ่น DM so they survive reinstall/restore. Remote
-    // urls and empty uris carry no bytes — nothing to upload.
-    String? eventId;
+    // urls and empty uris carry no bytes — nothing to upload. If the caller
+    // already posted the bytes as a room attachment (the chat does), it passes
+    // the [eventId] so we DON'T upload a second copy.
     final rid = await MatrixService.instance.pinRoomId();
-    if (rid != null && uri.isNotEmpty && !uri.startsWith('http')) {
+    if (eventId == null && rid != null && uri.isNotEmpty && !uri.startsWith('http')) {
       try {
         final local = await absPath(uri);
         if (await File(local).exists()) {

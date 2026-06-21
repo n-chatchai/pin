@@ -701,8 +701,16 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     );
   }
 
+  /// Event id of the last file attachment mirrored to the room (so the ไฟล์ tab
+  /// can reference the room copy instead of re-uploading). Set by _run/_mirror.
+  String? _lastFileEventId;
+
   Future<AgentReply?> _run(ChatViewMessage userMsg, String text,
-      {String? imagePath, String? recordText, String? imageRecordPath}) async {
+      {String? imagePath,
+      String? recordText,
+      String? imageRecordPath,
+      String? attachPath,
+      String? attachMime}) async {
     if (_session == null || _botTyping) return null;
     setState(() {
       _messages.add(userMsg);
@@ -720,6 +728,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       // becomes an encrypted attachment; text becomes a message.
       if (imagePath != null) {
         await _mirrorImageToRoom(imagePath, r);
+      } else if (attachPath != null) {
+        await _mirrorAttachToRoom(
+            attachPath, attachMime ?? 'application/octet-stream', r);
       } else {
         await _mirrorToRoom(recordText ?? text, r);
       }
@@ -754,6 +765,34 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       }
     } catch (e) {
       debugPrint('mirror image to DM failed: $e');
+    }
+  }
+
+  /// Mirror a FILE turn: upload the document as an E2EE attachment (the user
+  /// turn — so it renders as a file bubble on every device, not just locally) +
+  /// post ปิ่น's summary reply. Stashes the attachment event id in
+  /// [_lastFileEventId] so the ไฟล์ tab can reference the room copy.
+  Future<void> _mirrorAttachToRoom(
+      String path, String mime, AgentReply? r) async {
+    _lastFileEventId = null;
+    final rid = _roomId;
+    if (rid == null) return;
+    try {
+      final ue = await MatrixService.instance.sendUserAttachment(rid, path, mime);
+      _seenEvents.add(ue);
+      _lastFileEventId = ue;
+      if (r != null) {
+        final body = (r.text?.isNotEmpty ?? false)
+            ? r.text!
+            : (r.flex != null ? '(ส่งการ์ดให้แล้ว)' : '');
+        final pe = await MatrixService.instance.sendText(rid, body,
+            role: 'pin',
+            flex: r.flex,
+            meta: r.usedTools.isEmpty ? null : {'used': r.usedTools});
+        _seenEvents.add(pe);
+      }
+    } catch (e) {
+      debugPrint('mirror file to DM failed: $e');
     }
   }
 
@@ -938,26 +977,46 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       return;
     }
     final body = md.length > 8000 ? md.substring(0, 8000) : md;
-    final userMsg = _text('📄 $name', me: true);
+    final dot = name.lastIndexOf('.');
+    final ext = dot > 0 ? name.substring(dot + 1) : '';
+    // The user turn IS the file — a real E2EE room attachment that syncs to every
+    // device (renders as a file bubble), not a local-only copy. _run mirrors it
+    // (capturing the event id in _lastFileEventId) + posts ปิ่น's summary.
+    final userMsg = ChatViewMessage(
+        eventId: 'm${_seq++}', sender: '@me', body: name,
+        time: DateTime.now(), isMe: true, kind: 'file', localPath: path);
     final r = await _run(
         userMsg,
         'ช่วยสรุปไฟล์ "$name" นี้สั้น ๆ เข้าใจง่าย แล้วบันทึกความรู้ไว้ให้ด้วย:'
         '\n\n$body',
-        // Store only the chip in history, not the whole extracted body (keeps
-        // the bubble clean on reload and stops resending the body every turn).
+        attachPath: path,
+        attachMime: _mimeForName(name),
+        // Store only the chip in the model history, not the whole extracted body.
         recordText: '📄 $name');
-    // Record the file in the on-device SQLite store (→ "ไฟล์" tab). Keep a
-    // private local copy of the original so the user can re-open it later;
-    // only the markitdown *conversion* happened server-side, not storage.
-    final dot = name.lastIndexOf('.');
-    final ext = dot > 0 ? name.substring(dot + 1) : 'bin';
-    final saved = await FilesStore.instance.persistMedia(path, ext);
+    // ไฟล์ tab metadata → reference the SAME room attachment (no second upload),
+    // so it's one file on every device.
     await FilesStore.instance.add(
       name: name,
-      type: dot > 0 ? name.substring(dot + 1) : '',
+      type: ext,
       summary: r?.text?.trim() ?? '',
-      uri: saved,
+      eventId: _lastFileEventId,
     );
+  }
+
+  static String _mimeForName(String name) {
+    final ext = name.toLowerCase().split('.').last;
+    return switch (ext) {
+      'pdf' => 'application/pdf',
+      'doc' || 'docx' => 'application/msword',
+      'xls' || 'xlsx' => 'application/vnd.ms-excel',
+      'ppt' || 'pptx' => 'application/vnd.ms-powerpoint',
+      'csv' => 'text/csv',
+      'txt' || 'md' => 'text/plain',
+      'mp3' => 'audio/mpeg',
+      'm4a' || 'aac' => 'audio/mp4',
+      'wav' => 'audio/wav',
+      _ => 'application/octet-stream',
+    };
   }
 
   /// A recorded voice message → transcribe with Gemini audio (blind) → treat the
