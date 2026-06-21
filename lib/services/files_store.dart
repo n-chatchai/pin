@@ -46,6 +46,10 @@ class FileItem {
             : r['event_id'] as String?,
       );
 
+  /// True when the local bytes aren't on THIS device (only metadata synced from
+  /// another device) but can be fetched from the DM attachment.
+  bool get needsDownload => !isRemote && eventId != null;
+
   /// Row map for mirroring metadata to the ปิ่น DM room state.
   Map<String, dynamic> toRoomMap() => {
         'id': id,
@@ -238,6 +242,25 @@ class FilesStore {
   /// truth): upsert each room row into SQLite by id so paging still works, then
   /// refresh the ไฟล์ tab. Bytes are resolved lazily via [event_id] +
   /// [MatrixService.downloadMedia]. Best-effort.
+  /// Local path to a file's bytes for display/open. Returns the local copy if
+  /// present; otherwise (uploaded on ANOTHER device — only metadata synced)
+  /// downloads it from the ปิ่น DM attachment by event id (memoized). Null if
+  /// neither is available.
+  Future<String?> resolveBytes(FileItem f) async {
+    if (f.isRemote) return f.uri;
+    if (f.uri.isNotEmpty && await File(f.uri).exists()) return f.uri;
+    final eid = f.eventId;
+    if (eid != null && eid.isNotEmpty) {
+      final rid = await MatrixService.instance.pinRoomId();
+      if (rid != null) {
+        try {
+          return await MatrixService.instance.downloadMedia(rid, eid);
+        } catch (_) {/* offline / not yet synced */}
+      }
+    }
+    return null;
+  }
+
   Future<void> loadFromRoom() async {
     final rid = await MatrixService.instance.pinRoomId();
     if (rid == null) return;

@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../agent/agent_store.dart';
 import '../services/files_store.dart';
 import '../services/notification_service.dart';
+import '../widgets/pin_toast.dart';
 import '../services/now_controllers.dart';
 import '../services/tasks_controller.dart';
 import '../theme/pin_theme.dart';
@@ -508,14 +509,36 @@ class _FilesTabState extends State<FilesTab> {
   /// Thumbnail for images (local file or remote gen url); icon otherwise.
   Widget _leading(FileItem f) {
     if (f.isImage) {
-      final img = f.isRemote
-          ? Image.network(f.uri, width: 44, height: 44, fit: BoxFit.cover,
-              loadingBuilder: (_, child, p) =>
-                  p == null ? child : _spinBox(),
-              errorBuilder: (_, __, ___) => _iconBox(PhosphorIconsRegular.imageBroken))
-          : Image.file(File(f.uri), width: 44, height: 44, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _iconBox(PhosphorIconsRegular.imageBroken));
-      return ClipRRect(borderRadius: BorderRadius.circular(9), child: img);
+      if (f.isRemote) {
+        return ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: Image.network(f.uri,
+                width: 44, height: 44, fit: BoxFit.cover,
+                loadingBuilder: (_, child, p) => p == null ? child : _spinBox(),
+                errorBuilder: (_, __, ___) =>
+                    _iconBox(PhosphorIconsRegular.imageBroken)));
+      }
+      // Local copy, or download from the DM attachment when the bytes came from
+      // another device (only metadata synced).
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: FutureBuilder<String?>(
+          future: FilesStore.instance.resolveBytes(f),
+          builder: (_, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return _spinBox();
+            }
+            final path = snap.data;
+            if (path == null) {
+              return _iconBox(PhosphorIconsRegular.imageBroken);
+            }
+            return Image.file(File(path),
+                width: 44, height: 44, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    _iconBox(PhosphorIconsRegular.imageBroken));
+          },
+        ),
+      );
     }
     return _iconBox(f.isAudio ? PhosphorIconsRegular.microphone : PhosphorIconsRegular.fileText);
   }
@@ -562,18 +585,42 @@ class _FilesTabState extends State<FilesTab> {
                             height: 40,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2.4, color: Color(0xFF34B06A))))
-                : Image.file(File(f.uri)),
+                : FutureBuilder<String?>(
+                    future: FilesStore.instance.resolveBytes(f),
+                    builder: (_, snap) {
+                      final path = snap.data;
+                      if (path == null) {
+                        return snap.connectionState == ConnectionState.waiting
+                            ? const SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.4, color: Color(0xFF34B06A)))
+                            : const Icon(PhosphorIconsRegular.imageBroken,
+                                color: Colors.white, size: 48);
+                      }
+                      return Image.file(File(path));
+                    },
+                  ),
           ),
         ),
       ),
     );
   }
 
-  /// Tap a document/audio → iOS share sheet ("Open in…" / save / play).
+  /// Tap a document/audio → iOS share sheet ("Open in…" / save / play). Resolves
+  /// the bytes (local copy, or download the DM attachment from another device).
   Future<void> _openFile(FileItem f) async {
     final box = context.findRenderObject() as RenderBox?;
+    final path = await FilesStore.instance.resolveBytes(f);
+    if (path == null) {
+      if (mounted) {
+        PinToast.show(context, 'ยังโหลดไฟล์ไม่ได้ ลองอีกครั้งนะ');
+      }
+      return;
+    }
     await Share.shareXFiles(
-      [XFile(f.uri)],
+      [XFile(path)],
       sharePositionOrigin:
           box == null ? null : box.localToGlobal(Offset.zero) & box.size,
     );
