@@ -287,8 +287,11 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     _seenEvents.add(m.eventId);
     final view = await _dmToView(m);
     if (view != null && mounted) {
+      // Append only. The list is reverse:true and pins the newest at the bottom
+      // on its own — animating to maxScrollExtent here jumped to the OLDEST
+      // message (wrong end), which is the "กระโดดไปผิด" seen on the receiving
+      // device when the other one posts a file/message.
       setState(() => _messages.add(view));
-      _scrollToEnd();
     }
     // A file/media uploaded on ANOTHER device → re-pull io.tokens2.files so the
     // ไฟล์ drawer shows it live too (the state event has no live stream of its
@@ -296,16 +299,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     if (const {'file', 'image', 'audio', 'video'}.contains(m.kind)) {
       unawaited(FilesStore.instance.loadFromRoom());
     }
-  }
-
-  void _scrollToEnd() {
-    if (!_scroll.hasClients) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-      }
-    });
   }
 
   // ---- First-run conversational onboarding (persona + light demos) --------
