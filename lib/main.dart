@@ -128,10 +128,28 @@ class _AfterAuthState extends State<AfterAuth> {
     if (id == null) return; // brand-new account → onboarding runs
     final p = await MatrixService.instance.loadPrefsFromRoom(id);
     if (p == null || (p['pin_name'] ?? '').isEmpty) return;
+
+    // Check if E2EE recovery keys need to be restored on this device.
+    // E2EE keys are device-specific. If we are on a new device, a key backup
+    // exists on the server, but local E2EE recovery is not yet enabled/restored.
+    bool needsRestore = false;
+    try {
+      final state = await MatrixService.instance.recoveryState();
+      final hasBackup = await MatrixService.instance.backupExists();
+      needsRestore = hasBackup && state != 'enabled';
+    } catch (_) {
+      try {
+        final state = await MatrixService.instance.recoveryState();
+        needsRestore = state != 'enabled';
+      } catch (_) {
+        needsRestore = true;
+      }
+    }
+
     await PrefsController.instance.update(
       PrefsController.instance.value
           .copyWithRoomState(p)
-          .copyWith(onboarded: true, personaSetup: true),
+          .copyWith(onboarded: !needsRestore, personaSetup: true),
     );
   }
 

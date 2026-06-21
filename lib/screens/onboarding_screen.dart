@@ -51,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   List<(Widget, String)> _stepList() => [
         if (widget.signup) (_SignupStep(onAuthed: _next), ''),
         (_recovery, 'ถัดไป'),
-        (_ready(), 'เริ่มใช้ปิ่น'),
+        (_ready(), 'เริ่มคุยเลย'),
       ];
 
   List<String> get _labels => [for (final s in _stepList()) s.$2];
