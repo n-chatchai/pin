@@ -1,13 +1,10 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-
-const _mediaChannel = MethodChannel('io.tokens2.pin/media');
 
 /// Render the combined recovery payload as a PNG with ONE branded QR code (the
 /// whole `{v,e,u,p}` JSON, high EC, Pin logo in the centre) plus the account
@@ -106,29 +103,20 @@ Future<void> shareRecoveryQr(BuildContext context, String data,
     if (bytes == null) throw 'no image bytes';
 
     final png = bytes.buffer.asUint8List();
-    // Android: write silently into public Downloads (no dialog, no cloud target).
-    // iOS: a local save dialog (it has its own Cancel and an "On My iPhone" local
-    // option), since iOS has no MediaStore.
-    Object? saved;
-    if (Platform.isAndroid) {
-      saved = await _mediaChannel.invokeMethod<String>('saveDownload', {
-        'bytes': png,
-        'name': 'pin-recovery-qr.png',
-        'mime': 'image/png',
-      });
-    } else {
-      saved = await FilePicker.platform.saveFile(
-        dialogTitle: 'บันทึกกุญแจกู้คืน ปิ่น',
-        fileName: 'pin-recovery-qr.png',
-        type: FileType.image,
-        bytes: png,
-      );
-    }
+    // Let the user pick WHERE to save the key — the system save dialog shows the
+    // destination, so it's clear where it lands and they can choose (or cancel).
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'เลือกที่บันทึกกุญแจกู้คืน',
+      fileName: 'pin-recovery-qr.png',
+      type: FileType.image,
+      bytes: png,
+    );
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(saved == null
-            ? 'ยังไม่ได้บันทึก'
-            : 'บันทึกกุญแจไว้ใน Downloads แล้ว')));
+        content: Text(path == null
+            ? 'ยังไม่ได้บันทึกกุญแจ'
+            : 'บันทึกกุญแจไว้ที่: ${path.split('/').last}\n$path'),
+        duration: const Duration(seconds: 5)));
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
