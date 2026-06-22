@@ -228,7 +228,37 @@ def _extra(r) -> dict:
     return out
 
 
-# ---- store (capability) meta, editable in admin across all catalog tables ----
+# ---- store (capability) management across all catalog tables -----------------
+def all_capabilities() -> list[dict]:
+    """Every user-facing capability (enabled OR not), enriched with display copy,
+    for the admin store. Subagents are internal (delegate-only) and excluded."""
+    from . import display
+    out = []
+    with conn() as c:
+        for tbl, kind in (("tools", "tool"), ("skills", "skill"),
+                          ("mcp_tools", "mcp")):
+            cols = {d[1] for d in c.execute(f"PRAGMA table_info({tbl})")}
+            for r in c.execute(f"SELECT * FROM {tbl}"):
+                d = {"name": r["name"], "kind": kind,
+                     "enabled": bool(r["enabled"]) if "enabled" in cols else True,
+                     "description": r["description"] if "description" in cols else "",
+                     **_extra(r)}
+                if "server" in cols:
+                    d["server"] = r["server"]
+                out.append(display.enrich(d))
+    return out
+
+
+def toggle_capability(name: str) -> None:
+    with conn() as c:
+        for tbl in ("tools", "skills", "mcp_tools"):
+            if c.execute(f"SELECT 1 FROM {tbl} WHERE name=? LIMIT 1",
+                         (name,)).fetchone():
+                c.execute(f"UPDATE {tbl} SET enabled=1-enabled WHERE name=?",
+                          (name,))
+                return
+
+
 def set_store_meta(name: str, category: str | None = None,
                    status: str | None = None, tier: str | None = None,
                    amount: str | None = None, period: str = "month") -> None:

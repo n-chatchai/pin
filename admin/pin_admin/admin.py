@@ -355,16 +355,28 @@ async def mcp_set_defaults(name: str, request: Request,
          "tools": store.mcp_tools_for_server(form.get("_server", ""))})
 
 
-# ---- ร้านค้า: the catalog seen as the app's capability store ------------------
+# ---- ร้านค้า: the catalog as the app's capability store (the one mgmt surface) -
 @router.get("/tab/store", response_class=HTMLResponse)
 def tab_store(request: Request, admin: str = Depends(owner)):
-    from pin_proxy import catalog as cat
     by_cat: dict[str, list] = {}
-    for m in cat.manifests():
-        if m.get("kind") == "subagent":
-            continue
-        by_cat.setdefault(m.get("category") or "อื่น ๆ", []).append(m)
-    return templates.TemplateResponse(request, "_store.html", {"by_cat": by_cat})
+    providers: set[str] = set()
+    commercial: set[str] = set()  # providers with a paid capability
+    comm_cats: set[str] = set()  # categories with a paid capability
+    for m in store.all_capabilities():  # enabled + disabled
+        cat = m.get("category") or "อื่น ๆ"
+        by_cat.setdefault(cat, []).append(m)
+        paid = (m.get("pricing") or {}).get("tier", "free") != "free"
+        if paid:
+            comm_cats.add(cat)
+        if m.get("provider"):
+            providers.add(m["provider"])
+            if paid:
+                commercial.add(m["provider"])
+    return templates.TemplateResponse(
+        request, "_store.html",
+        {"by_cat": by_cat,
+         "providers": sorted(providers), "commercial": sorted(commercial),
+         "categories": sorted(by_cat.keys()), "comm_cats": sorted(comm_cats)})
 
 
 @router.post("/store/{name}", response_class=HTMLResponse)
@@ -373,6 +385,22 @@ async def store_save(name: str, request: Request, admin: str = Depends(owner)):
     store.set_store_meta(name, category=f.get("category"), status=f.get("status"),
                          tier=f.get("tier"), amount=f.get("amount"),
                          period=f.get("period", "month"))
+    return tab_store(request, admin)
+
+
+@router.post("/store/{name}/toggle", response_class=HTMLResponse)
+def store_toggle(name: str, request: Request, admin: str = Depends(owner)):
+    store.toggle_capability(name)
+    return tab_store(request, admin)
+
+
+@router.post("/store/add/{tab}/{name}", response_class=HTMLResponse)
+def store_add(tab: str, name: str, request: Request,
+              admin: str = Depends(owner)):
+    items = _REG[tab][1]()
+    item = next((i for i in items if i["name"] == name), None)
+    if item is not None:
+        {"mcp": store.install_mcp, "skills": store.install_skill}[tab](item)
     return tab_store(request, admin)
 
 
