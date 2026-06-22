@@ -7,6 +7,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../agent/agent_config.dart';
+import '../agent/catalog_client.dart';
 import '../theme/pin_theme.dart';
 import 'pin_toast.dart';
 
@@ -50,6 +52,10 @@ class _MessageComposerState extends State<MessageComposer> {
   Timer? _recordTimer;
   // While text present, action icons collapse to a "›" chevron; tap to re-expand.
   bool _expanded = false;
+  // The "+" capabilities/tools panel above the bar (open on tap).
+  bool _panelOpen = false;
+  // Enabled catalog capability names — drives which capability badges show.
+  Set<String> _catNames = {};
 
   bool get _hasText => _controller.text.trim().isNotEmpty;
 
@@ -61,10 +67,23 @@ class _MessageComposerState extends State<MessageComposer> {
       setState(() {});
     });
     // Focus collapses the icons too; blurring an empty field restores them.
+    // Focusing the field also closes the "+" panel.
     _focus.addListener(() {
       if (!_focus.hasFocus && !_hasText) _expanded = false;
+      if (_focus.hasFocus) _panelOpen = false;
       setState(() {});
     });
+    _loadCaps();
+  }
+
+  /// Learn which capabilities the catalog has enabled, so the panel only shows
+  /// real ones (a disabled/coming-soon capability drops out). Best-effort.
+  Future<void> _loadCaps() async {
+    try {
+      final m = await CatalogClient(devProxy()).fetchManifests();
+      if (!mounted) return;
+      setState(() => _catNames = {for (final e in m) '${e['name']}'});
+    } catch (_) {/* keep optimistic full list */}
   }
 
   @override
@@ -79,6 +98,7 @@ class _MessageComposerState extends State<MessageComposer> {
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    if (_panelOpen) setState(() => _panelOpen = false);
     widget.onSend(text);
     _controller.clear();
   }
@@ -131,26 +151,35 @@ class _MessageComposerState extends State<MessageComposer> {
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(14, 0, 14, bottomInset.clamp(0, 80) + 10),
-      // Solid lifted card (Claude-style): white surface, hairline edge, soft
-      // drop shadow so it floats above the tinted screen instead of sinking in.
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: PinPalette.line),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x14282822), blurRadius: 24, offset: Offset(0, 8)),
-          ],
-        ),
-        padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.replyToBody != null) _replyPreview(scheme),
-            _recording ? _recordRow(scheme) : _inputRow(scheme),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The "+" panel floats directly above the bar (capabilities + tools).
+          if (_panelOpen && !_recording) _capPanel(scheme),
+          // Solid lifted card (Claude-style): white surface, hairline edge, soft
+          // drop shadow so it floats above the tinted screen instead of sinking in.
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: PinPalette.line),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0x14282822),
+                    blurRadius: 24,
+                    offset: Offset(0, 8)),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.replyToBody != null) _replyPreview(scheme),
+                _recording ? _recordRow(scheme) : _inputRow(scheme),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -243,7 +272,8 @@ class _MessageComposerState extends State<MessageComposer> {
               key: const ValueKey('icons'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _plusMenu, scheme),
+                _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _togglePanel, scheme,
+                    active: _panelOpen),
                 const SizedBox(width: 6),
                 _roundBtn(PhosphorIconsLight.camera, 'กล้อง',
                     () => widget.onMedia?.call('camera'), scheme),
@@ -255,120 +285,149 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  /// Curated capabilities shown in the "+" sheet. Tapping one sends a starter
-  /// message so ปิ่น kicks off that task (and asks for any details it needs).
-  /// (icon, label, starter prompt). See design/chat-compose/plus-capabilities.html.
-  static const _caps = <(IconData, String, String)>[
-    (PhosphorIconsRegular.sparkle, 'ดูดวง', 'ขอดูดวงหน่อย'),
-    (PhosphorIconsRegular.newspaper, 'ข่าวเช้า', 'สรุปข่าวเช้าให้หน่อย'),
-    (PhosphorIconsRegular.magnifyingGlass, 'ค้นเชิงลึก',
-        'ช่วยค้นข้อมูลเชิงลึกให้หน่อย'),
-    (PhosphorIconsRegular.cloudSun, 'อากาศ', 'ขอดูพยากรณ์อากาศ'),
-    (PhosphorIconsRegular.bell, 'ตั้งเตือน', 'ช่วยตั้งเตือนหน่อย'),
-    (PhosphorIconsRegular.imageSquare, 'วาดรูป', 'ช่วยวาดรูปให้หน่อย'),
-    (PhosphorIconsRegular.link, 'ย่อลิงก์', 'ช่วยย่อลิงก์นี้ให้หน่อย'),
+  /// Capability badges in the "+" panel. Each: (catalog names, icon, label,
+  /// starter prompt). Tapping one sends the starter so ปิ่น begins that task
+  /// (and asks for any details). A capability shows only if one of its [names]
+  /// is enabled in the catalog; an empty [names] = on-device built-in (always
+  /// on). See design/chat-compose/plus-capabilities.html.
+  static const _capSpecs = <(List<String>, IconData, String, String)>[
+    (['consult_astrologer', 'fortune'], PhosphorIconsLight.sparkle, 'ดูดวง',
+        'ขอดูดวงหน่อย'),
+    (['news_reporter', 'morning_news'], PhosphorIconsLight.newspaper, 'ข่าว',
+        'สรุปข่าวให้หน่อย'),
+    (['get_weather'], PhosphorIconsLight.cloudSun, 'อากาศ', 'ขอดูพยากรณ์อากาศ'),
+    (['web_search'], PhosphorIconsLight.globe, 'ค้นเว็บ',
+        'ช่วยค้นข้อมูลในเว็บให้หน่อย'),
+    (['get_currency'], PhosphorIconsLight.coins, 'แลกเงิน',
+        'ขอดูอัตราแลกเปลี่ยน'),
+    (['generate_image'], PhosphorIconsLight.image, 'วาดรูป',
+        'ช่วยวาดรูปให้หน่อย'),
+    (<String>[], PhosphorIconsLight.bell, 'ตั้งเตือน', 'ช่วยตั้งเตือนหน่อย'),
+    (['joke'], PhosphorIconsLight.smiley, 'เล่ามุก', 'เล่ามุกให้ฟังหน่อย'),
   ];
 
-  /// "+" button → capabilities grid + attachments (design variant A).
-  void _plusMenu() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: PinPalette.cream,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheet) {
-        // 4 tiles per row: (sheet width − outer padding − 3 gaps) / 4.
-        final tileW = (MediaQuery.of(sheet).size.width - 28 - 24) / 4;
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _sheetHead('ความสามารถ'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final (icon, label, prompt) in _caps)
-                      _CapTile(
-                          icon: icon,
-                          label: label,
-                          width: tileW,
-                          onTap: () {
-                            Navigator.pop(sheet);
-                            widget.onSend(prompt);
-                          }),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _sheetHead('แนบไฟล์'),
-                Row(children: [
-                  _AttachTile(
-                      icon: PhosphorIconsLight.camera,
-                      label: 'กล้อง',
-                      onTap: () => _pickMedia(sheet, 'camera')),
-                  const SizedBox(width: 10),
-                  _AttachTile(
-                      icon: PhosphorIconsLight.image,
-                      label: 'รูปภาพ',
-                      onTap: () => _pickMedia(sheet, 'image')),
-                  const SizedBox(width: 10),
-                  _AttachTile(
-                      icon: PhosphorIconsLight.videoCamera,
-                      label: 'วิดีโอ',
-                      onTap: () => _pickMedia(sheet, 'video')),
-                ]),
-                const SizedBox(height: 12),
-                _AttachGroup(children: [
-                  _AttachRow(
-                      icon: PhosphorIconsLight.paperclip,
-                      label: 'เพิ่มไฟล์',
-                      onTap: () => _pickMedia(sheet, 'file')),
-                  _AttachRow(
-                      icon: PhosphorIconsLight.scan,
-                      label: 'สแกนเอกสาร',
-                      onTap: () => _pickMedia(sheet, 'scan')),
-                  _AttachRow(
-                      icon: PhosphorIconsLight.mapPin,
-                      label: 'แชร์ตำแหน่ง',
-                      onTap: () => _pickMedia(sheet, 'location')),
-                ]),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  /// Device tools (always available): (id for onMedia, icon, label).
+  static const _toolSpecs = <(String, IconData, String)>[
+    ('file', PhosphorIconsLight.paperclip, 'แนบไฟล์'),
+    ('location', PhosphorIconsLight.mapPin, 'แชร์โลเคชั่น'),
+    ('scan', PhosphorIconsLight.scan, 'สแกนเอกสาร'),
+  ];
+
+  /// Visible capabilities: built-ins + any catalog-enabled. Before the catalog
+  /// loads (empty set) show all — optimistic, avoids an empty first open.
+  List<(List<String>, IconData, String, String)> get _visibleCaps =>
+      _catNames.isEmpty
+          ? _capSpecs
+          : [
+              for (final s in _capSpecs)
+                if (s.$1.isEmpty || s.$1.any(_catNames.contains)) s
+            ];
+
+  void _togglePanel() {
+    if (!_panelOpen) FocusScope.of(context).unfocus(); // drop the keyboard
+    setState(() => _panelOpen = !_panelOpen);
   }
 
-  void _pickMedia(BuildContext sheet, String id) {
-    Navigator.pop(sheet);
+  void _runCap(String prompt) {
+    setState(() => _panelOpen = false);
+    widget.onSend(prompt);
+  }
+
+  void _runTool(String id) {
+    setState(() => _panelOpen = false);
     widget.onMedia?.call(id);
   }
 
-  Widget _sheetHead(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-        child: Text(text,
+  // ----- "+" panel ----------------------------------------------------------
+
+  Widget _capPanel(ColorScheme scheme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x1A282822), blurRadius: 30, offset: Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _panelLabel('ความสามารถ'),
+          _badgeRow([
+            for (final (_, icon, label, prompt) in _visibleCaps)
+              _badge(icon, label, () => _runCap(prompt)),
+          ]),
+          const SizedBox(height: 12),
+          _panelLabel('เครื่องมือ'),
+          _badgeRow([
+            for (final (id, icon, label) in _toolSpecs)
+              _badge(icon, label, () => _runTool(id)),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _panelLabel(String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 9),
+        child: Text(t,
             style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: .5,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.4,
                 color: PinPalette.ink3)),
       );
 
+  Widget _badgeRow(List<Widget> badges) => SizedBox(
+        height: 34,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          itemCount: badges.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 7),
+          itemBuilder: (_, i) => badges[i],
+        ),
+      );
+
+  static const _badgeBg = Color(0xFF23231F);
+  Widget _badge(IconData icon, String label, VoidCallback onTap) => Material(
+        color: _badgeBg,
+        borderRadius: BorderRadius.circular(100),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(100),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 15, 0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: Colors.white),
+                const SizedBox(width: 7),
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ),
+      );
+
   /// Soft pale-grey circle with a dark glyph (Claude-style) — visible but quiet.
+  /// [active] fills it with the brand colour + a 45° turn (used by the "+" when
+  /// its panel is open, so the glyph reads as a close affordance).
   static const _btnBg = Color(0xFFF1EEE7);
   Widget _roundBtn(
       IconData icon, String tip, VoidCallback? onTap, ColorScheme scheme,
-      {Key? key}) {
+      {Key? key, bool active = false}) {
     return Material(
       key: key,
-      color: _btnBg,
+      color: active ? scheme.primary : _btnBg,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -376,7 +435,12 @@ class _MessageComposerState extends State<MessageComposer> {
         child: SizedBox(
           width: 36,
           height: 36,
-          child: Icon(icon, size: 19, color: PinPalette.ink),
+          child: AnimatedRotation(
+            turns: active ? 0.125 : 0,
+            duration: const Duration(milliseconds: 150),
+            child: Icon(icon,
+                size: 19, color: active ? Colors.white : PinPalette.ink),
+          ),
         ),
       ),
     );
@@ -449,132 +513,6 @@ class _MessageComposerState extends State<MessageComposer> {
           onPressed: () => _stopRecord(send: true),
         ),
       ],
-    );
-  }
-}
-
-/// A capability tile in the "+" sheet: rounded green icon + Thai label.
-class _CapTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final double width;
-  final VoidCallback onTap;
-  const _CapTile(
-      {required this.icon,
-      required this.label,
-      required this.width,
-      required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF34B06A).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, size: 21, color: const Color(0xFF1C7A48)),
-                ),
-                const SizedBox(height: 7),
-                Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: PinPalette.ink)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AttachTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _AttachTile(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: SizedBox(
-            height: 92,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 26, color: PinPalette.ink),
-                const SizedBox(height: 8),
-                Text(label,
-                    style: const TextStyle(fontSize: 13, color: PinPalette.ink)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AttachGroup extends StatelessWidget {
-  final List<Widget> children;
-  const _AttachGroup({required this.children});
-  @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i++) {
-      if (i > 0) {
-        rows.add(const Divider(height: 1, indent: 52, color: PinPalette.line));
-      }
-      rows.add(children[i]);
-    }
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: rows),
-    );
-  }
-}
-
-class _AttachRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _AttachRow(
-      {required this.icon, required this.label, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: PinPalette.ink),
-      title: Text(label, style: const TextStyle(color: PinPalette.ink)),
-      onTap: onTap,
     );
   }
 }
