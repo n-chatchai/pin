@@ -393,8 +393,8 @@ List<AgentTool> nowTools() => [
               .saveListToRoom(rid, 'io.tokens2.capability_requests', list);
           // Also report to the server backlog (admin page). Best-effort.
           await devProxy().requestCapability(cap, '${args['detail'] ?? ''}');
-          return 'บันทึกคำขอ "$cap" ไว้แล้ว — บอกผู้ใช้ว่าระบบกำลังจะเพิ่มความสามารถนี้ '
-              'ให้เร็ว ๆ นี้ และดูความคืบหน้าได้ที่แท็บ "เร็ว ๆ นี้" ในเมนูด้านซ้าย';
+          return 'บันทึกคำขอ "$cap" ไว้แล้ว — บอกผู้ใช้ว่าตอนนี้ยังทำไม่ได้ '
+              'แต่บันทึกคำขอไว้ให้ทีมพัฒนาแล้ว';
         },
       ),
     ];

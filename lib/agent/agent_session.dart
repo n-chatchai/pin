@@ -96,8 +96,8 @@ class AgentSession {
         'งานที่ต้องติดตาม→add_task; ถาม "ทำอะไรได้บ้าง"→list_capabilities. '
         'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
         '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
-        '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกว่าระบบจะเพิ่มให้เร็ว ๆ นี้ '
-        'ดูได้ที่แท็บ "เร็ว ๆ นี้".\n\n$persona';
+        '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
+        'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
     // Catalog skill instructions (all on — the local skill toggle was removed
     // with on-device memory; capability gating will move to room state later).
     final blocks = <String>[

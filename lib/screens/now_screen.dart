@@ -7,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../agent/agent_store.dart';
 import '../services/files_store.dart';
-import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/pin_toast.dart';
 import '../services/now_controllers.dart';
@@ -31,7 +30,7 @@ class NowView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
         // bottom:false so the drawer fills to the screen edge (no blank bar
@@ -53,17 +52,13 @@ class NowView extends StatelessWidget {
                   // Heading face (IBM Plex Sans Thai) to match the app bar +
                   // section headers — tab titles are headings, not body.
                   labelStyle: PinPalette.brand(size: 16),
-                  tabs: const [
-                    Tab(text: 'ตอนนี้'),
-                    Tab(text: 'ไฟล์'),
-                    Tab(text: 'เร็ว ๆ นี้'),
-                  ],
+                  tabs: const [Tab(text: 'ตอนนี้'), Tab(text: 'ไฟล์')],
                   // (const dropped from parent Padding so labelStyle can use brand)
                 ),
               ),
               Expanded(
                 child: TabBarView(
-                  children: [_nowTab(context), const FilesTab(), const SoonTab()],
+                  children: [_nowTab(context), const FilesTab()],
                 ),
               ),
             ],
@@ -80,7 +75,6 @@ class NowView extends StatelessWidget {
                   TasksController.instance,
                   EventsController.instance,
                   JobsController.instance,
-                  MemoryController.instance,
                 ]),
                 builder: (context, _) {
                   final now = TasksController.instance.value
@@ -91,11 +85,7 @@ class NowView extends StatelessWidget {
                   final jobs = JobsController.instance.value;
                   final reminders = jobs.where((j) => !j.isAgentic).toList();
                   final autoJobs = jobs.where((j) => j.isAgentic).toList();
-                  final memory = MemoryController.instance.value;
-                  final empty = now.isEmpty &&
-                      events.isEmpty &&
-                      jobs.isEmpty &&
-                      memory.isEmpty;
+                  final empty = now.isEmpty && events.isEmpty && jobs.isEmpty;
                   return ListView(
                     padding: EdgeInsets.fromLTRB(
                         16, 0, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
@@ -118,10 +108,6 @@ class NowView extends StatelessWidget {
                         if (autoJobs.isNotEmpty) ...[
                           _sectionLabel('งานอัตโนมัติ · ${autoJobs.length}'),
                           for (final j in autoJobs) _jobRow(j),
-                        ],
-                        if (memory.isNotEmpty) ...[
-                          _sectionLabel('ความรู้ใหม่ · ${memory.length}'),
-                          for (final m in memory.take(8)) _memoryRow(m),
                         ],
                       ],
                     ],
@@ -218,45 +204,6 @@ class NowView extends StatelessWidget {
               padding: EdgeInsets.all(4),
               child: Icon(PhosphorIconsRegular.x, size: 16, color: PinPalette.ink3),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _memoryRow(MemoryItem m) {
-    final isKnow = m.kind == 'knowledge';
-    final tint = isKnow ? const Color(0xFF4F6FA6) : const Color(0xFF34B06A);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x0A282822), blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(isKnow ? PhosphorIconsRegular.bookOpen : PhosphorIconsRegular.pushPin,
-                size: 16, color: tint),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Text(m.text,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 13.5, height: 1.3, color: PinPalette.ink)),
           ),
         ],
       ),
@@ -647,135 +594,6 @@ class _FilesTabState extends State<FilesTab> {
     final date = '${d.day} ${_months[d.month - 1]} ${(d.year + 543) % 100}';
     final ext = f.type.isEmpty ? '' : '${f.type.toUpperCase()} · ';
     return '$ext$date · $time';
-  }
-}
-
-/// "เร็ว ๆ นี้" tab — capabilities the user asked for that ปิ่น can't do yet.
-/// Logged by the `request_capability` tool into the ปิ่น room state
-/// (`io.tokens2.capability_requests`), so the list syncs across devices.
-class SoonTab extends StatefulWidget {
-  const SoonTab({super.key});
-  @override
-  State<SoonTab> createState() => _SoonTabState();
-}
-
-class _SoonTabState extends State<SoonTab> {
-  List<Map<String, dynamic>>? _items; // null = loading
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final rid = await MatrixService.instance.pinRoomId();
-    final list = rid == null
-        ? <Map<String, dynamic>>[]
-        : await MatrixService.instance
-            .loadListFromRoom(rid, 'io.tokens2.capability_requests');
-    // Newest first.
-    list.sort((a, b) =>
-        ((b['at'] as num?) ?? 0).compareTo((a['at'] as num?) ?? 0));
-    if (mounted) setState(() => _items = list);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final items = _items;
-    if (items == null) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-    }
-    if (items.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          children: const [
-            SizedBox(height: 120),
-            Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'ยังไม่มีคำขอความสามารถใหม่\nถ้าขอให้ปิ่นทำอะไรที่ยังทำไม่ได้ '
-                  'รายการจะมาโผล่ที่นี่ พร้อมความคืบหน้า',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: PinPalette.ink2, height: 1.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        itemCount: items.length,
-        itemBuilder: (_, i) => _row(items[i]),
-      ),
-    );
-  }
-
-  Widget _row(Map<String, dynamic> r) {
-    final cap = '${r['capability'] ?? ''}';
-    final detail = '${r['detail'] ?? ''}';
-    final count = (r['count'] as num?)?.toInt() ?? 1;
-    final status = '${r['status'] ?? 'requested'}';
-    final (label, color) = switch (status) {
-      'building' => ('กำลังพัฒนา', const Color(0xFF34B06A)),
-      'done' => ('พร้อมใช้แล้ว', const Color(0xFF34B06A)),
-      _ => ('รอเพิ่มเร็ว ๆ นี้', PinPalette.ink2),
-    };
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: PinPalette.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(cap,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, color: PinPalette.ink)),
-              ),
-              if (count > 1)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text('×$count',
-                      style: const TextStyle(
-                          fontSize: 12, color: PinPalette.ink2)),
-                ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(label,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: color,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          if (detail.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(detail,
-                  style: const TextStyle(fontSize: 13, color: PinPalette.ink2)),
-            ),
-        ],
-      ),
-    );
   }
 }
 
