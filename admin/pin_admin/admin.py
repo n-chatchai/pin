@@ -341,6 +341,15 @@ def mcp_server_tools(server: str, request: Request,
         {"server": server, "tools": store.mcp_tools_for_server(server)})
 
 
+@router.post("/mcp/server/{server}/refresh", response_class=HTMLResponse)
+async def mcp_refresh(server: str, request: Request,
+                      admin: str = Depends(owner)):
+    from pin_proxy import mcp
+    await mcp.refresh_server(server)
+    return templates.TemplateResponse(request, "_mcp_tools.html",
+        {"server": server, "tools": store.mcp_tools_for_server(server)})
+
+
 @router.post("/mcp/tool/{name}/defaults", response_class=HTMLResponse)
 async def mcp_set_defaults(name: str, request: Request,
                            admin: str = Depends(owner)):

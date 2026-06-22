@@ -1,7 +1,8 @@
 <div class="sec-h"><h3>ตั้งค่า params · {{ server }}</h3>
   <span class="hint">params มาจาก MCP schema — ตั้ง default หรือ <span class="mono">$user</span> (ใส่รหัสผู้ใช้อัตโนมัติ)</span></div>
 <p class="hint" style="margin:-4px 0 12px">
-  <a class="tg" hx-get="/admin/tab/mcp" hx-target="#panel">← กลับ MCP</a></p>
+  <a class="tg" hx-get="/admin/tab/store" hx-target="#panel">← กลับ ความสามารถ</a>
+  &nbsp;·&nbsp;<a class="tg" hx-post="/admin/mcp/server/{{ server }}/refresh" hx-target="#panel">⟳ รีเฟรชจาก server</a></p>
 {% for t in tools %}
 <div class="rcard" style="margin-bottom:12px">
   <div class="rh"><b>{{ t.label }}</b><span class="b sub" style="margin-left:6px">{{ t.name }}</span></div>

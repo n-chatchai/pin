@@ -377,6 +377,35 @@ def set_mcp_defaults(name: str, defaults: dict) -> None:
                   (json.dumps(defaults), name))
 
 
+def get_mcp_server(name: str) -> dict | None:
+    with conn() as c:
+        r = c.execute("SELECT name,url,headers_json FROM mcp_servers WHERE name=?",
+                      (name,)).fetchone()
+    return None if not r else {
+        "name": r["name"], "url": r["url"],
+        "headers": json.loads(r["headers_json"] or "{}")}
+
+
+def refresh_mcp_tool(server: str, name: str, description: str,
+                     parameters: dict, arg_keys: list) -> bool:
+    """Update a tool's SCHEMA (description/params/argKeys) from a live tools/list,
+    preserving admin-set display/pricing/status/defaults. Returns True if new."""
+    with conn() as c:
+        exists = c.execute("SELECT 1 FROM mcp_tools WHERE name=?",
+                           (name,)).fetchone()
+        if exists:
+            c.execute("UPDATE mcp_tools SET description=?,parameters_json=?,"
+                      "arg_keys_json=? WHERE name=?",
+                      (description, json.dumps(parameters),
+                       json.dumps(arg_keys), name))
+            return False
+        c.execute("INSERT INTO mcp_tools(server,name,description,parameters_json,"
+                  "arg_keys_json,enabled,defaults_json) VALUES(?,?,?,?,?,1,'{}')",
+                  (server, name, description, json.dumps(parameters),
+                   json.dumps(arg_keys)))
+        return True
+
+
 def uninstall_mcp(name: str) -> None:
     with conn() as c:
         c.execute("DELETE FROM mcp_tools WHERE server=?", (name,))

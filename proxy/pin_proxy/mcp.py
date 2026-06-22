@@ -83,6 +83,64 @@ async def call(name: str, args: dict, user: str | None = None) -> dict:
         return {"text": f"เครื่องมือ MCP มีปัญหา: {e}"}
 
 
+def _simple_prop(schema: dict) -> dict:
+    """Flatten an MCP json-schema property to a device-facing {type,description}
+    (MCP wraps optionals in anyOf/null which the device schema doesn't need)."""
+    t = schema.get("type")
+    if not t and schema.get("anyOf"):
+        t = next((o.get("type") for o in schema["anyOf"]
+                  if o.get("type") not in (None, "null")), "string")
+    return {"type": t or "string",
+            "description": schema.get("description") or schema.get("title") or ""}
+
+
+async def list_tools(srv: dict) -> list[dict]:
+    """Live tools/list from an MCP server (initialize → tools/list)."""
+    url = srv["url"]
+    headers = {"Content-Type": "application/json",
+               "Accept": "application/json, text/event-stream",
+               **(srv.get("headers") or {})}
+    async with httpx.AsyncClient(timeout=30) as c:
+        init = await _rpc(c, url, headers, 1, "initialize", {
+            "protocolVersion": "2025-06-18", "capabilities": {},
+            "clientInfo": {"name": "pin-proxy", "version": "1"}})
+        if init["session"]:
+            headers["Mcp-Session-Id"] = init["session"]
+        try:
+            await c.post(url, headers=headers,
+                         json={"jsonrpc": "2.0", "method": "notifications/initialized"})
+        except Exception:  # noqa: BLE001
+            pass
+        res = await _rpc(c, url, headers, 2, "tools/list", {})
+    return res["data"].get("result", {}).get("tools", []) or []
+
+
+async def refresh_server(name: str) -> dict:
+    """Re-sync a server's tool schemas from its live tools/list. Params that the
+    proxy injects (the tool's `defaults` keys, e.g. $user end_user_ref) are kept
+    out of the device-facing schema. Admin display/pricing/status/defaults are
+    preserved."""
+    srv = store.get_mcp_server(name)
+    if not srv:
+        return {"error": f"no MCP server '{name}'"}
+    live = await list_tools(srv)
+    existing = {n: (e["tool"].get("defaults") or {})
+                for n, e in store.mcp_index().items()}
+    out: dict = {"updated": [], "added": []}
+    for t in live:
+        tn = t["name"]
+        sch = t.get("inputSchema", {}) or {}
+        injected = set((existing.get(tn) or {}).keys())
+        props = {k: _simple_prop(v) for k, v in (sch.get("properties") or {}).items()
+                 if k not in injected}
+        required = [r for r in (sch.get("required") or []) if r not in injected]
+        params = {"type": "object", "properties": props, "required": required}
+        is_new = store.refresh_mcp_tool(name, tn, t.get("description", ""),
+                                        params, list(props.keys()))
+        out["added" if is_new else "updated"].append(tn)
+    return out
+
+
 async def _rpc(c, url, headers, rid, method, params) -> dict:
     """One JSON-RPC call; returns {"data": parsed, "session": id|None}. Handles
     both a plain JSON body and an SSE (text/event-stream) response."""
