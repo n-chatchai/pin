@@ -57,23 +57,30 @@ class NotificationService {
     required DateTime when,
     bool daily = false,
   }) async {
-    await _plugin.zonedSchedule(
-      id: id,
-      title: 'ปิ่น',
-      body: body,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
-      notificationDetails: const NotificationDetails(
-        iOS: DarwinNotificationDetails(
-          presentAlert: true, presentBanner: true, presentSound: true,
-        ),
-        android: AndroidNotificationDetails(
-          'pin_reminders', 'การเตือนจากปิ่น',
-          importance: Importance.high, priority: Priority.high,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: daily ? DateTimeComponents.time : null,
-    );
+    Future<void> arm(AndroidScheduleMode mode) => _plugin.zonedSchedule(
+          id: id,
+          title: 'ปิ่น',
+          body: body,
+          scheduledDate: tz.TZDateTime.from(when, tz.local),
+          notificationDetails: const NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true, presentBanner: true, presentSound: true,
+            ),
+            android: AndroidNotificationDetails(
+              'pin_reminders', 'การเตือนจากปิ่น',
+              importance: Importance.high, priority: Priority.high,
+            ),
+          ),
+          androidScheduleMode: mode,
+          matchDateTimeComponents: daily ? DateTimeComponents.time : null,
+        );
+    try {
+      await arm(AndroidScheduleMode.exactAllowWhileIdle);
+    } catch (_) {
+      // Exact alarms denied (e.g. user revoked SCHEDULE_EXACT_ALARM) — fall back
+      // to inexact so the reminder still fires (Doze may batch it a few minutes).
+      await arm(AndroidScheduleMode.inexactAllowWhileIdle);
+    }
   }
 
   /// Debug: fire a test notification [secs] from now + report state, so we can
