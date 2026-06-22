@@ -394,10 +394,11 @@ def refresh_mcp_tool(server: str, name: str, description: str,
         exists = c.execute("SELECT 1 FROM mcp_tools WHERE name=?",
                            (name,)).fetchone()
         if exists:
-            c.execute("UPDATE mcp_tools SET description=?,parameters_json=?,"
-                      "arg_keys_json=? WHERE name=?",
-                      (description, json.dumps(parameters),
-                       json.dumps(arg_keys), name))
+            # Keep the admin-curated description (it carries agent guidance like
+            # "ask which system"); only the live schema refreshes.
+            c.execute("UPDATE mcp_tools SET parameters_json=?,arg_keys_json=? "
+                      "WHERE name=?",
+                      (json.dumps(parameters), json.dumps(arg_keys), name))
             return False
         c.execute("INSERT INTO mcp_tools(server,name,description,parameters_json,"
                   "arg_keys_json,enabled,defaults_json) VALUES(?,?,?,?,?,1,'{}')",

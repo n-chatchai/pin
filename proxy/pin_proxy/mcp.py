@@ -85,13 +85,20 @@ async def call(name: str, args: dict, user: str | None = None) -> dict:
 
 def _simple_prop(schema: dict) -> dict:
     """Flatten an MCP json-schema property to a device-facing {type,description}
-    (MCP wraps optionals in anyOf/null which the device schema doesn't need)."""
+    (+enum when the value is constrained — the agent needs the allowed values to
+    pick a valid one). MCP wraps optionals in anyOf/null which the device schema
+    doesn't need; for those the enum hides inside the non-null anyOf branch."""
     t = schema.get("type")
+    enum = schema.get("enum")
     if not t and schema.get("anyOf"):
-        t = next((o.get("type") for o in schema["anyOf"]
-                  if o.get("type") not in (None, "null")), "string")
-    return {"type": t or "string",
-            "description": schema.get("description") or schema.get("title") or ""}
+        opt = next((o for o in schema["anyOf"]
+                    if o.get("type") not in (None, "null")), {})
+        t, enum = opt.get("type"), enum or opt.get("enum")
+    out = {"type": t or "string",
+           "description": schema.get("description") or schema.get("title") or ""}
+    if enum:
+        out["enum"] = enum
+    return out
 
 
 async def list_tools(srv: dict) -> list[dict]:
