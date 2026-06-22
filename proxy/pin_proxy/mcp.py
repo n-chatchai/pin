@@ -30,12 +30,31 @@ def is_mcp(name: str) -> bool:
     return name in store.mcp_index()
 
 
-async def call(name: str, args: dict) -> dict:
+async def call(name: str, args: dict, user: str | None = None) -> dict:
     """Run an MCP tool via Streamable HTTP JSON-RPC. Returns {"text": ...}."""
     entry = store.mcp_index().get(name)
     if entry is None:
         return {"text": f"ไม่พบเครื่องมือ MCP '{name}'"}
     srv = entry["server"]
+    # Admin-configured default params (mcp_tools.defaults_json), merged in for any
+    # arg the device didn't send. The special value "$user" becomes a stable, anon
+    # hash of the authenticated user_id — so e.g. lakkana's per-user end_user_ref
+    # is filled by the proxy and the DEVICE never sends identity. Configurable per
+    # tool via admin; no hardcoded tool names.
+    defaults = entry["tool"].get("defaults") or {}
+    if defaults:
+        import hashlib
+        anon = ("pin_" + hashlib.sha256(user.encode()).hexdigest()[:20]) if user else None
+        merged = dict(args)
+        for k, v in defaults.items():
+            if k in merged:
+                continue
+            if v == "$user":
+                if anon:
+                    merged[k] = anon
+            else:
+                merged[k] = v
+        args = merged
     url = srv["url"]
     headers = {
         "Content-Type": "application/json",

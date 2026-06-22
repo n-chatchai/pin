@@ -333,6 +333,49 @@ def uninstall(tab: str, name: str, request: Request,
     return _render_registry(request, tab)
 
 
+# ---- MCP tool default params (configure per param: fixed value or $user) -----
+@router.get("/mcp/server/{server}/tools", response_class=HTMLResponse)
+def mcp_server_tools(server: str, request: Request,
+                     admin: str = Depends(owner)):
+    return templates.TemplateResponse(request, "_mcp_tools.html",
+        {"server": server, "tools": store.mcp_tools_for_server(server)})
+
+
+@router.post("/mcp/tool/{name}/defaults", response_class=HTMLResponse)
+async def mcp_set_defaults(name: str, request: Request,
+                           admin: str = Depends(owner)):
+    form = await request.form()
+    # Each param input is named default__<param>; blank = not defaulted.
+    defaults = {k[len("default__"):]: str(v).strip()
+                for k, v in form.items()
+                if k.startswith("default__") and str(v).strip()}
+    store.set_mcp_defaults(name, defaults)
+    return templates.TemplateResponse(request, "_mcp_tools.html",
+        {"server": form.get("_server", ""),
+         "tools": store.mcp_tools_for_server(form.get("_server", ""))})
+
+
+# ---- ร้านค้า: the catalog seen as the app's capability store ------------------
+@router.get("/tab/store", response_class=HTMLResponse)
+def tab_store(request: Request, admin: str = Depends(owner)):
+    from pin_proxy import catalog as cat
+    by_cat: dict[str, list] = {}
+    for m in cat.manifests():
+        if m.get("kind") == "subagent":
+            continue
+        by_cat.setdefault(m.get("category") or "อื่น ๆ", []).append(m)
+    return templates.TemplateResponse(request, "_store.html", {"by_cat": by_cat})
+
+
+@router.post("/store/{name}", response_class=HTMLResponse)
+async def store_save(name: str, request: Request, admin: str = Depends(owner)):
+    f = await request.form()
+    store.set_store_meta(name, category=f.get("category"), status=f.get("status"),
+                         tier=f.get("tier"), amount=f.get("amount"),
+                         period=f.get("period", "month"))
+    return tab_store(request, admin)
+
+
 # ---- developer portal + review queue ---------------------------------------
 
 def _review_rows() -> list[dict]:

@@ -271,7 +271,7 @@ async def tool(
     """Run a blind, minimal-arg remote tool. args MUST contain no identity /
     conversation / preferences — only the narrow query. Routes MCP-fronted tools
     to the MCP layer, everything else to the hosted tools."""
-    _check_token(authorization)
+    user = _check_token(authorization)
     from . import mcp
     from .tools import TOOLS
 
@@ -280,7 +280,7 @@ async def tool(
 
     if mcp.is_mcp(name):
         store.log_tool(name, "mcp", list(args.keys()), "call")
-        return await mcp.call(name, args)
+        return await mcp.call(name, args, user)
     # Third-party tool hosted by a developer — route the blind args to their URL.
     endpoint = store.remote_endpoint(name)
     if endpoint:

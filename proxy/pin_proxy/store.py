@@ -86,10 +86,12 @@ def init() -> None:
         # Migrate older DBs: add commerce/display columns if missing.
         _migrate = {
             "tools": ("label", "blurb", "category", "provider", "pricing_json",
-                      "endpoint"),
-            "skills": ("label", "provider", "pricing_json"),
-            "subagents": ("label", "provider", "pricing_json"),
-            "mcp_tools": ("label", "category", "provider", "pricing_json"),
+                      "endpoint", "status"),
+            "skills": ("label", "provider", "pricing_json", "category", "status"),
+            "subagents": ("label", "provider", "pricing_json", "category",
+                          "status"),
+            "mcp_tools": ("label", "category", "provider", "pricing_json",
+                          "defaults_json", "status"),
         }
         for tbl, cols in _migrate.items():
             for col in cols:
@@ -218,12 +220,41 @@ def update_tool_meta(name: str, label: str, blurb: str, category: str,
 def _extra(r) -> dict:
     """Optional display/commerce fields if the column has a value."""
     out = {}
-    for k in ("label", "provider", "category"):
+    for k in ("label", "provider", "category", "status"):
         if k in r.keys() and r[k]:
             out[k] = r[k]
     if "pricing_json" in r.keys() and r["pricing_json"]:
         out["pricing"] = json.loads(r["pricing_json"])
     return out
+
+
+# ---- store (capability) meta, editable in admin across all catalog tables ----
+def set_store_meta(name: str, category: str | None = None,
+                   status: str | None = None, tier: str | None = None,
+                   amount: str | None = None, period: str = "month") -> None:
+    """Set the store-facing fields (category / status / pricing) for a capability,
+    whichever catalog table it lives in."""
+    with conn() as c:
+        for tbl in ("tools", "skills", "subagents", "mcp_tools"):
+            if not c.execute(f"SELECT 1 FROM {tbl} WHERE name=? LIMIT 1",
+                             (name,)).fetchone():
+                continue
+            sets, vals = [], []
+            if category is not None:
+                sets.append("category=?"); vals.append(category)
+            if status is not None:
+                sets.append("status=?"); vals.append(status)
+            if tier is not None:
+                pricing = {"tier": tier or "free", "currency": "THB"}
+                if tier in ("onetime", "subscription") and amount:
+                    pricing["amount"] = int(amount)
+                if tier == "subscription":
+                    pricing["period"] = period or "month"
+                sets.append("pricing_json=?"); vals.append(json.dumps(pricing))
+            if sets:
+                vals.append(name)
+                c.execute(f"UPDATE {tbl} SET {','.join(sets)} WHERE name=?", vals)
+            return
 
 
 def enabled_mcp_tools() -> list[dict]:
@@ -271,7 +302,8 @@ def mcp_index() -> dict[str, dict]:
             out[t["name"]] = {
                 "server": {"name": s["name"], "url": s["url"],
                            "headers": json.loads(s["headers_json"] or "{}")},
-                "tool": {"name": t["name"]},
+                "tool": {"name": t["name"],
+                         "defaults": json.loads(t["defaults_json"] or "{}")},
             }
     return out
 
@@ -281,6 +313,38 @@ def mcp_index() -> dict[str, dict]:
 def installed_names(table: str) -> set[str]:
     with conn() as c:
         return {r[0] for r in c.execute(f"SELECT name FROM {table}")}
+
+
+def mcp_tools_for_server(server: str) -> list[dict]:
+    """A server's tools with their param names (from the MCP schema) + the
+    admin-configured defaults — for the defaults editor."""
+    with conn() as c:
+        rows = c.execute(
+            "SELECT name,description,label,parameters_json,defaults_json "
+            "FROM mcp_tools WHERE server=?", (server,)).fetchall()
+    out = []
+    for r in rows:
+        props = (json.loads(r["parameters_json"] or "{}").get("properties") or {})
+        defaults = json.loads(r["defaults_json"] or "{}")
+        params = [{"key": k, "desc": v.get("description") or v.get("title") or ""}
+                  for k, v in props.items()]
+        # Also surface params that exist only as a default (proxy-injected, e.g.
+        # end_user_ref) so the admin can see/edit them.
+        seen = {p["key"] for p in params}
+        for k in defaults:
+            if k not in seen:
+                params.append({"key": k, "desc": "(ฉีดโดย proxy)"})
+        out.append({
+            "name": r["name"], "label": r["label"] or r["name"],
+            "description": r["description"], "params": params, "defaults": defaults,
+        })
+    return out
+
+
+def set_mcp_defaults(name: str, defaults: dict) -> None:
+    with conn() as c:
+        c.execute("UPDATE mcp_tools SET defaults_json=? WHERE name=?",
+                  (json.dumps(defaults), name))
 
 
 def uninstall_mcp(name: str) -> None:
@@ -320,12 +384,14 @@ def install_mcp(srv: dict) -> None:
         for t in srv.get("tools", []):
             c.execute("INSERT OR REPLACE INTO mcp_tools(server,name,description,"
                       "parameters_json,arg_keys_json,enabled,label,category,"
-                      "provider,pricing_json) VALUES(?,?,?,?,?,1,?,?,?,?)",
+                      "provider,pricing_json,defaults_json) "
+                      "VALUES(?,?,?,?,?,1,?,?,?,?,?)",
                       (srv["name"], t["name"], t.get("description", ""),
                        json.dumps(t.get("parameters", {})),
                        json.dumps(t.get("argKeys", [])),
                        t.get("label"), srv.get("category"),
-                       t.get("provider") or prov, _pj(t) or _pj(srv)))
+                       t.get("provider") or prov, _pj(t) or _pj(srv),
+                       json.dumps(t.get("defaults") or {})))
 
 
 def install_tool(t: dict) -> None:

@@ -44,8 +44,11 @@ DISPLAY = {
     "researcher": {"category": "ค้นคว้า", "label": "ค้นข้อมูลเชิงลึก",
                    "blurb": "หาหลายแหล่งแล้วสรุป", "icon": "brain",
                    "group": "ready", "provider": "ปิ่น", "pricing": _free()},
-    # ดูดวง — the real working skill (thai_astrology); offered as a free trial.
-    "thai_astrology": {"category": "ดูดวง", "status": "trial"},
+    # ดูดวง — via the lakkana-astrologer MCP (consult_astrologer). Free trial.
+    "consult_astrologer": {"category": "ดูดวง", "label": "ดูดวงลัคนา",
+                           "blurb": "ผูกดวงไทย+สากลจากวันเกิด อ่านดวงเฉพาะคุณ",
+                           "icon": "star", "group": "ready", "status": "trial",
+                           "provider": "ลักษณา"},
     # account connects — coming soon (Gmail/LINE not wired yet).
     "line_assistant": {"category": "เชื่อมบัญชี", "label": "ผู้ช่วยผ่าน LINE",
                        "blurb": "คุยกับปิ่นผ่าน LINE · เตือนเข้า LINE", "icon": "chat",

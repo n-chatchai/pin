@@ -1,0 +1,36 @@
+<div class="sec-h"><h3>ร้านความสามารถ</h3>
+  <span class="hint">catalog ที่ผู้ใช้เห็นเป็น "ร้านค้า" — จัดหมวด · สถานะ · ราคา ให้ตรงกับแอป</span></div>
+<p class="hint" style="margin:-4px 0 14px">สถานะ: <b>live</b> ใช้ได้เลย · <b>trial</b> ทดลองฟรี · <b>soon</b> เร็ว ๆ นี้ &nbsp;|&nbsp; ราคา <b>free</b> = ไม่อยู่ในร้าน paid</p>
+
+{% set labels = {'live':'ใช้ได้เลย','trial':'ทดลองฟรี','soon':'เร็ว ๆ นี้'} %}
+{% for cat, items in by_cat.items() %}
+<div class="cat-h">{{ cat }} <span class="hint">· {{ items|length }}</span></div>
+{% for m in items %}
+{% set pr = m.get('pricing') or {} %}
+{% set st = m.get('status') or 'live' %}
+<form class="rcard" style="margin-bottom:8px" hx-post="/admin/store/{{ m.name }}" hx-target="#panel">
+  <div class="rh">
+    <b>{{ m.get('label') or m.name }}</b>
+    <span class="b sub" style="margin-left:6px">{{ m.name }}</span>
+    <span class="b {{ 'on' if st in ('trial','live') else 'sub' }}" style="margin-left:6px">{{ labels.get(st, st) }}</span>
+    {% if m.get('provider') %}<span class="hint" style="margin-left:auto">โดย {{ m.provider }}</span>{% endif %}
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+    <input name="category" value="{{ m.get('category','') }}" placeholder="หมวด"
+        style="width:130px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <select name="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+      {% for s in ['live','trial','soon'] %}<option value="{{ s }}" {{ 'selected' if st==s }}>{{ labels[s] }}</option>{% endfor %}
+    </select>
+    <select name="tier" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+      {% for tt in ['free','onetime','subscription'] %}<option value="{{ tt }}" {{ 'selected' if pr.get('tier','free')==tt }}>{{ tt }}</option>{% endfor %}
+    </select>
+    <input name="amount" value="{{ pr.get('amount','') }}" placeholder="฿" type="number"
+        style="width:70px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <select name="period" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+      {% for pp in ['month','year'] %}<option value="{{ pp }}" {{ 'selected' if pr.get('period','month')==pp }}>{{ pp }}</option>{% endfor %}
+    </select>
+    <button class="btn p sm" type="submit" style="margin-left:auto">บันทึก</button>
+  </div>
+</form>
+{% endfor %}
+{% else %}<p style="color:var(--ink3)">ยังไม่มีความสามารถใน catalog</p>{% endfor %}

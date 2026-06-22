@@ -5,6 +5,8 @@
     <div class="brand"><div class="logo">ปิ่น</div><div><b>Admin</b><span>catalog · proxy</span></div></div>
     <nav class="nav" id="nav">
       <div class="lbl">จัดการ</div>
+      <a hx-get="/admin/tab/store" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M9 13h6"/></svg> ร้านค้า</a>
       <a hx-get="/admin/tab/tools" hx-target="#panel" class="on" onclick="act(this)">
         <svg class="ic" viewBox="0 0 24 24"><path d="M14 7l-1.5-1.5a2 2 0 0 0-3 0L4 11l3 3 5.5-5.5a2 2 0 0 0 0-3z"/><path d="M14 7l6 6-3 3-6-6"/></svg> เครื่องมือ</a>
       <a hx-get="/admin/tab/skills" hx-target="#panel" onclick="act(this)">
