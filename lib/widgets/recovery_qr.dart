@@ -1,18 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:share_plus/share_plus.dart';
+
+const _mediaChannel = MethodChannel('io.tokens2.pin/media');
 
 /// Render the combined recovery payload as a PNG with ONE branded QR code (the
 /// whole `{v,e,u,p}` JSON, high EC, Pin logo in the centre) plus the account
-/// label as a caption, then open the share sheet. The restore screen decodes it
-/// with ZXing, which reads a single dense, logo-overlaid QR reliably — so there's
-/// no need to split into two QRs anymore.
+/// label as a caption, then save it to a local file the user picks (defaults to
+/// Downloads). No share sheet, so the key never reaches a cloud target unless the
+/// user deliberately moves it. The restore screen decodes the PNG with ZXing,
+/// which reads a single dense, logo-overlaid QR reliably.
 Future<void> shareRecoveryQr(BuildContext context, String data,
     {String? caption}) async {
   try {
@@ -103,16 +105,30 @@ Future<void> shareRecoveryQr(BuildContext context, String data,
     final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
     if (bytes == null) throw 'no image bytes';
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/pin-recovery-qr.png');
-    await file.writeAsBytes(bytes.buffer.asUint8List());
+    final png = bytes.buffer.asUint8List();
+    // Android: write silently into public Downloads (no dialog, no cloud target).
+    // iOS: a local save dialog (it has its own Cancel and an "On My iPhone" local
+    // option), since iOS has no MediaStore.
+    Object? saved;
+    if (Platform.isAndroid) {
+      saved = await _mediaChannel.invokeMethod<String>('saveDownload', {
+        'bytes': png,
+        'name': 'pin-recovery-qr.png',
+        'mime': 'image/png',
+      });
+    } else {
+      saved = await FilePicker.platform.saveFile(
+        dialogTitle: 'บันทึกกุญแจกู้คืน ปิ่น',
+        fileName: 'pin-recovery-qr.png',
+        type: FileType.image,
+        bytes: png,
+      );
+    }
     if (!context.mounted) return;
-    final box = context.findRenderObject() as RenderBox?;
-    final origin = box != null
-        ? box.localToGlobal(Offset.zero) & box.size
-        : const Rect.fromLTWH(0, 0, 100, 100);
-    await Share.shareXFiles([XFile(file.path)],
-        text: 'กุญแจกู้คืน ปิ่น — เก็บไว้ให้ดี', sharePositionOrigin: origin);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(saved == null
+            ? 'ยังไม่ได้บันทึก'
+            : 'บันทึกกุญแจไว้ใน Downloads แล้ว')));
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)

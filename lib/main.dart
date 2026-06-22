@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 
 import 'config.dart';
 import 'services/api_log.dart';
@@ -27,6 +29,10 @@ const _preview = String.fromEnvironment('PIN_PREVIEW');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Android: use the modern system Photo Picker (cancellable bottom sheet),
+  // not the legacy ACTION_GET_CONTENT that opens Google Photos with no exit.
+  final picker = ImagePickerPlatform.instance;
+  if (picker is ImagePickerAndroid) picker.useAndroidPhotoPicker = true;
   await RustLib.init();
   // Debug builds only: passively observe matrix-sdk's own HTTP tracing spans
   // (method/url/status/ms — no headers, no bodies) into the API log. Read-only;

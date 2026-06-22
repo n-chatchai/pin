@@ -47,4 +47,17 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // Native camera (Photo/Video tabs, X close) — matches the iOS VisionKit camera.
+    val cameraX = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraX")
+    implementation("androidx.camera:camera-camera2:$cameraX")
+    implementation("androidx.camera:camera-lifecycle:$cameraX")
+    implementation("androidx.camera:camera-video:$cameraX")
+    implementation("androidx.camera:camera-view:$cameraX")
+    // Doc-scan tab — Google's on-device document scanner (auto-crop, multi-page).
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
+    implementation("androidx.activity:activity-ktx:1.9.3")
+    // CameraX's getInstance() returns a Guava ListenableFuture (compileOnly upstream).
+    implementation("com.google.guava:guava:33.3.1-android")
 }

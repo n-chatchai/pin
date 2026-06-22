@@ -41,6 +41,10 @@ dependencies:
   flutter_rust_bridge: 2.12.0
   path_provider: ^2.1.5
   image_picker: ^1.2.2
+  # Direct deps so we can force Android's modern system Photo Picker (a
+  # dismissible bottom sheet) instead of ACTION_GET_CONTENT → full Google Photos.
+  image_picker_android: ^0.8.12
+  image_picker_platform_interface: ^2.10.0
   file_picker: ^8.1.0
   record: ^6.0.0
   geolocator: ^13.0.2
