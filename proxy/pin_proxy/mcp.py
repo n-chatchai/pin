@@ -62,7 +62,11 @@ async def call(name: str, args: dict, user: str | None = None) -> dict:
         **(srv.get("headers") or {}),
     }
     try:
-        async with httpx.AsyncClient(timeout=30) as c:
+        # Generous read timeout: an MCP tool may be LLM-backed (e.g. lakkana's
+        # astrology reading runs ~35s), so 30s would race a cold call and surface
+        # as an empty-message ReadTimeout. Connect stays short to fail fast.
+        async with httpx.AsyncClient(
+                timeout=httpx.Timeout(90.0, connect=10.0)) as c:
             # 1) initialize → capture the session id the server may require.
             init = await _rpc(c, url, headers, 1, "initialize", {
                 "protocolVersion": "2025-06-18",
@@ -80,7 +84,8 @@ async def call(name: str, args: dict, user: str | None = None) -> dict:
         text = "".join(p.get("text", "") for p in parts if p.get("type") == "text")
         return {"text": text.strip() or "(ไม่มีผลลัพธ์)"}
     except Exception as e:  # noqa: BLE001
-        return {"text": f"เครื่องมือ MCP มีปัญหา: {e}"}
+        # Timeouts stringify to "" — fall back to the type so the log isn't blank.
+        return {"text": f"เครื่องมือ MCP มีปัญหา: {e or type(e).__name__}"}
 
 
 def _simple_prop(schema: dict) -> dict:

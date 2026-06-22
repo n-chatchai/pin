@@ -121,7 +121,9 @@ class CatalogClient {
             },
             body: jsonEncode(args),
           )
-          .timeout(const Duration(seconds: 35));
+          // Must clear the proxy's own MCP read timeout (90s) — some MCP tools
+          // are LLM-backed and take ~35s+, and 35s here would cut them off.
+          .timeout(const Duration(seconds: 100));
       if (r.statusCode != 200) {
         return ToolResult.feedback('เครื่องมือมีปัญหา (${r.statusCode})');
       }
