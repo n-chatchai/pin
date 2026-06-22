@@ -44,7 +44,15 @@ DISPLAY = {
     "researcher": {"category": "ค้นคว้า", "label": "ค้นข้อมูลเชิงลึก",
                    "blurb": "หาหลายแหล่งแล้วสรุป", "icon": "brain",
                    "group": "ready", "provider": "ปิ่น", "pricing": _free()},
+    # ดูดวง — paid flagship (Thai market), daily-ritual companion angle
+    "astro_lakkhana": {"category": "ดูดวง", "label": "ดูดวงลัคนา",
+                       "blurb": "ผูกดวงจากวันเกิด + ดวงรายวันของคุณ", "icon": "star",
+                       "group": "ready", "provider": "ปิ่น", "pricing": _sub(59)},
     # account-connected — paid, by the upstream provider
+    "line_assistant": {"category": "เชื่อมบัญชี", "label": "ผู้ช่วยผ่าน LINE",
+                       "blurb": "คุยกับปิ่นผ่าน LINE · เตือนเข้า LINE", "icon": "chat",
+                       "group": "connect", "needs_connect": True,
+                       "provider": "LINE", "pricing": _sub(39)},
     "email_triage": {"category": "เชื่อมบัญชี", "label": "คัดกรองอีเมล",
                      "blurb": "สรุปเมลด่วน ร่างตอบ", "icon": "mail",
                      "group": "connect", "needs_connect": True,

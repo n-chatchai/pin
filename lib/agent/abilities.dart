@@ -81,6 +81,8 @@ class Ability {
         'book' => PhosphorIconsRegular.bookOpen,
         'bell' => PhosphorIconsRegular.bell,
         'pin' => PhosphorIconsRegular.pushPin,
+        'star' => PhosphorIconsRegular.star,
+        'chat' => PhosphorIconsRegular.chatCircle,
         _ => PhosphorIconsRegular.sparkle,
       };
 

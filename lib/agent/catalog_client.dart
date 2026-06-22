@@ -82,6 +82,24 @@ class CatalogClient {
     }
   }
 
+  /// Paid-store filter chips — [{id,label,count}] of paid categories. Best-effort.
+  Future<List<Map<String, dynamic>>> fetchCategories() async {
+    try {
+      final r = await http.get(
+        Uri.parse('${proxy.baseUrl}/catalog/categories'),
+        headers: {'Authorization': 'Bearer ${proxy.token}'},
+      ).timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return const [];
+      final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      return [
+        for (final c in (body['categories'] as List? ?? const []))
+          (c as Map).cast<String, dynamic>()
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   AgentTool _fromManifest(Map<String, dynamic> m) {
     final name = '${m['name']}';
     final decl = <String, dynamic>{

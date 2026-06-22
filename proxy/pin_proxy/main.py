@@ -244,6 +244,24 @@ def catalog(authorization: str | None = Header(default=None)) -> dict:
     return {"version": os.environ.get("PIN_CATALOG_VERSION", "1"), "tools": tools}
 
 
+@app.get("/catalog/categories")
+def catalog_categories(authorization: str | None = Header(default=None)) -> dict:
+    """Categories of PAID capabilities (for the store's filter chips). Derived
+    from the live catalog so admin edits flow through. {categories:[{id,label,
+    count}]} — ordered by count desc."""
+    _check_token(authorization)
+    from . import catalog as cat
+
+    counts: dict[str, int] = {}
+    for m in cat.manifests():
+        if (m.get("pricing") or {}).get("tier", "free") == "free":
+            continue
+        counts[m.get("category") or "อื่น ๆ"] = (
+            counts.get(m.get("category") or "อื่น ๆ", 0) + 1)
+    ordered = sorted(counts.items(), key=lambda kv: -kv[1])
+    return {"categories": [{"id": k, "label": k, "count": v} for k, v in ordered]}
+
+
 @app.post("/tool/{name}")
 async def tool(
     name: str,

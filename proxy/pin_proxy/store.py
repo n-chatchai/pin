@@ -112,6 +112,40 @@ def init() -> None:
         # Seed MCP from env once (PIN_MCP_SERVERS) if no servers configured yet.
         if not c.execute("SELECT 1 FROM mcp_servers LIMIT 1").fetchone():
             _seed_mcp_from_env(c)
+        _seed_paid(c)
+
+
+# Paid capabilities for the store (idempotent — INSERT OR IGNORE by name). These
+# are the first products: a ดูดวง flagship + two account connects. Display copy
+# (icon/group/blurb) lives in display.py; pricing/category travel on the row.
+_SEED_PAID = [
+    {"name": "astro_lakkhana", "label": "ดูดวงลัคนา", "category": "ดูดวง",
+     "provider": "ปิ่น", "description": "ผูกดวงลัคนาจากวันเวลาเกิด อ่านดวงรายวัน",
+     "pricing": {"tier": "subscription", "amount": 59, "currency": "THB",
+                 "period": "month"},
+     "instructions": "เมื่อผู้ใช้ขอดูดวง/ลัคนา: ถามวัน-เดือน-ปีเกิด เวลาเกิด และ"
+     "จังหวัดที่เกิด แล้วผูกดวงลัคนา อ่านราศีลัคนา เรือนชะตา และทำนายภาพรวม/วันนี้ "
+     "ด้วยน้ำเสียงอบอุ่นแบบปิ่น."},
+    {"name": "email_triage", "label": "คัดกรองอีเมล", "category": "เชื่อมบัญชี",
+     "provider": "Google", "description": "สรุปเมลด่วน ร่างตอบให้",
+     "pricing": {"tier": "subscription", "amount": 59, "currency": "THB",
+                 "period": "month"}, "instructions": ""},
+    {"name": "line_assistant", "label": "ผู้ช่วยผ่าน LINE", "category": "เชื่อมบัญชี",
+     "provider": "LINE", "description": "คุยกับปิ่นผ่าน LINE + เตือนเข้า LINE",
+     "pricing": {"tier": "subscription", "amount": 39, "currency": "THB",
+                 "period": "month"}, "instructions": ""},
+]
+
+
+def _seed_paid(c: sqlite3.Connection) -> None:
+    for s in _SEED_PAID:
+        c.execute(
+            "INSERT OR IGNORE INTO skills(name,description,instructions,"
+            "requires_json,enabled,category,source,label,provider,pricing_json)"
+            " VALUES(?,?,?,?,1,?,?,?,?,?)",
+            (s["name"], s["description"], s["instructions"], "{}",
+             s["category"], "hosted", s["label"], s["provider"],
+             json.dumps(s["pricing"])))
 
 
 def _seed_mcp_from_env(c: sqlite3.Connection) -> None:
