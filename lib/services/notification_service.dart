@@ -14,6 +14,11 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _started = false;
 
+  /// Notification ids must fit a 32-bit int, but reminder ids are
+  /// millisecondsSinceEpoch (~13 digits). Mask to 31 bits so schedule/cancel
+  /// use the same id and zonedSchedule stops throwing "must fit within 32-bit".
+  int _nid(int id) => id & 0x7fffffff;
+
   Future<void> init() async {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Bangkok'));
@@ -58,7 +63,7 @@ class NotificationService {
     bool daily = false,
   }) async {
     Future<void> arm(AndroidScheduleMode mode) => _plugin.zonedSchedule(
-          id: id,
+          id: _nid(id),
           title: 'ปิ่น',
           body: body,
           scheduledDate: tz.TZDateTime.from(when, tz.local),
@@ -101,7 +106,7 @@ class NotificationService {
   }
 
   /// Cancel a scheduled reminder by its id (no-op if already fired/gone).
-  Future<void> cancel(int id) => _plugin.cancel(id: id);
+  Future<void> cancel(int id) => _plugin.cancel(id: _nid(id));
 
   /// (Re)arm OS reminders from the ปิ่น room's `io.tokens2.reminders` state — the
   /// single source of truth. Called on boot + app resume so reminders survive
@@ -139,7 +144,7 @@ class NotificationService {
 
   Future<void> _show(String roomId, String body) async {
     await _plugin.show(
-      id: roomId.hashCode,
+      id: _nid(roomId.hashCode),
       title: 'ปิ่น',
       body: body,
       notificationDetails: const NotificationDetails(
