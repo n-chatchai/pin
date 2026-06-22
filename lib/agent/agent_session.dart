@@ -168,11 +168,15 @@ class AgentSession {
     void add(String label, String desc) {
       if (seen.add(label)) caps.add('- $label: $desc');
     }
+    // Plumbing the user never thinks of as a "capability" — keep it out of the
+    // answer (live-data tools like weather/currency DO count and stay).
+    const hide = {
+      'delegate', 'request_capability', 'list_capabilities',
+      'get_time', 'render_html',
+    };
     for (final t in tools) {
       final n = t.name;
-      if (n == 'delegate' ||
-          n == 'request_capability' ||
-          n == 'list_capabilities') continue;
+      if (hide.contains(n)) continue;
       final fn = t.declaration['function'] as Map;
       add(abilityLabel(n), '${fn['description']}');
     }

@@ -21,9 +21,14 @@ class AbilitiesScreen extends StatefulWidget {
 
 class _AbilitiesScreenState extends State<AbilitiesScreen> {
   final _store = AgentStore();
-  final _byCat = <String, List<Ability>>{};
-  List<Ability> _free = const [];
-  List<Ability> _soon = const [];
+  // All known abilities, split by install type. `ของฉัน` vs `ร้านค้า` is then a
+  // live partition over these by store state (so a toggle re-buckets instantly).
+  List<Ability> _ready = const []; // toggle-on (built-in + catalog), default on
+  List<Ability> _free = const []; //  opt-in free add-ons, default off
+  List<Ability> _connect = const []; // need an account (Gmail/ปฏิทิน/…)
+  List<Ability> _soon = const []; // paid teasers, not live yet
+  final _freeNames = <String>{};
+  final _soonNames = <String>{};
   bool _loading = true;
 
   @override
@@ -35,33 +40,51 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   Future<void> _load() async {
     await _store.load();
     final manifests = await CatalogClient(devProxy()).fetchManifests();
-    // Show every capability the server publishes (friendly copy where we have
-    // it; otherwise fall back to the entry's own name/description).
     // Subagents are internal (invoked via delegate) — not user-facing abilities.
     final fromCatalog = [
       for (final m in manifests)
         if (m['kind'] != 'subagent') Ability.fromManifest(m)
     ];
-    final all = [...kBuiltinAbilities, ...fromCatalog];
-    // De-dup by name (built-in wins), then group by category.
     final seen = <String>{};
-    _byCat.clear();
-    for (final a in all) {
-      if (seen.add(a.name)) {
-        _byCat.putIfAbsent(a.category, () => []).add(a);
-      }
+    final ready = <Ability>[], connect = <Ability>[];
+    for (final a in [...kBuiltinAbilities, ...fromCatalog]) {
+      if (seen.add(a.name)) (a.needsConnect ? connect : ready).add(a);
     }
-    // Free add-ons the user can switch on (skip any already live in catalog).
-    _free = kFreeAbilities.where((a) => !seen.contains(a.name)).toList();
-    // Coming-soon teasers, minus anything already live or free.
-    final taken = {...seen, ..._free.map((a) => a.name)};
-    _soon =
-        kComingSoonAbilities.where((a) => !taken.contains(a.name)).toList();
+    final free = kFreeAbilities.where((a) => !seen.contains(a.name)).toList();
+    final taken = {...seen, ...free.map((a) => a.name)};
+    final soon = <Ability>[];
+    for (final a in kComingSoonAbilities) {
+      if (taken.contains(a.name)) continue;
+      (a.needsConnect ? connect : soon).add(a); // email/ปฏิทิน → connect shelf
+    }
+    _ready = ready;
+    _connect = connect;
+    _free = free;
+    _soon = soon;
+    _freeNames
+      ..clear()
+      ..addAll(free.map((a) => a.name));
+    _soonNames
+      ..clear()
+      ..addAll(soon.map((a) => a.name));
     setState(() => _loading = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    // ของฉัน = ready abilities left on + free add-ons the user added. Everything
+    // else (ready turned off, free not added, connect, soon) is ร้านค้า.
+    final mine = [
+      ..._ready.where((a) => _store.isSkillOn(a.name)),
+      ..._free.where((a) => _store.isAdded(a.name)),
+    ];
+    final shopReady = _ready.where((a) => !_store.isSkillOn(a.name));
+    final shopFree = _free.where((a) => !_store.isAdded(a.name));
+    final shop = [...shopReady, ...shopFree, ..._connect, ..._soon];
+    final shopByCat = <String, List<Ability>>{};
+    for (final a in shop) {
+      shopByCat.putIfAbsent(a.category, () => []).add(a);
+    }
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -73,33 +96,37 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 40 + MediaQuery.of(context).viewPadding.bottom),
+              padding: EdgeInsets.fromLTRB(
+                  16, 8, 16, 40 + MediaQuery.of(context).viewPadding.bottom),
               children: [
+                if (mine.isNotEmpty) ...[
+                  _label('ของฉัน · ใช้ได้เลย'),
+                  _card([for (final a in mine) _readyRow(a)]),
+                  const SizedBox(height: 22),
+                ],
+                _label('ร้านค้า'),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 14),
-                  child: Text('เปิดสิ่งที่อยากให้${botName}ช่วย ปิดอันที่ไม่ใช้ได้ตลอด',
-                      style: const TextStyle(color: PinPalette.ink2, fontSize: 13)),
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  child: Text('เพิ่มความสามารถใหม่ให้${botName} — ฟรี เชื่อมบัญชี หรือซื้อเพิ่ม',
+                      style: const TextStyle(
+                          color: PinPalette.ink2, fontSize: 13)),
                 ),
-                for (final cat in _byCat.keys) ...[
+                for (final cat in shopByCat.keys) ...[
                   _label(cat),
-                  _card([
-                    for (final a in _byCat[cat]!)
-                      a.needsConnect ? _connectRow(a) : _readyRow(a)
-                  ]),
+                  _card([for (final a in shopByCat[cat]!) _storeRow(a)]),
                   const SizedBox(height: 18),
-                ],
-                if (_free.isNotEmpty) ...[
-                  _label('ฟรี · เปิดเพิ่มเองได้'),
-                  _card([for (final a in _free) _freeRow(a)]),
-                  const SizedBox(height: 18),
-                ],
-                if (_soon.isNotEmpty) ...[
-                  _label('มาเร็ว ๆ นี้'),
-                  _card([for (final a in _soon) _soonRow(a)]),
                 ],
               ],
             ),
     );
+  }
+
+  /// Pick the right store row for an ability by its install type.
+  Widget _storeRow(Ability a) {
+    if (_soonNames.contains(a.name)) return _soonRow(a);
+    if (a.needsConnect) return _connectRow(a);
+    if (_freeNames.contains(a.name)) return _freeRow(a);
+    return _readyRow(a); // a ready ability the user turned off → toggle back on
   }
 
   Widget _label(String t) => Padding(

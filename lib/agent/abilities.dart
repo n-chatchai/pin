@@ -135,19 +135,19 @@ const kBuiltinAbilities = <Ability>[
       label: 'เตือนความจำ',
       blurb: 'ตั้งเตือน เด้งแจ้งเตือนแม้ปิดจอ',
       icon: PhosphorIconsRegular.bell,
-      category: 'ส่วนตัว'),
+      category: 'ผู้ช่วยส่วนตัว'),
   Ability(
       name: 'remember_fact',
       label: 'จำเรื่องของคุณ',
       blurb: 'จดจำสิ่งสำคัญเกี่ยวกับคุณ',
       icon: PhosphorIconsRegular.pushPin,
-      category: 'ส่วนตัว'),
+      category: 'ผู้ช่วยส่วนตัว'),
   Ability(
       name: 'recall_knowledge',
       label: 'ค้นความรู้ที่เก็บไว้',
       blurb: 'หยิบสิ่งที่เคยบันทึกมาใช้',
       icon: PhosphorIconsRegular.bookOpen,
-      category: 'ส่วนตัว'),
+      category: 'ผู้ช่วยส่วนตัว'),
 ];
 
 /// Free add-ons the user can switch on themselves. Default OFF; enabling one
@@ -189,12 +189,19 @@ const kFreeAbilities = <Ability>[
 
 /// Teaser capabilities not yet available — shown locked with a "ซื้อ · เร็ว ๆ นี้"
 /// button. Filtered out automatically once the same name appears in the catalog.
+///
+/// Only list what a bare LLM CAN'T do on its own — account integrations, live
+/// data, real automation. Generic text tasks (translate / summarize / rewrite)
+/// are NOT products here; ปิ่น does those as base behavior, so they don't earn a
+/// store row. (Dropped: translate, สรุปเอกสาร — LLM-native; Notion — low TH use.)
 const kComingSoonAbilities = <Ability>[
   Ability(
       name: 'email',
       label: 'อีเมล',
       blurb: 'อ่าน คัดกรอง และร่างตอบอีเมลให้',
       icon: PhosphorIconsRegular.envelope,
+      group: 'connect',
+      category: 'เชื่อมบัญชี',
       provider: 'Google',
       pricing: Pricing(tier: 'subscription', amount: 59, period: 'month')),
   Ability(
@@ -202,34 +209,16 @@ const kComingSoonAbilities = <Ability>[
       label: 'ปฏิทิน',
       blurb: 'หาเวลาว่าง สร้างนัด เตือนล่วงหน้า',
       icon: PhosphorIconsRegular.calendar,
+      group: 'connect',
+      category: 'เชื่อมบัญชี',
       provider: 'Google',
       pricing: Pricing(tier: 'subscription', amount: 59, period: 'month')),
-  Ability(
-      name: 'notion',
-      label: 'จดลง Notion',
-      blurb: 'บันทึกสิ่งที่คุยลงสมุดโน้ต',
-      icon: PhosphorIconsRegular.bookOpen,
-      provider: 'Notion',
-      pricing: Pricing(tier: 'subscription', amount: 49, period: 'month')),
-  Ability(
-      name: 'translate',
-      label: 'แปลภาษา',
-      blurb: 'แปลข้อความได้หลายภาษา',
-      icon: PhosphorIconsRegular.translate,
-      provider: 'ปิ่น',
-      pricing: Pricing(tier: 'onetime', amount: 99)),
-  Ability(
-      name: 'docsum',
-      label: 'สรุปเอกสาร',
-      blurb: 'ย่อไฟล์หรือบทความยาวให้สั้น',
-      icon: PhosphorIconsRegular.fileText,
-      provider: 'ปิ่น',
-      pricing: Pricing(tier: 'onetime', amount: 99)),
   Ability(
       name: 'trip',
       label: 'วางแผนทริป',
       blurb: 'หาเที่ยวบิน อากาศ แล้วร่างแผน',
       icon: PhosphorIconsRegular.mapTrifold,
+      category: 'ชีวิตประจำวัน',
       provider: 'ปิ่น',
       pricing: Pricing(tier: 'subscription', amount: 39, period: 'month')),
 ];
