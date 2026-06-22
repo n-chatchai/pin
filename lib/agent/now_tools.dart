@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
 import '../services/tasks_controller.dart';
+import 'agent_config.dart';
 import 'agent_store.dart';
 import 'tools.dart';
 
@@ -344,6 +345,56 @@ List<AgentTool> nowTools() => [
                   '${k.summary.isEmpty && k.content.isNotEmpty ? ' — ${k.content}' : ''}',
           ];
           return 'ความรู้ที่บันทึกไว้:\n${lines.join('\n')}';
+        },
+      ),
+
+      // 9. request a capability ปิ่น can't do yet --------------------------
+      feedbackTool(
+        fnDecl(
+          'request_capability',
+          'ใช้เมื่อผู้ใช้ขอให้ปิ่นทำสิ่งที่ "ยังไม่มีเครื่องมือรองรับ" (เช่น เข้าถึง Gmail/'
+          'อีเมล, เชื่อมปฏิทินภายนอก, ควบคุมแอปอื่น). บันทึกคำขอไว้ให้ทีมพัฒนาเพิ่ม '
+          'ความสามารถ แล้วบอกผู้ใช้ว่าระบบจะเพิ่มให้เร็ว ๆ นี้. ห้ามแกล้งทำว่าทำได้',
+          properties: {
+            'capability': {
+              'type': 'string',
+              'description': 'ความสามารถที่ผู้ใช้ต้องการ สั้น ๆ เช่น "เข้าถึง Gmail"',
+            },
+            'detail': {
+              'type': 'string',
+              'description': 'รายละเอียดสิ่งที่ผู้ใช้อยากให้ทำ (ถ้ามี)',
+            },
+          },
+          required: ['capability'],
+        ),
+        (args) async {
+          final cap = '${args['capability'] ?? ''}'.trim();
+          if (cap.isEmpty) return 'ขอชื่อความสามารถที่ต้องการด้วยนะ';
+          final rid = await _room();
+          if (rid == null) return 'ยังไม่พร้อม';
+          final list = await MatrixService.instance
+              .loadListFromRoom(rid, 'io.tokens2.capability_requests');
+          // Skip duplicates (same capability already queued) — bump its count.
+          final i = list.indexWhere(
+              (e) => '${e['capability']}'.toLowerCase() == cap.toLowerCase());
+          if (i >= 0) {
+            list[i]['count'] = ((list[i]['count'] as num?)?.toInt() ?? 1) + 1;
+            list[i]['at'] = DateTime.now().millisecondsSinceEpoch;
+          } else {
+            list.add({
+              'capability': cap,
+              'detail': '${args['detail'] ?? ''}',
+              'status': 'requested',
+              'count': 1,
+              'at': DateTime.now().millisecondsSinceEpoch,
+            });
+          }
+          await MatrixService.instance
+              .saveListToRoom(rid, 'io.tokens2.capability_requests', list);
+          // Also report to the server backlog (admin page). Best-effort.
+          await devProxy().requestCapability(cap, '${args['detail'] ?? ''}');
+          return 'บันทึกคำขอ "$cap" ไว้แล้ว — บอกผู้ใช้ว่าระบบกำลังจะเพิ่มความสามารถนี้ '
+              'ให้เร็ว ๆ นี้ และดูความคืบหน้าได้ที่แท็บ "เร็ว ๆ นี้" ในเมนูด้านซ้าย';
         },
       ),
     ];

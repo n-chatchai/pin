@@ -219,6 +219,8 @@ def _counts() -> dict:
             "skills": n("SELECT COUNT(*) FROM skills"),
             "subagents": n("SELECT COUNT(*) FROM subagents"),
             "mcp": n("SELECT COUNT(*) FROM mcp_servers"),
+            "backlog": n("SELECT COUNT(*) FROM capability_requests"
+                         " WHERE status!='done'"),
             "version": (c.execute("SELECT MAX(version) FROM catalog_versions")
                         .fetchone()[0] or 0),
         }
@@ -235,6 +237,20 @@ def tab_tools(request: Request, admin: str = Depends(owner)):
     with store.conn() as c:
         rows = c.execute("SELECT * FROM tools ORDER BY kind,name").fetchall()
     return templates.TemplateResponse(request, "_tools.html", {"rows": rows})
+
+
+@router.get("/tab/backlog", response_class=HTMLResponse)
+def tab_backlog(request: Request, admin: str = Depends(owner)):
+    rows = store.list_capability_requests()
+    return templates.TemplateResponse(request, "_backlog.html", {"rows": rows})
+
+
+@router.post("/capability/{req_id}/status/{status}", response_class=HTMLResponse)
+def capability_status(req_id: int, status: str, request: Request,
+                      admin: str = Depends(owner)):
+    if status in ("requested", "building", "done"):
+        store.set_capability_status(req_id, status)
+    return tab_backlog(request, admin)
 
 
 @router.post("/tools/{name}/toggle", response_class=HTMLResponse)

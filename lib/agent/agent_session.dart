@@ -87,14 +87,17 @@ class AgentSession {
         'Keep proper nouns, code and URLs in their original language.\n'
         'เวลาปัจจุบันบนเครื่องผู้ใช้: $dt น. วัน${days[now.weekday]} '
         '(เขตเวลา Asia/Bangkok). ใช้เวลานี้อ้างอิงเสมอเมื่อบอกเวลา.\n'
-        'เมื่อผู้ใช้ขอวาด/สร้าง/เนรมิตรูป หรือสั่งแก้/วาดใหม่ (รวมถึงสั่งแบบอ้อม เช่น '
-        '"ไม่ใช่ เอาผู้ชาย") ต้องเรียกเครื่องมือ generate_image ทุกครั้ง '
-        'ห้ามสัญญาว่าจะวาดแล้วพิมพ์ prompt หรือ JSON เป็นข้อความเด็ดขาด — '
-        'ถ้ายังไม่ได้เรียกเครื่องมือ ถือว่ายังไม่ได้วาด.\n'
-        'เมื่อผู้ใช้ขอให้เตือน/นัดเวลา ให้เรียก schedule_reminder; เมื่อบอกให้จำ/'
-        '"จำไว้" ให้เรียก remember_fact (เรื่องสั้น ๆ) หรือ save_knowledge '
-        '(เนื้อหายาว); เมื่อมีงานที่ต้องติดตาม ให้เรียก add_task — '
-        'อย่าตอบแค่ว่ารับทราบโดยไม่เรียกเครื่องมือ.\n\n$persona';
+        // One tool-call discipline rule instead of a paragraph per tool: when a
+        // request matches a tool, CALL it — never just acknowledge or promise.
+        'เมื่อคำขอตรงกับเครื่องมือที่มี ให้เรียกเครื่องมือนั้นทันที ห้ามแค่รับปาก/'
+        'พิมพ์ผลลัพธ์เป็นข้อความแทน (ถ้ายังไม่เรียก ถือว่ายังไม่ได้ทำ). โดยเฉพาะ: '
+        'วาด/แก้รูป (รวมสั่งอ้อม เช่น "ไม่ใช่ เอาผู้ชาย")→generate_image; '
+        'เตือน/นัดเวลา→schedule_reminder; "จำไว้"→remember_fact/save_knowledge; '
+        'งานที่ต้องติดตาม→add_task; ถาม "ทำอะไรได้บ้าง"→list_capabilities. '
+        'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
+        '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
+        '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกว่าระบบจะเพิ่มให้เร็ว ๆ นี้ '
+        'ดูได้ที่แท็บ "เร็ว ๆ นี้".\n\n$persona';
     // Catalog skill instructions (all on — the local skill toggle was removed
     // with on-device memory; capability gating will move to room state later).
     final blocks = <String>[
@@ -104,29 +107,6 @@ class AgentSession {
       s += '\n\nความสามารถที่เปิดไว้:\n'
           '${blocks.map((b) => '- $b').join('\n')}';
     }
-    // Canonical capability list — built from the live tool registry (so it stays
-    // in sync) so "ทำอะไรได้บ้าง" gets a complete answer, never vague/partial.
-    // Deduped by friendly label: distinct tools/subagents that surface the same
-    // user-facing capability (e.g. web_search vs the researcher subagent, both
-    // "ค้นเชิงลึก") collapse to one line. Subagents are omitted — they're invoked
-    // internally via delegate and only realise capabilities already listed.
-    final caps = <String>[];
-    final seenLabel = <String>{};
-    void addCap(String label, String desc) {
-      if (seenLabel.add(label)) caps.add('- $label: $desc');
-    }
-    for (final d in _registry().declarations()) {
-      final fn = d['function'] as Map;
-      final n = '${fn['name']}';
-      if (n == 'delegate') continue;
-      addCap(abilityLabel(n), '${fn['description']}');
-    }
-    addCap('วาดรูป', 'เนรมิตรูปจากคำบรรยาย แก้/วาดใหม่ได้');
-    s += '\n\nความสามารถทั้งหมดที่ปิ่นทำได้ตอนนี้:\n${caps.join('\n')}'
-        '\nเมื่อผู้ใช้ถามว่า "ทำอะไรได้บ้าง/ช่วยอะไรได้/มีความสามารถอะไร" '
-        'ให้ไล่ตอบรายการข้างบนให้ครบทุกข้อ จัดเป็นหมวดอ่านง่าย ภาษาไทย '
-        'ห้ามตอบกว้าง ๆ ห้ามตกหล่น และไม่ต้องเรียกเครื่องมือใด ๆ '
-        'ปิดท้ายชวนให้เปิดหน้า "ความสามารถ" เพื่อเพิ่มทักษะใหม่ ๆ.';
     return s;
   }
 
@@ -163,10 +143,43 @@ class AgentSession {
     // Merge runtime catalog tools (skip any name a built-in already covers).
     final names = base.map((t) => t.name).toSet();
     base.addAll(_catalogTools.where((t) => !names.contains(t.name)));
+    // The capability list used to be dumped into the system prompt every turn
+    // (bloat that grew with every tool). Now it's behind a tool the model calls
+    // only when the user asks "ทำอะไรได้บ้าง". Build it from the current tools.
+    final capText = _capabilityText(base);
+    base.add(feedbackTool(
+      fnDecl('list_capabilities',
+          'แสดงรายการความสามารถทั้งหมดที่ปิ่นทำได้ตอนนี้. เรียกเมื่อผู้ใช้ถามว่า '
+          '"ทำอะไรได้บ้าง/ช่วยอะไรได้/มีความสามารถอะไร"'),
+      (_) async => capText,
+    ));
     // Wrap base tools in a registry the subagents are sandboxed against, then
     // expose `delegate` on top (it isn't in any subset ⇒ no recursion).
     final baseReg = ToolRegistry(base);
     return ToolRegistry([...base, delegateTool(proxy, baseReg, _subagents())]);
+  }
+
+  /// The "ทำอะไรได้บ้าง" answer, built from the live tool registry so it stays in
+  /// sync. Deduped by friendly label; internal tools (delegate / request_capability
+  /// / list_capabilities itself) are omitted.
+  static String _capabilityText(List<AgentTool> tools) {
+    final caps = <String>[];
+    final seen = <String>{};
+    void add(String label, String desc) {
+      if (seen.add(label)) caps.add('- $label: $desc');
+    }
+    for (final t in tools) {
+      final n = t.name;
+      if (n == 'delegate' ||
+          n == 'request_capability' ||
+          n == 'list_capabilities') continue;
+      final fn = t.declaration['function'] as Map;
+      add(abilityLabel(n), '${fn['description']}');
+    }
+    add('วาดรูป', 'เนรมิตรูปจากคำบรรยาย แก้/วาดใหม่ได้');
+    return 'ความสามารถทั้งหมดที่ปิ่นทำได้ตอนนี้:\n${caps.join('\n')}\n'
+        'ไล่ตอบให้ครบทุกข้อ จัดเป็นหมวดอ่านง่าย ภาษาไทย ปิดท้ายชวนให้เปิดหน้า '
+        '"ความสามารถ" เพื่อเพิ่มทักษะใหม่ ๆ.';
   }
 
   List<SubagentSpec> _subagents() {

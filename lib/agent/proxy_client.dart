@@ -183,4 +183,20 @@ class ProxyClient {
           .timeout(const Duration(seconds: 10));
     } catch (_) {/* offline → still scheduled locally */}
   }
+
+  /// Report a capability the user asked for that ปิ่น can't do yet, so it lands
+  /// on the admin backlog. Sends only the capability + optional detail (no
+  /// conversation content). Best-effort.
+  Future<void> requestCapability(String capability, String detail) async {
+    try {
+      await http
+          .post(Uri.parse('$baseUrl/capability'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({'capability': capability, 'detail': detail}))
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* logged to room state already — server copy is best-effort */}
+  }
 }

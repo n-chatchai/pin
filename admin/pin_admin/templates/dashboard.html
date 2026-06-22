@@ -13,6 +13,8 @@
         <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="4" r="1.6"/><circle cx="4" cy="17" r="1.6"/><circle cx="20" cy="17" r="1.6"/></svg> Subagents</a>
       <a hx-get="/admin/tab/mcp" hx-target="#panel" onclick="act(this)">
         <svg class="ic" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4"/><line x1="14" y1="5" x2="10" y2="19"/></svg> MCP Servers</a>
+      <a hx-get="/admin/tab/backlog" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M12 8v4M12 16h.01"/></svg> คำขอความสามารถ</a>
       <div class="lbl">เผยแพร่</div>
       <a hx-get="/admin/tab/review" hx-target="#panel" onclick="act(this)">
         <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> รีวิว</a>
@@ -42,6 +44,7 @@
       <div class="stat"><b>{{ counts.skills }}</b><span>สกิล</span></div>
       <div class="stat"><b>{{ counts.subagents }}</b><span>subagents</span></div>
       <div class="stat"><b>{{ counts.mcp }}</b><span>MCP</span></div>
+      <div class="stat"><b>{{ counts.backlog }}</b><span>คำขอ</span></div>
       <div class="stat"><b>v{{ counts.version }}</b><span>catalog</span></div>
     </div>
 

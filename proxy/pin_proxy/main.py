@@ -121,6 +121,22 @@ async def schedule_cancel(
     return {"ok": scheduler.cancel(b["job_id"])}
 
 
+@app.post("/capability")
+async def capability_request(
+    request: Request, authorization: str | None = Header(default=None)
+) -> dict:
+    """A user asked ปิ่น for something it can't do yet. Log the capability so it
+    surfaces on the admin backlog. Body: {capability, detail?}. No conversation
+    content — just the requested capability + the requesting user_id."""
+    user = _check_token(authorization)
+    from . import store
+
+    b = await request.json()
+    store.add_capability_request(
+        str(b.get("capability", "")), str(b.get("detail", "")), user)
+    return {"ok": True}
+
+
 _MARKITDOWN = os.environ.get("PIN_MARKITDOWN_URL", "http://127.0.0.1:8093")
 
 

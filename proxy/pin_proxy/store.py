@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS submissions(
   id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, name TEXT,
   payload_json TEXT, developer TEXT, status TEXT DEFAULT 'pending',
   note TEXT, created_at REAL);
+CREATE TABLE IF NOT EXISTS capability_requests(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, capability TEXT, detail TEXT,
+  status TEXT DEFAULT 'requested', count INTEGER DEFAULT 1,
+  requesters TEXT, created_at REAL, updated_at REAL);
 """
 
 # Legacy hard-coded hosted tools — used to seed an empty DB.
@@ -332,6 +336,45 @@ def install_subagent(s: dict) -> None:
 
 
 # ---- developer submissions + review queue ----------------------------------
+
+def add_capability_request(capability: str, detail: str, user: str) -> None:
+    """Log a user's request for a not-yet-supported capability. Dedupe by
+    capability (case-insensitive): bump the count + track distinct requesters."""
+    cap = capability.strip()
+    if not cap:
+        return
+    now = time.time()
+    with conn() as c:
+        row = c.execute(
+            "SELECT id,count,requesters FROM capability_requests"
+            " WHERE lower(capability)=lower(?)", (cap,)).fetchone()
+        if row:
+            users = set(json.loads(row["requesters"] or "[]"))
+            users.add(user)
+            c.execute(
+                "UPDATE capability_requests SET count=?,requesters=?,"
+                "updated_at=?,detail=COALESCE(NULLIF(?,''),detail) WHERE id=?",
+                (len(users), json.dumps(sorted(users)), now, detail, row["id"]))
+        else:
+            c.execute(
+                "INSERT INTO capability_requests(capability,detail,status,count,"
+                "requesters,created_at,updated_at) VALUES(?,?, 'requested', 1,?,?,?)",
+                (cap, detail, json.dumps([user]), now, now))
+
+
+def list_capability_requests() -> list[dict]:
+    with conn() as c:
+        rows = c.execute(
+            "SELECT * FROM capability_requests ORDER BY count DESC, updated_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_capability_status(req_id: int, status: str) -> None:
+    with conn() as c:
+        c.execute("UPDATE capability_requests SET status=?,updated_at=? WHERE id=?",
+                  (status, time.time(), req_id))
+
 
 def add_submission(type_: str, name: str, payload: dict, developer: str) -> int:
     with conn() as c:
