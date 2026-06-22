@@ -48,13 +48,23 @@ class _MessageComposerState extends State<MessageComposer> {
   bool _recording = false;
   Duration _recordElapsed = Duration.zero;
   Timer? _recordTimer;
+  // While text present, action icons collapse to a "›" chevron; tap to re-expand.
+  bool _expanded = false;
 
   bool get _hasText => _controller.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() => setState(() {}));
+    _controller.addListener(() {
+      if (_controller.text.isEmpty) _expanded = false;
+      setState(() {});
+    });
+    // Focus collapses the icons too; blurring an empty field restores them.
+    _focus.addListener(() {
+      if (!_focus.hasFocus && !_hasText) _expanded = false;
+      setState(() {});
+    });
   }
 
   @override
@@ -133,7 +143,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 color: Color(0x14282822), blurRadius: 24, offset: Offset(0, 8)),
           ],
         ),
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+        padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -183,14 +193,16 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  // Claude-style two-row composer: text on top, action buttons below.
+  // Single-row composer: action icons • growing field • send/mic.
+  // Typing collapses the icons to a "›" chevron; tap it to expand them again.
   Widget _inputRow(ColorScheme scheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
+        _leadingActions(scheme),
+        const SizedBox(width: 6),
+        Expanded(
+          // Field box ≈ button height (36) so the centred row sits symmetric.
           child: TextField(
             controller: _controller,
             focusNode: _focus,
@@ -202,24 +214,44 @@ class _MessageComposerState extends State<MessageComposer> {
               hintText: 'พิมพ์ข้อความ…',
               border: InputBorder.none,
               isCollapsed: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 4),
+              contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 9),
             ),
           ),
         ),
-        Row(
-          children: [
-            _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _plusMenu, scheme),
-            const SizedBox(width: 8),
-            _roundBtn(PhosphorIconsLight.camera, 'กล้อง',
-                () => widget.onMedia?.call('camera'), scheme),
-            const SizedBox(width: 8),
-            _roundBtn(PhosphorIconsLight.image, 'รูปภาพ',
-                () => widget.onMedia?.call('image'), scheme),
-            const Spacer(),
-            _sendOrMic(scheme),
-          ],
-        ),
+        const SizedBox(width: 6),
+        _sendOrMic(scheme),
       ],
+    );
+  }
+
+  // Collapsed (text present, not expanded) → single "›" chevron.
+  // Otherwise → the +/camera/image cluster.
+  Widget _leadingActions(ColorScheme scheme) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 150),
+      transitionBuilder: (child, anim) => SizeTransition(
+        sizeFactor: anim,
+        axis: Axis.horizontal,
+        axisAlignment: -1,
+        child: FadeTransition(opacity: anim, child: child),
+      ),
+      child: ((_focus.hasFocus || _hasText) && !_expanded)
+          ? _roundBtn(PhosphorIconsLight.caretRight, 'เพิ่มเติม',
+              () => setState(() => _expanded = true), scheme,
+              key: const ValueKey('more'))
+          : Row(
+              key: const ValueKey('icons'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _plusMenu, scheme),
+                const SizedBox(width: 6),
+                _roundBtn(PhosphorIconsLight.camera, 'กล้อง',
+                    () => widget.onMedia?.call('camera'), scheme),
+                const SizedBox(width: 6),
+                _roundBtn(PhosphorIconsLight.image, 'รูปภาพ',
+                    () => widget.onMedia?.call('image'), scheme),
+              ],
+            ),
     );
   }
 
@@ -266,8 +298,10 @@ class _MessageComposerState extends State<MessageComposer> {
   /// Soft pale-grey circle with a dark glyph (Claude-style) — visible but quiet.
   static const _btnBg = Color(0xFFF1EEE7);
   Widget _roundBtn(
-      IconData icon, String tip, VoidCallback? onTap, ColorScheme scheme) {
+      IconData icon, String tip, VoidCallback? onTap, ColorScheme scheme,
+      {Key? key}) {
     return Material(
+      key: key,
       color: _btnBg,
       shape: const CircleBorder(),
       child: InkWell(
