@@ -48,6 +48,7 @@ class Ability {
   final String provider; // who supplies it (Google / Notion / ปิ่น)
   final String source; // 'builtin' (in-app) | 'hosted' (ปิ่น server) | 'mcp'
   final Pricing pricing;
+  final String status; // 'live' | 'trial' (ทดลองฟรี) | 'soon' (เร็ว ๆ นี้)
   const Ability({
     required this.name,
     required this.label,
@@ -59,6 +60,7 @@ class Ability {
     this.provider = '',
     this.source = 'builtin',
     this.pricing = const Pricing(),
+    this.status = 'live',
   });
 
   bool get needsConnect => group == 'connect';
@@ -97,6 +99,7 @@ class Ability {
         provider: '${m['provider'] ?? ''}',
         source: m['kind'] == 'mcp' ? 'mcp' : 'hosted',
         pricing: Pricing.fromJson(m['pricing'] as Map?),
+        status: '${m['status'] ?? 'live'}',
       );
 }
 

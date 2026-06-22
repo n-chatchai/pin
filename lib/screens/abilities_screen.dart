@@ -179,16 +179,24 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   }
 
   Widget _cta(Ability a) {
-    final word = a.needsConnect
-        ? 'เชื่อม'
-        : a.pricing.tier == 'subscription'
-            ? 'สมัคร'
-            : 'ซื้อ';
+    final soon = a.status == 'soon';
+    final trial = a.status == 'trial';
+    final word = soon
+        ? 'เร็ว ๆ นี้'
+        : trial
+            ? 'ทดลองฟรี'
+            : a.needsConnect
+                ? 'เชื่อม'
+                : a.pricing.tier == 'subscription'
+                    ? 'สมัคร'
+                    : 'ซื้อ';
+    // Trial → "ฟรี" up top + the post-trial price as the button caption hint.
+    final priceLabel = trial ? 'ฟรี' : a.pricing.label;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(a.pricing.label,
+        Text(priceLabel,
             style: const TextStyle(
                 fontWeight: FontWeight.w700, fontSize: 13.5, color: PinPalette.ink)),
         const SizedBox(height: 6),
@@ -196,9 +204,20 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
           style: FilledButton.styleFrom(
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 16),
+            backgroundColor: trial
+                ? Theme.of(context).colorScheme.primary
+                : soon
+                    ? PinPalette.line
+                    : null,
+            foregroundColor: trial ? Colors.white : null,
           ),
-          onPressed: () =>
-              PinToast.show(context, 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว'),
+          onPressed: soon
+              ? null
+              : () => PinToast.show(
+                  context,
+                  trial
+                      ? 'เริ่มทดลองฟรี "${a.label}" — เปิดให้ใช้เร็ว ๆ นี้'
+                      : 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว'),
           child: Text(word),
         ),
       ],

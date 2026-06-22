@@ -119,13 +119,8 @@ def init() -> None:
 # are the first products: a ดูดวง flagship + two account connects. Display copy
 # (icon/group/blurb) lives in display.py; pricing/category travel on the row.
 _SEED_PAID = [
-    {"name": "astro_lakkhana", "label": "ดูดวงลัคนา", "category": "ดูดวง",
-     "provider": "ปิ่น", "description": "ผูกดวงลัคนาจากวันเวลาเกิด อ่านดวงรายวัน",
-     "pricing": {"tier": "subscription", "amount": 59, "currency": "THB",
-                 "period": "month"},
-     "instructions": "เมื่อผู้ใช้ขอดูดวง/ลัคนา: ถามวัน-เดือน-ปีเกิด เวลาเกิด และ"
-     "จังหวัดที่เกิด แล้วผูกดวงลัคนา อ่านราศีลัคนา เรือนชะตา และทำนายภาพรวม/วันนี้ "
-     "ด้วยน้ำเสียงอบอุ่นแบบปิ่น."},
+    # ดูดวง is provided by the existing thai_astrology skill (real, working) — no
+    # separate seed; display.py just marks it a free trial.
     {"name": "email_triage", "label": "คัดกรองอีเมล", "category": "เชื่อมบัญชี",
      "provider": "Google", "description": "สรุปเมลด่วน ร่างตอบให้",
      "pricing": {"tier": "subscription", "amount": 59, "currency": "THB",
