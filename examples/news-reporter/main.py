@@ -99,7 +99,7 @@ async def _og_image(client: httpx.AsyncClient, url: str) -> str:
 _AI_SOURCES = [
     {"name": "Latent Space", "url": "https://www.latent.space/feed",
      "slug": "ainews"},
-    {"name": "TechCrunch AI",
+    {"name": "TechCrunch",
      "url": "https://techcrunch.com/category/artificial-intelligence/feed/"},
     {"name": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml"},
 ]
