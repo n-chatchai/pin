@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ปิ่น · + panel = ความสามารถ (mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style>
+  :root{
+    --cream:#FAF8F2;--white:#FFF;
+    --green:#34B06A;--green-d:#1C7A48;--green-dd:#2C9D5C;--green-pale:#E4EFDE;--green-card:#E9F1E6;
+    --ink:#2A2A26;--ink2:#6B6B62;--ink3:#A0A096;--line:#E6E1D5;
+    --btnbg:#F1EEE7;
+    --cardsh:0 1px 2px rgba(40,40,34,.05),0 3px 9px rgba(40,40,34,.045);
+    --sheetsh:0 -2px 10px rgba(40,40,34,.06),0 -10px 40px rgba(40,40,34,.13);
+    --nira:'IBM Plex Sans Thai','Sarabun',sans-serif;--sans:'Sarabun',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{background:#EDE8DC;color:var(--ink);font-family:var(--sans);line-height:1.5;
+    display:flex;flex-direction:column;align-items:center;padding:26px 14px 60px;min-height:100vh;}
+  h1{font-family:var(--nira);font-size:21px;font-weight:600;}
+  .sub{color:var(--ink2);font-size:13.5px;margin:4px 0 18px;text-align:center;max-width:680px;}
+  .switch{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap;justify-content:center;}
+  .switch button{font-family:var(--sans);font-size:13.5px;font-weight:600;border:1px solid var(--line);
+    background:#fff;color:var(--ink);border-radius:22px;padding:8px 16px;cursor:pointer;box-shadow:var(--cardsh);}
+  .switch button.on{background:var(--green);color:#fff;border-color:var(--green);}
+  .stage{display:flex;gap:34px;flex-wrap:wrap;justify-content:center;align-items:flex-start;}
+  .col{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .col h2{font-size:12px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--green-d);}
+
+  /* phone */
+  .phone{width:330px;height:692px;border-radius:42px;background:#000;padding:11px;box-shadow:0 18px 50px rgba(40,40,34,.3);}
+  .scr{position:relative;width:100%;height:100%;border-radius:32px;overflow:hidden;background:var(--cream);}
+  .status{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:13px;font-weight:600;}
+  .nav{height:50px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);background:rgba(250,248,242,.85);}
+  .nav .ava{width:32px;height:32px;border-radius:50%;background:var(--green-av,#DBEDD7);display:grid;place-items:center;color:var(--green-d);font-size:18px;}
+  .nav .who b{font-size:15px;}.nav .who span{display:block;font-size:11px;color:var(--ink3);}
+
+  /* chat body */
+  .body{position:absolute;inset:90px 0 0 0;overflow:hidden;padding:14px 14px 120px;display:flex;flex-direction:column;gap:10px;}
+  .bub{max-width:75%;padding:9px 13px;border-radius:16px;font-size:14px;box-shadow:var(--cardsh);}
+  .them{align-self:flex-start;background:#fff;border-bottom-left-radius:5px;}
+  .me{align-self:flex-end;background:var(--green-card);border-bottom-right-radius:5px;}
+  .scrim{position:absolute;inset:0;background:rgba(30,30,26,.30);opacity:0;pointer-events:none;transition:opacity .2s;}
+  .scr.open .scrim{opacity:1;}
+
+  /* composer */
+  .composer{position:absolute;left:12px;right:12px;bottom:14px;background:#fff;border:1px solid var(--line);
+    border-radius:26px;box-shadow:var(--cardsh);padding:7px 8px;display:flex;align-items:center;gap:6px;z-index:5;}
+  .rbtn{width:36px;height:36px;border-radius:50%;background:var(--btnbg);display:grid;place-items:center;
+    color:var(--ink);font-size:19px;cursor:pointer;flex:0 0 auto;transition:transform .15s,background .15s;}
+  .rbtn.plus.active{background:var(--green);color:#fff;transform:rotate(45deg);}
+  .field{flex:1;color:var(--ink3);font-size:15px;padding:0 2px;}
+  .send{background:var(--btnbg);color:var(--ink);}
+
+  /* ===== Variant A: full sheet ===== */
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--cream);border-radius:24px 24px 0 0;
+    box-shadow:var(--sheetsh);padding:6px 14px calc(14px + 64px);transform:translateY(110%);transition:transform .26s cubic-bezier(.2,.8,.2,1);z-index:6;}
+  .scr.open .sheet{transform:translateY(0);}
+  .grip{width:38px;height:4px;border-radius:3px;background:var(--line);margin:6px auto 12px;}
+  .sechead{font-family:var(--nira);font-size:12.5px;font-weight:700;letter-spacing:.5px;color:var(--ink3);
+    text-transform:uppercase;margin:6px 4px 10px;display:flex;align-items:center;justify-content:space-between;}
+  .sechead a{color:var(--green-d);font-weight:600;font-size:12px;text-transform:none;letter-spacing:0;text-decoration:none;}
+
+  /* capability grid */
+  .cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .cap{background:#fff;border-radius:16px;padding:12px 6px 10px;text-align:center;box-shadow:var(--cardsh);cursor:pointer;
+    border:1px solid transparent;transition:transform .12s,border-color .12s;}
+  .cap:hover{transform:translateY(-2px);border-color:var(--green-pale);}
+  .cap .ic{width:38px;height:38px;border-radius:11px;margin:0 auto 7px;display:grid;place-items:center;
+    background:var(--green-pale);color:var(--green-d);font-size:21px;}
+  .cap .lb{font-size:11.5px;font-weight:600;line-height:1.25;color:var(--ink);}
+  .cap.locked .ic{background:#F1EEE7;color:var(--ink3);}
+  .cap.locked .lb{color:var(--ink3);}
+  .cap .tag{font-size:9px;color:var(--green-dd);font-weight:700;margin-top:2px;}
+  .cap.locked .tag{color:var(--ink3);}
+
+  /* attach tiles + rows */
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+  .tile{background:#fff;border-radius:16px;height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:7px;box-shadow:var(--cardsh);cursor:pointer;}
+  .tile i{font-size:24px;color:var(--ink);}.tile span{font-size:12.5px;}
+  .group{background:#fff;border-radius:16px;overflow:hidden;box-shadow:var(--cardsh);}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 15px;cursor:pointer;font-size:14.5px;}
+  .row+.row{border-top:1px solid var(--line);}
+  .row i{font-size:20px;color:var(--ink);width:22px;text-align:center;}
+
+  /* ===== Variant B: popover above + ===== */
+  .pop{position:absolute;left:12px;bottom:64px;width:248px;background:#fff;border:1px solid var(--line);
+    border-radius:20px;box-shadow:var(--sheetsh);padding:8px;transform:translateY(8px) scale(.96);transform-origin:18px bottom;
+    opacity:0;pointer-events:none;transition:all .2s cubic-bezier(.2,.8,.2,1);z-index:6;}
+  .scr.openB .pop{transform:none;opacity:1;pointer-events:auto;}
+  .scr.openB .scrim{opacity:1;}
+  .pop .ph2{font-family:var(--nira);font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--ink3);
+    text-transform:uppercase;padding:6px 10px 4px;}
+  .prow{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:12px;cursor:pointer;font-size:14px;}
+  .prow:hover{background:var(--green-pale);}
+  .prow i{font-size:19px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--green-pale);color:var(--green-d);}
+  .prow.att i{background:var(--btnbg);color:var(--ink);}
+  .pdiv{height:1px;background:var(--line);margin:6px 8px;}
+  .pop .more{text-align:center;font-size:12.5px;color:var(--green-d);font-weight:600;padding:8px;cursor:pointer;}
+
+  .note{max-width:330px;font-size:12.5px;color:var(--ink2);line-height:1.55;}
+  .note b{color:var(--ink);}
+  .hide{display:none !important;}
+</style>
+</head>
+<body>
+  <h1>ปิ่น · ปุ่ม + = ความสามารถ</h1>
+  <p class="sub">กด + ในแถบพิมพ์ → เปิด panel ที่รวม <b>ความสามารถ</b> (ดูดวง / ข่าว / ค้นเชิงลึก…) ไว้กับ <b>แนบไฟล์</b> ที่เดียว — ค้นเจอในจังหวะที่อยากใช้ ไม่ต้องเข้าหน้าร้านค้า. mock 2 แบบ เทียบกัน.</p>
+  <div class="switch">
+    <button id="bA" class="on" onclick="setVar('A')">A · Full sheet</button>
+    <button id="bB" onclick="setVar('B')">B · Popover เหนือปุ่ม +</button>
+  </div>
+
+  <div class="stage">
+    <!-- ============ Variant A ============ -->
+    <div class="col" id="colA">
+      <h2>A · Bottom sheet</h2>
+      <div class="phone"><div class="scr open" id="scrA">
+        <div class="status"><span>22:05</span><span>5G ▴</span></div>
+        <div class="nav"><i class="ph ph-caret-left" style="font-size:20px"></i>
+          <div class="ava">ป</div><div class="who"><b>ปิ่น</b><span>ผู้ช่วยส่วนตัว</span></div></div>
+        <div class="body">
+          <div class="bub them">สวัสดีค่ะ วันนี้ให้ปิ่นช่วยอะไรดีคะ 🌿</div>
+          <div class="bub me">ขอบใจนะ</div>
+          <div class="bub them">ยินดีเสมอค่ะ 💚</div>
+        </div>
+        <div class="scrim" onclick="closeAll()"></div>
+
+        <!-- sheet -->
+        <div class="sheet">
+          <div class="grip"></div>
+          <div class="sechead"><span>ความสามารถ</span><a href="#">ดูทั้งหมด →</a></div>
+          <div class="cgrid">
+            <div class="cap"><div class="ic"><i class="ph ph-sparkle"></i></div><div class="lb">ดูดวง</div></div>
+            <div class="cap"><div class="ic"><i class="ph ph-newspaper"></i></div><div class="lb">ข่าวเช้า</div></div>
+            <div class="cap"><div class="ic"><i class="ph ph-magnifying-glass"></i></div><div class="lb">ค้นเชิงลึก</div></div>
+            <div class="cap"><div class="ic"><i class="ph ph-cloud-sun"></i></div><div class="lb">อากาศ</div></div>
+            <div class="cap"><div class="ic"><i class="ph ph-bell"></i></div><div class="lb">ตั้งเตือน</div></div>
+            <div class="cap"><div class="ic"><i class="ph ph-image-square"></i></div><div class="lb">วาดรูป</div></div>
+            <div class="cap"><div class="ic"><i class="ph ph-link"></i></div><div class="lb">ย่อลิงก์</div></div>
+            <div class="cap locked"><div class="ic"><i class="ph ph-envelope-simple"></i></div><div class="lb">อีเมล</div><div class="tag">เร็วๆนี้</div></div>
+          </div>
+          <div class="sechead" style="margin-top:16px"><span>แนบไฟล์</span></div>
+          <div class="tiles">
+            <div class="tile"><i class="ph ph-camera"></i><span>กล้อง</span></div>
+            <div class="tile"><i class="ph ph-image"></i><span>รูปภาพ</span></div>
+            <div class="tile"><i class="ph ph-video-camera"></i><span>วิดีโอ</span></div>
+          </div>
+          <div class="group">
+            <div class="row"><i class="ph ph-paperclip"></i>เพิ่มไฟล์</div>
+            <div class="row"><i class="ph ph-scan"></i>สแกนเอกสาร</div>
+            <div class="row"><i class="ph ph-map-pin"></i>แชร์ตำแหน่ง</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="rbtn plus active" onclick="toggle('A')"><i class="ph ph-plus"></i></div>
+          <div class="field">พิมพ์ข้อความ…</div>
+          <div class="rbtn send"><i class="ph ph-microphone"></i></div>
+        </div>
+      </div></div>
+      <p class="note"><b>A:</b> เห็นความสามารถเด่นเป็นกริดไอคอน แตะ = เริ่มงานนั้นทันที (เช่น ดูดวง → ปิ่นถามวันเกิด). รวมแนบไฟล์ไว้ล่าง. ของล็อก/เร็วๆนี้โชว์จาง + ลิงก์ "ดูทั้งหมด" ไปร้านค้า.</p>
+    </div>
+
+    <!-- ============ Variant B ============ -->
+    <div class="col" id="colB">
+      <h2>B · Popover</h2>
+      <div class="phone"><div class="scr" id="scrB">
+        <div class="status"><span>22:05</span><span>5G ▴</span></div>
+        <div class="nav"><i class="ph ph-caret-left" style="font-size:20px"></i>
+          <div class="ava">ป</div><div class="who"><b>ปิ่น</b><span>ผู้ช่วยส่วนตัว</span></div></div>
+        <div class="body">
+          <div class="bub them">สวัสดีค่ะ วันนี้ให้ปิ่นช่วยอะไรดีคะ 🌿</div>
+          <div class="bub me">ขอบใจนะ</div>
+          <div class="bub them">ยินดีเสมอค่ะ 💚</div>
+        </div>
+        <div class="scrim" onclick="closeAll()"></div>
+
+        <div class="pop">
+          <div class="ph2">ความสามารถ</div>
+          <div class="prow"><i class="ph ph-sparkle"></i>ดูดวง</div>
+          <div class="prow"><i class="ph ph-newspaper"></i>สรุปข่าวเช้า</div>
+          <div class="prow"><i class="ph ph-magnifying-glass"></i>ค้นข้อมูลเชิงลึก</div>
+          <div class="prow"><i class="ph ph-cloud-sun"></i>พยากรณ์อากาศ</div>
+          <div class="prow"><i class="ph ph-bell"></i>ตั้งเตือน</div>
+          <div class="pdiv"></div>
+          <div class="ph2">แนบไฟล์</div>
+          <div class="prow att"><i class="ph ph-paperclip"></i>เพิ่มไฟล์</div>
+          <div class="prow att"><i class="ph ph-camera"></i>กล้อง / รูปภาพ</div>
+          <div class="prow att"><i class="ph ph-map-pin"></i>แชร์ตำแหน่ง</div>
+          <div class="more">ดูทั้งหมดในร้านค้า →</div>
+        </div>
+
+        <div class="composer">
+          <div class="rbtn plus" onclick="toggle('B')"><i class="ph ph-plus"></i></div>
+          <div class="field">พิมพ์ข้อความ…</div>
+          <div class="rbtn send"><i class="ph ph-microphone"></i></div>
+        </div>
+      </div></div>
+      <p class="note"><b>B:</b> popover เล็กลอยจากปุ่ม + (ไม่กินทั้งจอ, แชตยังเห็น). ความสามารถ + แนบไฟล์ เป็นลิสต์เดียว เลื่อนได้. เบากว่า แต่โชว์ได้น้อยกว่า A.</p>
+    </div>
+  </div>
+
+<script>
+  function toggle(v){
+    const s=document.getElementById('scr'+v);
+    if(v==='A'){s.classList.toggle('open');s.querySelector('.plus').classList.toggle('active');}
+    else{s.classList.toggle('openB');s.querySelector('.plus').classList.toggle('active');}
+  }
+  function closeAll(){
+    document.querySelectorAll('.scr').forEach(s=>{s.classList.remove('open','openB');
+      const p=s.querySelector('.plus');if(p)p.classList.remove('active');});
+  }
+  function setVar(v){
+    document.getElementById('bA').classList.toggle('on',v==='A');
+    document.getElementById('bB').classList.toggle('on',v==='B');
+    document.getElementById('colA').classList.toggle('hide',v!=='A');
+    document.getElementById('colB').classList.toggle('hide',v!=='B');
+  }
+  // start: A open, B closed, show both
+  setVar('both');
+  document.getElementById('colA').classList.remove('hide');
+  document.getElementById('colB').classList.remove('hide');
+</script>
+</body>
+</html>

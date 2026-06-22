@@ -255,45 +255,111 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  /// "+" button → choose a file or share location.
+  /// Curated capabilities shown in the "+" sheet. Tapping one sends a starter
+  /// message so ปิ่น kicks off that task (and asks for any details it needs).
+  /// (icon, label, starter prompt). See design/chat-compose/plus-capabilities.html.
+  static const _caps = <(IconData, String, String)>[
+    (PhosphorIconsRegular.sparkle, 'ดูดวง', 'ขอดูดวงหน่อย'),
+    (PhosphorIconsRegular.newspaper, 'ข่าวเช้า', 'สรุปข่าวเช้าให้หน่อย'),
+    (PhosphorIconsRegular.magnifyingGlass, 'ค้นเชิงลึก',
+        'ช่วยค้นข้อมูลเชิงลึกให้หน่อย'),
+    (PhosphorIconsRegular.cloudSun, 'อากาศ', 'ขอดูพยากรณ์อากาศ'),
+    (PhosphorIconsRegular.bell, 'ตั้งเตือน', 'ช่วยตั้งเตือนหน่อย'),
+    (PhosphorIconsRegular.imageSquare, 'วาดรูป', 'ช่วยวาดรูปให้หน่อย'),
+    (PhosphorIconsRegular.link, 'ย่อลิงก์', 'ช่วยย่อลิงก์นี้ให้หน่อย'),
+  ];
+
+  /// "+" button → capabilities grid + attachments (design variant A).
   void _plusMenu() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: PinPalette.cream,
       showDragHandle: true,
-      builder: (sheet) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(PhosphorIconsLight.paperclip),
-              title: const Text('เลือกไฟล์'),
-              onTap: () {
-                Navigator.pop(sheet);
-                widget.onMedia?.call('file');
-              },
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsLight.scan),
-              title: const Text('สแกนเอกสาร'),
-              onTap: () {
-                Navigator.pop(sheet);
-                widget.onMedia?.call('scan');
-              },
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsLight.mapPin),
-              title: const Text('แชร์ตำแหน่ง'),
-              onTap: () {
-                Navigator.pop(sheet);
-                widget.onMedia?.call('location');
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (sheet) {
+        // 4 tiles per row: (sheet width − outer padding − 3 gaps) / 4.
+        final tileW = (MediaQuery.of(sheet).size.width - 28 - 24) / 4;
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _sheetHead('ความสามารถ'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final (icon, label, prompt) in _caps)
+                      _CapTile(
+                          icon: icon,
+                          label: label,
+                          width: tileW,
+                          onTap: () {
+                            Navigator.pop(sheet);
+                            widget.onSend(prompt);
+                          }),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _sheetHead('แนบไฟล์'),
+                Row(children: [
+                  _AttachTile(
+                      icon: PhosphorIconsLight.camera,
+                      label: 'กล้อง',
+                      onTap: () => _pickMedia(sheet, 'camera')),
+                  const SizedBox(width: 10),
+                  _AttachTile(
+                      icon: PhosphorIconsLight.image,
+                      label: 'รูปภาพ',
+                      onTap: () => _pickMedia(sheet, 'image')),
+                  const SizedBox(width: 10),
+                  _AttachTile(
+                      icon: PhosphorIconsLight.videoCamera,
+                      label: 'วิดีโอ',
+                      onTap: () => _pickMedia(sheet, 'video')),
+                ]),
+                const SizedBox(height: 12),
+                _AttachGroup(children: [
+                  _AttachRow(
+                      icon: PhosphorIconsLight.paperclip,
+                      label: 'เพิ่มไฟล์',
+                      onTap: () => _pickMedia(sheet, 'file')),
+                  _AttachRow(
+                      icon: PhosphorIconsLight.scan,
+                      label: 'สแกนเอกสาร',
+                      onTap: () => _pickMedia(sheet, 'scan')),
+                  _AttachRow(
+                      icon: PhosphorIconsLight.mapPin,
+                      label: 'แชร์ตำแหน่ง',
+                      onTap: () => _pickMedia(sheet, 'location')),
+                ]),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
+
+  void _pickMedia(BuildContext sheet, String id) {
+    Navigator.pop(sheet);
+    widget.onMedia?.call(id);
+  }
+
+  Widget _sheetHead(String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: .5,
+                color: PinPalette.ink3)),
+      );
 
   /// Soft pale-grey circle with a dark glyph (Claude-style) — visible but quiet.
   static const _btnBg = Color(0xFFF1EEE7);
@@ -387,77 +453,57 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 }
 
-/// "เพิ่มลงแชต" sheet (Claude-style): a Camera/รูป/วิดีโอ tile row on top, then
-/// grouped rounded cards. `onPick` gets the chosen id ('camera'|'image'|'video'|
-/// 'record_video'|'file'); the caller wires the real action.
-Future<void> showAttachmentSheet(
-  BuildContext context, {
-  ValueChanged<String>? onPick,
-}) {
-  void pick(BuildContext c, String id) {
-    Navigator.pop(c);
-    onPick?.call(id);
-  }
+/// A capability tile in the "+" sheet: rounded green icon + Thai label.
+class _CapTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final double width;
+  final VoidCallback onTap;
+  const _CapTile(
+      {required this.icon,
+      required this.label,
+      required this.width,
+      required this.onTap});
 
-  return showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: PinPalette.cream,
-    showDragHandle: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (c) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-              child: Text('เพิ่มลงแชต', style: PinPalette.brand(size: 18)),
-            ),
-            // Top tile row.
-            Row(
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _AttachTile(
-                    icon: PhosphorIconsLight.camera,
-                    label: 'กล้อง',
-                    onTap: () => pick(c, 'camera')),
-                const SizedBox(width: 10),
-                _AttachTile(
-                    icon: PhosphorIconsLight.image,
-                    label: 'รูปภาพ',
-                    onTap: () => pick(c, 'image')),
-                const SizedBox(width: 10),
-                _AttachTile(
-                    icon: PhosphorIconsLight.videoCamera,
-                    label: 'วิดีโอ',
-                    onTap: () => pick(c, 'video')),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF34B06A).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 21, color: const Color(0xFF1C7A48)),
+                ),
+                const SizedBox(height: 7),
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: PinPalette.ink)),
               ],
             ),
-            const SizedBox(height: 14),
-            // Grouped card.
-            _AttachGroup(children: [
-              _AttachRow(
-                  icon: PhosphorIconsLight.paperclip,
-                  label: 'เพิ่มไฟล์',
-                  onTap: () => pick(c, 'file')),
-              _AttachRow(
-                  icon: PhosphorIconsLight.videoCamera,
-                  label: 'ถ่ายวิดีโอ',
-                  onTap: () => pick(c, 'record_video')),
-              _AttachRow(
-                  icon: PhosphorIconsLight.mapPin,
-                  label: 'แชร์ตำแหน่ง',
-                  onTap: () => pick(c, 'location')),
-            ]),
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _AttachTile extends StatelessWidget {
