@@ -5,6 +5,7 @@ import '../config.dart';
 import '../main.dart';
 import '../services/auth_service.dart';
 import '../theme/pin_theme.dart';
+import '../widgets/google_sign_in_button.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
 import '../widgets/pin_route.dart';
@@ -102,12 +103,14 @@ class AuthScreen extends StatelessWidget {
                         Padding(
                           padding:
                               const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text('ช่องทางอื่น · เร็ว ๆ นี้',
+                          child: Text('หรือ',
                               style: TextStyle(
                                   fontSize: 13.5, color: PinPalette.ink2)),
                         ),
                         const Expanded(child: Divider(color: PinPalette.line)),
                       ]),
+                      const SizedBox(height: 16),
+                      const GoogleSignInButton(),
                       const Spacer(flex: 3),
                       const Text(
                           'ดำเนินการต่อ = ยอมรับข้อตกลงการใช้งาน และนโยบายความเป็นส่วนตัว',

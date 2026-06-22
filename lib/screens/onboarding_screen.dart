@@ -17,6 +17,7 @@ import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 import '../widgets/pin_toast.dart';
 import '../widgets/recovery_qr.dart';
+import '../widgets/google_sign_in_button.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
 import '../widgets/pin_route.dart';
@@ -51,8 +52,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   List<(Widget, String)> _stepList() => [
         if (widget.signup) (_SignupStep(onAuthed: _next), ''),
         (_recovery, 'ถัดไป'),
-        (_ready(), 'เริ่มคุยเลย'),
+        (_ReadyStep(active: _index == _readyIndex), 'เริ่มคุยเลย'),
       ];
+
+  // The celebratory last step is always last; animate it only once the user
+  // actually reaches it (PageView builds pages eagerly).
+  int get _readyIndex => (widget.signup ? 1 : 0) + 1;
 
   List<String> get _labels => [for (final s in _stepList()) s.$2];
 
@@ -152,36 +157,122 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _ready() {
+}
+
+/// Celebratory final onboarding step. Plays a pop-in once [active] flips true
+/// (i.e. when the user lands on this page): the check badge springs in with an
+/// expanding success ring, then the title and subtitle fade + rise.
+class _ReadyStep extends StatefulWidget {
+  final bool active;
+  const _ReadyStep({required this.active});
+  @override
+  State<_ReadyStep> createState() => _ReadyStepState();
+}
+
+class _ReadyStepState extends State<_ReadyStep>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1100));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _c.forward();
+  }
+
+  @override
+  void didUpdateWidget(_ReadyStep old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  double _seg(double a, double b, Curve curve) =>
+      curve.transform(((_c.value - a) / (b - a)).clamp(0.0, 1.0));
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 66,
-            height: 66,
-            decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle),
-            child: Icon(PhosphorIconsRegular.check, color: scheme.secondary, size: 32),
-          ),
-          const SizedBox(height: 16),
-          Text('พร้อมแล้ว', style: PinPalette.brand(size: 30)),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 48),
-            child: Text(
-              'เริ่มคุยได้เลย — ถามอะไรก็ได้ที่อยากให้ช่วย',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: PinPalette.ink2, height: 1.5),
-            ),
-          ),
-        ],
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          final badge = _seg(0.0, 0.55, Curves.elasticOut); // springy pop
+          final ring = _seg(0.05, 0.65, Curves.easeOut); // success pulse
+          final title = _seg(0.45, 0.85, Curves.easeOut);
+          final sub = _seg(0.6, 1.0, Curves.easeOut);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Expanding fading ring behind the badge.
+                    Opacity(
+                      opacity: (1 - ring) * 0.5,
+                      child: Transform.scale(
+                        scale: 0.6 + ring * 1.4,
+                        child: Container(
+                          width: 66,
+                          height: 66,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: scheme.primary.withValues(alpha: 0.25)),
+                        ),
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: badge,
+                      child: Container(
+                        width: 66,
+                        height: 66,
+                        decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.15),
+                            shape: BoxShape.circle),
+                        child: Icon(PhosphorIconsRegular.check,
+                            color: scheme.secondary, size: 32),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Opacity(
+                opacity: title,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - title) * 12),
+                  child: Text('พร้อมแล้ว', style: PinPalette.brand(size: 30)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Opacity(
+                opacity: sub,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - sub) * 12),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 48),
+                    child: Text(
+                      'เริ่มคุยได้เลย — ถามอะไรก็ได้ที่อยากให้ช่วย',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: PinPalette.ink2, height: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
-
 }
 
 /// Step 4: enables E2EE recovery and shows the recovery key to save.
@@ -748,6 +839,18 @@ class _SignupStepState extends State<_SignupStep> {
           const SizedBox(height: 10),
           PinButton('สมัครและไปต่อ',
               busy: _busy, onTap: _taken == true ? null : _go),
+          const SizedBox(height: 18),
+          Row(children: [
+            const Expanded(child: Divider(color: PinPalette.line)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text('หรือ',
+                  style: TextStyle(fontSize: 13.5, color: PinPalette.ink2)),
+            ),
+            const Expanded(child: Divider(color: PinPalette.line)),
+          ]),
+          const SizedBox(height: 16),
+          const GoogleSignInButton(),
           const SizedBox(height: 8),
           Center(
             child: PinButton.text('มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',

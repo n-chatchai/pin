@@ -50,6 +50,37 @@ Future<void> restore({
   accessToken: accessToken,
 );
 
+/// Build the SSO login URL the app opens in a browser (Sign in with Google).
+/// `redirect_url` is the app deep link the homeserver returns the `loginToken`
+/// to. `idp_id` = None uses the homeserver's default provider (we run a single
+/// one, Google, so it's implicitly default). Uses a throwaway store so it never
+/// touches the real session db.
+Future<String> ssoLoginUrl({
+  required String homeserver,
+  required String dbPath,
+  required String redirectUrl,
+  String? idpId,
+}) => RustLib.instance.api.crateApiMatrixSsoLoginUrl(
+  homeserver: homeserver,
+  dbPath: dbPath,
+  redirectUrl: redirectUrl,
+  idpId: idpId,
+);
+
+/// Finish SSO: exchange the `loginToken` from the redirect for a Matrix session,
+/// persisting a fresh device + crypto store (same as password login).
+Future<Session> loginToken({
+  required String role,
+  required String homeserver,
+  required String dbPath,
+  required String token,
+}) => RustLib.instance.api.crateApiMatrixLoginToken(
+  role: role,
+  homeserver: homeserver,
+  dbPath: dbPath,
+  token: token,
+);
+
 /// One foreground sync, then the list of joined rooms.
 Future<List<RoomSummary>> listRooms() =>
     RustLib.instance.api.crateApiMatrixListRooms();

@@ -69,3 +69,6 @@ admin.log
 # Editor
 .vscode/
 .idea/
+
+# Google OAuth client secret (never commit)
+client_secret_*.json

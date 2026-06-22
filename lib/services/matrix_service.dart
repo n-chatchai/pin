@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
+import '../config.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import 'api_log.dart';
 import 'auth_service.dart';
@@ -135,6 +137,43 @@ class MatrixService {
     userId = session.userId;
     _userPassword = password; // reused for the ปิ่น companion (see ensurePinSession)
     _userEmail = email;
+    return session;
+  }
+
+  /// Custom-scheme deep link the tuwunel SSO flow returns the `loginToken` to.
+  static const _ssoScheme = 'pinapp';
+
+  /// "Sign in with Google" — Matrix legacy SSO (m.login.sso) via tuwunel's Google
+  /// identity_provider. Opens the homeserver SSO URL in a browser tab, captures
+  /// the `loginToken` redirect, and exchanges it for a session. No password →
+  /// the ปิ่น companion comes up via the room-stored E2EE pw path (separate).
+  Future<rust.Session> loginWithGoogle() async {
+    const homeserver = kHomeserver;
+    final path = await _dbPathFor('sso@$homeserver');
+    final url = await rust.ssoLoginUrl(
+      homeserver: homeserver,
+      dbPath: path,
+      redirectUrl: '$_ssoScheme://sso',
+      idpId: null, // single provider (Google) → implicit default
+    );
+    final result = await FlutterWebAuth2.authenticate(
+        url: url, callbackUrlScheme: _ssoScheme);
+    final token = Uri.parse(result).queryParameters['loginToken'];
+    if (token == null || token.isEmpty) {
+      throw 'การเข้าสู่ระบบ Google ไม่สำเร็จ (ไม่มี loginToken)';
+    }
+    final session = await rust.loginToken(
+        role: 'user', homeserver: homeserver, dbPath: path, token: token);
+    await _store.save(StoredSession(
+      homeserver: session.homeserver,
+      accessToken: session.accessToken,
+      userId: session.userId,
+      deviceId: session.deviceId,
+      dbPath: path,
+      email: null,
+    ));
+    accessToken = session.accessToken;
+    userId = session.userId;
     return session;
   }
 

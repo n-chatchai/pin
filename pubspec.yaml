@@ -40,6 +40,8 @@ dependencies:
     path: rust_builder
   flutter_rust_bridge: 2.12.0
   path_provider: ^2.1.5
+  flutter_web_auth_2: ^4.1.0 # Google SSO: opens the tuwunel SSO URL, captures the loginToken redirect
+  flutter_svg: ^2.0.10 # render the official 4-color Google "G" logo
   image_picker: ^1.2.2
   # Direct deps so we can force Android's modern system Photo Picker (a
   # dismissible bottom sheet) instead of ACTION_GET_CONTENT → full Google Photos.
@@ -93,6 +95,7 @@ flutter:
 
   assets:
     - assets/pin-logo.png
+    - assets/google-g.svg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

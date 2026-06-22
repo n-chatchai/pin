@@ -194,8 +194,16 @@ async fn build_client(homeserver: &str, db_path: &str) -> Result<Client, String>
     // delivers events → the chat never renders. Give it generous headroom.
     let request_config = matrix_sdk::config::RequestConfig::new()
         .timeout(std::time::Duration::from_secs(60));
+    // SSO URL building (get_sso_login_url) joins paths onto the homeserver, which
+    // needs an absolute base — a bare host ("pin-chat.tokens2.io") fails with
+    // "relative URL without a base". Default to https when no scheme is given.
+    let hs = if homeserver.starts_with("http://") || homeserver.starts_with("https://") {
+        homeserver.to_string()
+    } else {
+        format!("https://{homeserver}")
+    };
     Client::builder()
-        .homeserver_url(homeserver)
+        .homeserver_url(&hs)
         .sqlite_store(db_path, None)
         .request_config(request_config)
         .build()
@@ -276,6 +284,66 @@ pub fn restore(
             .map_err(|e| e.to_string())?;
         CLIENTS.write().await.insert(role, client);
         Ok(())
+    })
+}
+
+/// Build the SSO login URL the app opens in a browser (Sign in with Google).
+/// `redirect_url` is the app deep link the homeserver returns the `loginToken`
+/// to. `idp_id` = None uses the homeserver's default provider (we run a single
+/// one, Google, so it's implicitly default). Uses a throwaway store so it never
+/// touches the real session db.
+pub fn sso_login_url(
+    homeserver: String,
+    db_path: String,
+    redirect_url: String,
+    idp_id: Option<String>,
+) -> Result<String, String> {
+    block(async move {
+        let tmp = format!("{db_path}.ssotmp");
+        let _ = std::fs::remove_dir_all(&tmp);
+        let client = build_client(&homeserver, &tmp).await?;
+        let url = client
+            .matrix_auth()
+            .get_sso_login_url(&redirect_url, idp_id.as_deref())
+            .await
+            .map_err(|e| e.to_string());
+        let _ = std::fs::remove_dir_all(&tmp);
+        url
+    })
+}
+
+/// Finish SSO: exchange the `loginToken` from the redirect for a Matrix session,
+/// persisting a fresh device + crypto store (same as password login).
+pub fn login_token(
+    role: String,
+    homeserver: String,
+    db_path: String,
+    token: String,
+) -> Result<Session, String> {
+    block(async move {
+        stop_sync(&role);
+        let _ = std::fs::remove_dir_all(&db_path);
+        let client = build_client(&homeserver, &db_path).await?;
+        client
+            .matrix_auth()
+            .login_token(&token)
+            .initial_device_display_name("pin")
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let session = client
+            .matrix_auth()
+            .session()
+            .ok_or_else(|| "login produced no session".to_string())?;
+
+        let out = Session {
+            homeserver,
+            user_id: session.meta.user_id.to_string(),
+            device_id: session.meta.device_id.to_string(),
+            access_token: session.tokens.access_token,
+        };
+        CLIENTS.write().await.insert(role, client);
+        Ok(out)
     })
 }
 
