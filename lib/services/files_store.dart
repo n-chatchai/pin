@@ -327,10 +327,28 @@ class FilesStore {
   }
 
   /// A page of files, newest first. Used by the infinite-scroll list.
-  Future<List<FileItem>> page({required int offset, int limit = 20}) async {
+  /// [filter]: null = all, 'image'/'audio' = that type, 'doc' = everything else.
+  /// Filtering is in the query so pagination stays correct across pages.
+  Future<List<FileItem>> page(
+      {required int offset, int limit = 20, String? filter}) async {
     final db = await _open();
+    String? where;
+    List<Object?>? args;
+    if (filter == 'image') {
+      where = 'type = ?';
+      args = ['รูป'];
+    } else if (filter == 'audio') {
+      where = 'type = ?';
+      args = ['เสียง'];
+    } else if (filter == 'doc') {
+      where = "type NOT IN ('รูป', 'เสียง')";
+    }
     final rows = await db.query('files',
-        orderBy: 'created_at DESC', limit: limit, offset: offset);
+        where: where,
+        whereArgs: args,
+        orderBy: 'created_at DESC',
+        limit: limit,
+        offset: offset);
     // Resolve stored (relative) uris to absolute paths for the UI to open.
     return Future.wait(rows.map((r) async {
       final item = FileItem.fromRow(r);

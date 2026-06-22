@@ -296,6 +296,7 @@ class _FilesTabState extends State<FilesTab> {
   final _items = <FileItem>[];
   bool _loading = false;
   bool _hasMore = true;
+  String? _filter; // null = all, 'image' / 'audio' / 'doc'
 
   @override
   void initState() {
@@ -334,8 +335,8 @@ class _FilesTabState extends State<FilesTab> {
   Future<void> _loadMore() async {
     if (_loading || !_hasMore) return;
     _loading = true;
-    final page =
-        await FilesStore.instance.page(offset: _items.length, limit: _pageSize);
+    final page = await FilesStore.instance
+        .page(offset: _items.length, limit: _pageSize, filter: _filter);
     if (!mounted) return;
     setState(() {
       _items.addAll(page);
@@ -346,6 +347,61 @@ class _FilesTabState extends State<FilesTab> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _chips(),
+        Expanded(child: _body(context)),
+      ],
+    );
+  }
+
+  static const _filters = [
+    (null, 'ทั้งหมด'),
+    ('image', 'รูปภาพ'),
+    ('audio', 'เสียง'),
+    ('doc', 'เอกสาร'),
+  ];
+
+  Widget _chips() {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+        children: [
+          for (final (id, label) in _filters)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: _filter == id,
+                onSelected: (_) => _setFilter(id),
+                showCheckmark: false,
+                labelStyle: TextStyle(
+                    color: _filter == id ? Colors.white : PinPalette.ink,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5),
+                selectedColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                    color: _filter == id
+                        ? Theme.of(context).colorScheme.primary
+                        : PinPalette.line),
+                shape: const StadiumBorder(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _setFilter(String? id) {
+    if (_filter == id) return;
+    setState(() => _filter = id);
+    _reload();
+  }
+
+  Widget _body(BuildContext context) {
     if (_items.isEmpty && !_loading) {
       return const Center(
         child: Padding(
