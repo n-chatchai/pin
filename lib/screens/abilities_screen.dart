@@ -199,45 +199,23 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     final trial = a.status == 'trial';
     final primary = Theme.of(context).colorScheme.primary;
 
-    // Trial = opt-out, on by default. Show the STATE as a toggle pill (icon +
-    // เปิด/ปิด) — far easier to read at a glance than an action verb.
+    // Trial = opt-out, on by default. A plain switch (like the ดีบักบอท toggle)
+    // — clearest on/off, and its width is fixed so cards line up.
     if (trial) {
       final on = !_optedOut.contains(a.name);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('ฟรี',
+          Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
               style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13.5,
-                  color: PinPalette.ink)),
-          const SizedBox(height: 6),
-          GestureDetector(
-            onTap: () => _toggleTrial(a, on),
-            child: Container(
-              width: _ctaWidth,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: on ? primary.withValues(alpha: 0.12) : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: on ? primary : PinPalette.line),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(on ? Icons.toggle_on : Icons.toggle_off,
-                      size: 22, color: on ? primary : PinPalette.ink3),
-                  const SizedBox(width: 5),
-                  Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: on ? primary : PinPalette.ink2)),
-                ],
-              ),
-            ),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: on ? primary : PinPalette.ink3)),
+          Switch.adaptive(
+            value: on,
+            activeTrackColor: primary,
+            onChanged: (_) => _toggleTrial(a, on),
           ),
         ],
       );

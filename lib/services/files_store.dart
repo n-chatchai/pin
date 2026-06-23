@@ -194,7 +194,9 @@ class FilesStore {
   /// attachment (the single source of truth) and the returned event id is stored
   /// so the ไฟล์ tab can re-download them later via [resolveBytes]. The room
   /// metadata list is then rewritten — there is no local database.
-  Future<void> add({
+  /// Record a file; returns whether its metadata reached the room (the source
+  /// of truth) so the caller can tell the user if it didn't stick.
+  Future<bool> add({
     required String name,
     required String type,
     String summary = '',
@@ -239,20 +241,19 @@ class FilesStore {
       ),
     );
 
-    if (rid != null) await _persistMetadata(rid);
+    final saved = rid != null && await _persistMetadata(rid);
     FilesController.instance.bump();
+    return saved;
   }
 
   /// Write the whole metadata list (newest-first) to the ปิ่น DM room state so
-  /// it syncs cross-device. Best-effort.
-  Future<void> _persistMetadata(String roomId) async {
-    try {
-      await MatrixService.instance.saveListToRoom(
-        roomId,
-        'io.tokens2.files',
-        [for (final f in _items) f.toRoomMap()],
-      );
-    } catch (_) {/* best-effort */}
+  /// it syncs cross-device. Returns whether the room write landed.
+  Future<bool> _persistMetadata(String roomId) async {
+    return MatrixService.instance.saveListToRoom(
+      roomId,
+      'io.tokens2.files',
+      [for (final f in _items) f.toRoomMap()],
+    );
   }
 
   /// Local path to a file's bytes for display/open. Returns the local copy if

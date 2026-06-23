@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../agent/agent_store.dart';
@@ -83,8 +84,15 @@ class NowView extends StatelessWidget {
                     ..sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0));
                   final events = EventsController.instance.value;
                   final jobs = JobsController.instance.value;
-                  final reminders = jobs.where((j) => !j.isAgentic).toList();
-                  final autoJobs = jobs.where((j) => j.isAgentic).toList();
+                  // Group by recurrence, not kind: one-time nudges = "การเตือน";
+                  // anything recurring or that ปิ่น runs = "ตารางเวลา" (daily
+                  // reminders + auto jobs combined).
+                  final reminders = jobs
+                      .where((j) => !j.isAgentic && j.repeat != 'daily')
+                      .toList();
+                  final scheduled = jobs
+                      .where((j) => j.isAgentic || j.repeat == 'daily')
+                      .toList();
                   final empty = now.isEmpty && events.isEmpty && jobs.isEmpty;
                   return ListView(
                     padding: EdgeInsets.fromLTRB(
@@ -105,9 +113,9 @@ class NowView extends StatelessWidget {
                           _sectionLabel('การเตือน · ${reminders.length}'),
                           for (final j in reminders) _jobRow(j),
                         ],
-                        if (autoJobs.isNotEmpty) ...[
-                          _sectionLabel('งานอัตโนมัติ · ${autoJobs.length}'),
-                          for (final j in autoJobs) _jobRow(j),
+                        if (scheduled.isNotEmpty) ...[
+                          _sectionLabel('ตารางเวลา · ${scheduled.length}'),
+                          for (final j in scheduled) _jobRow(j),
                         ],
                       ],
                     ],
@@ -467,9 +475,9 @@ class _FilesTabState extends State<FilesTab> {
         child: const Icon(PhosphorIconsRegular.trash, size: 18, color: PinPalette.neg),
       ),
       child: InkWell(
-        onTap: f.isImage
-            ? () => _openImage(f)
-            : (!f.isRemote && f.uri.isNotEmpty ? () => _openFile(f) : null),
+        // Any file is tappable — _openFile resolves the bytes (local copy, or
+        // downloads the DM attachment uploaded on another device) before opening.
+        onTap: f.isImage ? () => _openImage(f) : () => _openFile(f),
         borderRadius: BorderRadius.circular(12),
         child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -627,22 +635,64 @@ class _FilesTabState extends State<FilesTab> {
     );
   }
 
-  /// Tap a document/audio → iOS share sheet ("Open in…" / save / play). Resolves
-  /// the bytes (local copy, or download the DM attachment from another device).
+  /// Tap a document/audio/video → open with the OS handler: iOS QuickLook
+  /// previews PDFs and plays audio/video in an overlay; Android opens the right
+  /// app. Resolves the bytes first (local copy, or downloads the DM attachment
+  /// from another device) and fixes the extension. Falls back to the share sheet.
   Future<void> _openFile(FileItem f) async {
-    final box = context.findRenderObject() as RenderBox?;
-    final path = await FilesStore.instance.resolveBytes(f);
-    if (path == null) {
-      if (mounted) {
-        PinToast.show(context, 'ยังโหลดไฟล์ไม่ได้ ลองอีกครั้งนะ');
-      }
+    final raw = await FilesStore.instance.resolveBytes(f);
+    if (raw == null) {
+      if (mounted) PinToast.show(context, 'ยังโหลดไฟล์ไม่ได้ ลองอีกครั้งนะ');
       return;
     }
+    // Downloaded attachments often land as ".bin" (octet-stream); the OS picks
+    // the handler by extension, so give it the real one first.
+    final path = await _viewablePath(f, raw);
+    final res = await OpenFilex.open(path);
+    if (res.type == ResultType.done || !mounted) return;
+    // No handler / failed → share sheet so the user can still save or open.
+    final box = context.findRenderObject() as RenderBox?;
     await Share.shareXFiles(
       [XFile(path)],
       sharePositionOrigin:
           box == null ? null : box.localToGlobal(Offset.zero) & box.size,
     );
+  }
+
+  /// The real extension for [f] (the viewer is extension-driven). Doc files store
+  /// it as the `type` (pdf/docx/xlsx…); otherwise read it off the filename, else
+  /// fall back by category (รูป→jpg, เสียง→wav, วิดีโอ→mp4).
+  static String _extFor(FileItem f) {
+    final t = f.type.toLowerCase();
+    if (RegExp(r'^[a-z0-9]{1,5}$').hasMatch(t)) return t;
+    final n = f.name.toLowerCase();
+    final dot = n.lastIndexOf('.');
+    if (dot > 0 && dot < n.length - 1) {
+      final e = n.substring(dot + 1);
+      if (RegExp(r'^[a-z0-9]{1,5}$').hasMatch(e)) return e;
+    }
+    return switch (f.type) {
+      'รูป' => 'jpg',
+      'เสียง' => 'wav',
+      'วิดีโอ' => 'mp4',
+      _ => '',
+    };
+  }
+
+  /// Ensure [path] carries the right extension so the viewer detects the type —
+  /// copying to a temp file when it doesn't (e.g. a downloaded ".bin").
+  Future<String> _viewablePath(FileItem f, String path) async {
+    final want = _extFor(f);
+    if (want.isEmpty) return path;
+    final cur = path.contains('.') ? path.split('.').last.toLowerCase() : '';
+    if (cur == want) return path;
+    try {
+      final dest = '${Directory.systemTemp.path}/pin_view_${f.id}.$want';
+      await File(path).copy(dest);
+      return dest;
+    } catch (_) {
+      return path;
+    }
   }
 
   static const _months = [

@@ -4,6 +4,7 @@ import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
 import '../services/tasks_controller.dart';
 import 'agent_config.dart';
+import 'agent_reply.dart';
 import 'agent_store.dart';
 import 'tools.dart';
 
@@ -65,24 +66,27 @@ String _whenLabel(DateTime when, bool daily) {
 }
 
 /// Build a reminder/job, persist it to room state + schedule the OS notification.
-Future<String> _scheduleEntry(
+/// Returns (ok, message) — ok=false means it didn't record (the caller feeds the
+/// message back so ปิ่น can retry instead of falsely confirming).
+Future<(bool, String)> _scheduleEntry(
   Map<String, dynamic> args, {
   required String kind, // 'reminder' | 'agentic'
 }) async {
   final text = '${args['text'] ?? ''}'.trim();
-  if (text.isEmpty) return 'ขอข้อความที่จะเตือนด้วยนะ';
+  if (text.isEmpty) return (false, 'ขอข้อความที่จะเตือนด้วยนะ');
   final repeat = '${args['repeat'] ?? 'once'}' == 'daily' ? 'daily' : 'once';
   final rawTime = '${args['time'] ?? ''}'.trim();
   final when = rawTime.isEmpty ? null : _parseWhen(rawTime);
   if (when == null) {
-    return 'อ่านเวลาไม่ออก ลองบอกเป็น "HH:MM", "+30m" หรือวันเวลาแบบ ISO นะ';
+    return (false,
+        'อ่านเวลาไม่ออก ลองบอกเป็น "HH:MM", "+30m" หรือวันเวลาแบบ ISO นะ');
   }
   final daily = repeat == 'daily';
   final id = DateTime.now().millisecondsSinceEpoch.toString();
 
   final store = AgentStore();
   await store.load();
-  await store.addReminder({
+  final saved = await store.addReminder({
     'id': id,
     'time': _hhmm(when),
     'text': text,
@@ -90,27 +94,64 @@ Future<String> _scheduleEntry(
     'kind': kind,
     'at': when.millisecondsSinceEpoch,
   });
+  // Record to the room is the source of truth. If it didn't land, say so —
+  // never ack a reminder we failed to save (the "acks but no record" bug).
+  if (!saved) {
+    return (false, 'ตั้งเตือนยังไม่สำเร็จ (บันทึกลงห้องไม่ได้ตอนนี้) ลองอีกครั้งนะ');
+  }
 
+  // OS notification is best-effort — a phone permission/timezone hiccup must not
+  // fail the whole thing: the reminder is already recorded and re-armed on open.
   final nid = int.tryParse(id);
   if (nid != null) {
-    await NotificationService.instance.scheduleReminder(
-      id: nid,
-      body: text,
-      when: when,
-      daily: daily,
-    );
+    try {
+      await NotificationService.instance.scheduleReminder(
+        id: nid,
+        body: text,
+        when: when,
+        daily: daily,
+      );
+    } catch (_) {/* recorded already; the OS alarm re-arms on next app open */}
   }
 
   final lead = kind == 'agentic' ? 'ตั้งงานอัตโนมัติ' : 'ตั้งเตือน';
-  return "$lead '$text' ${_whenLabel(when, daily)} แล้ว (id $id)";
+  return (true, "$lead '$text' ${_whenLabel(when, daily)} แล้ว");
 }
 
 /// Resolve the ปิ่น DM room id; null when there's no room yet.
 Future<String?> _room() => MatrixService.instance.pinRoomId();
 
+/// A confirmation card for things that land in the "ตอนนี้" drawer. Its footer
+/// is tappable → `open:now`, which the chat scaffold turns into openDrawer().
+Map<String, dynamic> _nowCard(String detail) => {
+      'header': {'icon': 'tasks', 'title': 'เพิ่มใน “ตอนนี้” แล้ว'},
+      'body': [
+        {'type': 'text', 'text': detail}
+      ],
+      'footer': {
+        'icon': 'clock',
+        'text': 'แตะเพื่อดูใน “ตอนนี้”',
+        'trailing': 'เปิด →',
+        'action': {'data': 'open:now'},
+      },
+    };
+
+/// Wrap a (ok, message) producer: success → a tappable "ตอนนี้" card; failure →
+/// feedback text so ปิ่น retries instead of confirming.
+AgentTool _nowTool(
+  Map<String, dynamic> decl,
+  Future<(bool, String)> Function(Map<String, dynamic>) run,
+) =>
+    AgentTool(decl, (args) async {
+      final (ok, msg) = await run(args);
+      return ok
+          ? ToolResult.terminal(AgentReply(flex: _nowCard(msg)))
+          : ToolResult.feedback(msg);
+    });
+
 List<AgentTool> nowTools() => [
       // 1. one-shot / daily reminder ----------------------------------------
-      feedbackTool(
+      _nowTool(
         fnDecl(
           'schedule_reminder',
           'ตั้งการเตือนให้ผู้ใช้ตามเวลาที่กำหนด (เตือนผ่านแจ้งเตือนของเครื่อง). '
@@ -132,7 +173,7 @@ List<AgentTool> nowTools() => [
       ),
 
       // 2. agentic scheduled job --------------------------------------------
-      feedbackTool(
+      _nowTool(
         fnDecl(
           'schedule_job',
           'ตั้งงานอัตโนมัติให้ปิ่นทำเองตามเวลาที่กำหนด (เช่น สรุปข่าวทุกเช้า). '
@@ -154,7 +195,7 @@ List<AgentTool> nowTools() => [
           required: ['text'],
         ),
         (args) => _scheduleEntry(args, kind: 'agentic'),
-      ),
+      ), // schedule_job
 
       // 3. remove a reminder/job --------------------------------------------
       feedbackTool(
@@ -179,7 +220,7 @@ List<AgentTool> nowTools() => [
       ),
 
       // 4. add a task -------------------------------------------------------
-      feedbackTool(
+      _nowTool(
         fnDecl(
           'add_task',
           'เพิ่มสิ่งที่ต้องทำ (to-do) เข้ารายการงานของผู้ใช้. '
@@ -199,9 +240,9 @@ List<AgentTool> nowTools() => [
         ),
         (args) async {
           final text = '${args['text'] ?? ''}'.trim();
-          if (text.isEmpty) return 'ขอชื่องานด้วยนะ';
+          if (text.isEmpty) return (false, 'ขอชื่องานด้วยนะ');
           final rid = await _room();
-          if (rid == null) return 'ยังไม่พร้อม';
+          if (rid == null) return (false, 'ยังไม่พร้อม');
           final list =
               await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.tasks');
           list.add({
@@ -212,15 +253,17 @@ List<AgentTool> nowTools() => [
             'today': args['today'] == true,
             'overdue': args['overdue'] == true,
           });
-          await MatrixService.instance
+          final ok = await MatrixService.instance
               .saveListToRoom(rid, 'io.tokens2.tasks', list);
           TasksController.instance.updateFromJson(jsonEncode(list));
-          return "เพิ่มงาน '$text' แล้ว";
+          return ok
+              ? (true, "เพิ่มงาน '$text' แล้ว")
+              : (false, 'ยังบันทึกงานไม่สำเร็จ ลองอีกครั้งนะ');
         },
       ),
 
       // 5. update an existing task ------------------------------------------
-      feedbackTool(
+      _nowTool(
         fnDecl(
           'update_task',
           'แก้ไขงานที่มีอยู่ (ค้นจากชื่องาน) เช่น ย้ายหมวด/ใส่กำหนดส่ง/ทำเครื่องหมายเลยกำหนด',
@@ -238,9 +281,9 @@ List<AgentTool> nowTools() => [
         ),
         (args) async {
           final text = '${args['text'] ?? ''}'.trim();
-          if (text.isEmpty) return 'ขอชื่องานที่จะแก้ด้วยนะ';
+          if (text.isEmpty) return (false, 'ขอชื่องานที่จะแก้ด้วยนะ');
           final rid = await _room();
-          if (rid == null) return 'ยังไม่พร้อม';
+          if (rid == null) return (false, 'ยังไม่พร้อม');
           final list =
               await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.tasks');
           final idx = list.indexWhere((t) => '${t['text']}' == text);
@@ -254,10 +297,12 @@ List<AgentTool> nowTools() => [
             task['overdue'] = args['overdue'] == true;
           }
           if (idx < 0) list.add(task);
-          await MatrixService.instance
+          final ok = await MatrixService.instance
               .saveListToRoom(rid, 'io.tokens2.tasks', list);
           TasksController.instance.updateFromJson(jsonEncode(list));
-          return idx >= 0 ? "แก้งาน '$text' แล้ว" : "เพิ่มงาน '$text' แล้ว";
+          return ok
+              ? (true, idx >= 0 ? "แก้งาน '$text' แล้ว" : "เพิ่มงาน '$text' แล้ว")
+              : (false, 'ยังบันทึกไม่สำเร็จ ลองอีกครั้งนะ');
         },
       ),
 
@@ -279,8 +324,10 @@ List<AgentTool> nowTools() => [
           if (rid == null) return 'ยังไม่พร้อม';
           final store = AgentStore();
           await store.load();
-          await store.addFact(rid, text);
-          return 'จำไว้แล้ว: $text';
+          final ok = await store.addFact(rid, text);
+          return ok
+              ? 'จำไว้แล้ว: $text'
+              : 'ยังจำไม่สำเร็จ (บันทึกลงห้องไม่ได้) ลองอีกครั้งนะ';
         },
       ),
 
@@ -304,7 +351,7 @@ List<AgentTool> nowTools() => [
           if (rid == null) return 'ยังไม่พร้อม';
           final store = AgentStore();
           await store.load();
-          await store.addKnowledge(
+          final ok = await store.addKnowledge(
             rid,
             KnowledgeItem(
               title,
@@ -312,7 +359,9 @@ List<AgentTool> nowTools() => [
               '${args['content'] ?? ''}',
             ),
           );
-          return "บันทึกความรู้ '$title' แล้ว";
+          return ok
+              ? "บันทึกความรู้ '$title' แล้ว"
+              : 'ยังบันทึกไม่สำเร็จ ลองอีกครั้งนะ';
         },
       ),
 
@@ -388,12 +437,14 @@ List<AgentTool> nowTools() => [
               'at': DateTime.now().millisecondsSinceEpoch,
             });
           }
-          await MatrixService.instance
+          final ok = await MatrixService.instance
               .saveListToRoom(rid, 'io.tokens2.capability_requests', list);
           // Also report to the server backlog (admin page). Best-effort.
           await devProxy().requestCapability(cap, '${args['detail'] ?? ''}');
-          return 'บันทึกคำขอ "$cap" ไว้แล้ว — บอกผู้ใช้ว่าตอนนี้ยังทำไม่ได้ '
-              'แต่บันทึกคำขอไว้ให้ทีมพัฒนาแล้ว';
+          return ok
+              ? 'บันทึกคำขอ "$cap" ไว้แล้ว — บอกผู้ใช้ว่าตอนนี้ยังทำไม่ได้ '
+                  'แต่บันทึกคำขอไว้ให้ทีมพัฒนาแล้ว'
+              : 'ยังบันทึกคำขอไม่สำเร็จ ลองอีกครั้งนะ';
         },
       ),
     ];

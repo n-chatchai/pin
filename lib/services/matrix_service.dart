@@ -566,7 +566,10 @@ class MatrixService {
 
   /// Save a list to a room STATE event as `{items:[...]}` (state content must be
   /// a JSON object). Prunes oldest entries until it fits the cap. Best-effort.
-  Future<void> saveListToRoom(
+  /// Returns true if the state write succeeded. Callers that don't care can
+  /// ignore it (best-effort); the scheduler checks it so ปิ่น never acks a
+  /// reminder it failed to record.
+  Future<bool> saveListToRoom(
       String roomId, String type, List<Map<String, dynamic>> items) async {
     var list = items;
     while (list.length > 1 &&
@@ -575,7 +578,10 @@ class MatrixService {
     }
     try {
       await setStateEvent(roomId, type, {'items': list});
-    } catch (_) {/* best-effort */}
+      return true;
+    } catch (_) {
+      return false; // best-effort for most callers; the scheduler reacts
+    }
   }
 
   /// Read a list back from a room state event's `items`.
@@ -592,7 +598,9 @@ class MatrixService {
   /// back reliably (scanning the timeline for it would be unreliable once it's
   /// buried under chat). The homeserver can't read the content (unlike a state
   /// event, which is plaintext).
-  Future<void> saveEncryptedBlob(
+  /// Returns true if the blob + its pointer were written. The agent checks this
+  /// so ปิ่น never confirms a memory/fact it failed to record.
+  Future<bool> saveEncryptedBlob(
       String roomId, String type, Map<String, dynamic> content) async {
     try {
       final eventId = await rust.sendCustomEvent(
@@ -601,7 +609,10 @@ class MatrixService {
           eventType: type,
           contentJson: jsonEncode(content));
       await setStateEvent(roomId, '$type.ptr', {'event_id': eventId});
-    } catch (_) {/* best-effort */}
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Read a PRIVATE blob back: pointer state → fetch + decrypt that event.

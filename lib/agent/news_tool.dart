@@ -138,7 +138,7 @@ Future<List<_Item>> _fetch(List<_Source> sources) async {
         out.add(_Item(
           title: title,
           link: link,
-          summary: body.length > 240 ? body.substring(0, 240) : body,
+          summary: body.length > 400 ? body.substring(0, 400) : body,
           content: body,
           // Google News stores the real publisher in <source>; else the feed.
           source: g('source').isNotEmpty ? g('source') : src.name,
@@ -159,7 +159,7 @@ Future<void> _summarise(
     ProxyClient proxy, List<_Item> items, String lang) async {
   final numbered = [
     for (var i = 0; i < items.length; i++)
-      '$i. ${items[i].title}\n${_clip(items[i].content, 600)}'
+      '$i. ${items[i].title}\n${_clip(items[i].content, 1500)}'
   ].join('\n\n');
   try {
     final resp = await proxy.infer(messages: [
@@ -168,9 +168,10 @@ Future<void> _summarise(
         'content':
             'You are a news editor. Output in $lang. For each numbered item, '
                 'translate the headline to a short natural $lang headline and '
-                'write a self-contained 1-2 sentence summary (no preamble, do '
-                'not cut mid-sentence). Reply ONLY as a JSON array in the same '
-                'order: [{"i":0,"title":"...","summary":"..."}]'
+                'write a self-contained summary of about 3-5 sentences — cover '
+                'the who/what/why and any key detail, a full short paragraph (no '
+                'preamble, do not cut mid-sentence). Reply ONLY as a JSON array '
+                'in the same order: [{"i":0,"title":"...","summary":"..."}]'
       },
       {'role': 'user', 'content': numbered},
     ]);

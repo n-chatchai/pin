@@ -308,19 +308,17 @@ class _SecurityStatusState extends State<_SecurityStatus> {
   /// One status row: a topic icon (tinted by status), label + state, and either
   /// a chevron (actionable) or a check/warn badge (read-only).
   Widget _row(IconData icon, String title, String sub, bool ok,
-      {VoidCallback? onTap}) {
-    final c = ok ? const Color(0xFF2E9E63) : const Color(0xFFE0A100);
-    return ListTile(
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-            color: c.withValues(alpha: 0.13),
-            borderRadius: BorderRadius.circular(11)),
-        child: Icon(icon, color: c, size: 21),
-      ),
-      title: Text(title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          {VoidCallback? onTap}) =>
+      Builder(builder: (context) {
+        // "ok" tint = the active ปิ่น accent (the palette the user picked), so the
+        // check matches the rest of the app — colorScheme.primary isn't it.
+        final c =
+            ok ? ThemeController.instance.value.accent : const Color(0xFFE0A100);
+        return ListTile(
+      // Plain icon (no tinted box) + default title weight, like every other
+      // settings row. Status colour stays on the trailing check/warn badge.
+      leading: Icon(icon),
+      title: Text(title),
       subtitle: Text(sub,
           style: const TextStyle(color: PinPalette.ink2, fontSize: 12)),
       trailing: onTap != null
@@ -333,8 +331,8 @@ class _SecurityStatusState extends State<_SecurityStatus> {
               color: c,
               size: 20),
       onTap: onTap,
-    );
-  }
+        );
+      });
 
   /// Full E2EE setup (cross-signing + key backup + recovery) — needs the account
   /// password (UIA). `enableRecovery` alone only does the backup and leaves
@@ -933,19 +931,45 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
                       fontFamily: 'monospace', fontSize: 14, height: 1.5)),
             ),
             const SizedBox(height: 12),
-            PinButton('บันทึกเป็น QR',
-                onTap: () => shareRecoveryQr(context, _qrData ?? _key!,
-                    caption: MatrixService.instance.userEmail)),
-            const SizedBox(height: 8),
-            Center(
-              child: PinButton.text('คัดลอกกุญแจ', onTap: () {
-                Clipboard.setData(ClipboardData(text: _key!));
-                PinToast.show(context, 'คัดลอกแล้ว');
-              }),
-            ),
+            // Key actions = a row of two equal outlined buttons (design .key-acts).
+            Row(children: [
+              Expanded(
+                child: _keyActBtn(PhosphorIconsRegular.copy, 'คัดลอก', () {
+                  Clipboard.setData(ClipboardData(text: _key!));
+                  PinToast.show(context, 'คัดลอกแล้ว');
+                }),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _keyActBtn(
+                    PhosphorIconsRegular.qrCode,
+                    'บันทึก QR',
+                    () => shareRecoveryQr(context, _qrData ?? _key!,
+                        caption: MatrixService.instance.userEmail)),
+              ),
+            ]),
           ],
         ],
       ),
     );
   }
+
+  /// Design `.key-acts` button: equal-width, white, hairline border, green icon.
+  Widget _keyActBtn(IconData icon, String label, VoidCallback onTap) => SizedBox(
+        height: 40,
+        child: OutlinedButton.icon(
+          onPressed: onTap,
+          icon: Icon(icon, size: 16, color: ThemeController.instance.value.accent),
+          label: Text(label),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: PinPalette.ink,
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: PinPalette.line),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+            textStyle:
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
 }

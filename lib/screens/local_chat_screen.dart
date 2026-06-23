@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -698,7 +699,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       flex: r.flex,
       hint: hint,
       addedToNow: r.usedTools.any(_nowTools.contains),
-      debug: PrefsController.instance.value.debugBot && r.trace.isNotEmpty
+      debug: (PrefsController.instance.value.debugBot || kDebugMode) &&
+              r.trace.isNotEmpty
           ? r.trace
           : null,
     );
@@ -851,7 +853,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         : (html.isEmpty
             ? ''
             : await FilesStore.instance.persistText(html, 'html'));
-    await FilesStore.instance.add(
+    await _recordFile(
       name: title.isNotEmpty ? title : (caption.isNotEmpty ? caption : 'ผลงานของ$botName'),
       type: _creatorTools[tool]!,
       summary: title.isNotEmpty && caption.isNotEmpty && caption != title
@@ -871,10 +873,11 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     return '';
   }
 
-  /// When the "ดีบักบอท" opt-in is on, ship this turn (user text + reply +
-  /// agent trace) to the proxy debug log so the developer can review + improve.
+  /// When the "ดีบักบอท" opt-in is on (or always, in a debug build) ship this
+  /// turn (user text + reply + agent trace) to the proxy debug log so the
+  /// developer can review + improve.
   void _maybeDebugLog(String userText, AgentReply r) {
-    if (!PrefsController.instance.value.debugBot) return;
+    if (!PrefsController.instance.value.debugBot && !kDebugMode) return;
     devProxy().debugLog({
       'user': userText,
       'reply': r.flex != null ? '[การ์ด]' : (r.text ?? ''),
@@ -1005,7 +1008,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         recordText: '📄 $name');
     // ไฟล์ tab metadata → reference the SAME room attachment (no second upload),
     // so it's one file on every device.
-    await FilesStore.instance.add(
+    await _recordFile(
       name: name,
       type: ext,
       summary: r?.text?.trim() ?? '',
@@ -1066,9 +1069,31 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     await _run(voiceMsg, text,
         attachPath: path, attachMime: _mimeForName(path), attachCaption: text);
     // ไฟล์ tab references the SAME attachment (no second upload).
-    await FilesStore.instance.add(
+    await _recordFile(
         name: 'บันทึกเสียง', type: 'เสียง', summary: text, uri: saved,
         eventId: _lastFileEventId);
+  }
+
+  /// Record a file to the ไฟล์ tab + ปิ่น room. Tells the user if the room write
+  /// (the source of truth) didn't land — so a file never silently vanishes.
+  Future<void> _recordFile({
+    required String name,
+    required String type,
+    String summary = '',
+    String uri = '',
+    int? when,
+    String? eventId,
+  }) async {
+    final ok = await FilesStore.instance.add(
+        name: name,
+        type: type,
+        summary: summary,
+        uri: uri,
+        when: when,
+        eventId: eventId);
+    if (!ok && mounted) {
+      PinToast.show(context, 'เก็บไฟล์ขึ้นห้องไม่สำเร็จ ลองส่งใหม่อีกครั้งนะ');
+    }
   }
 
   /// Get the device GPS fix and hand it to ปิ่น as a turn so it can use it
@@ -1165,7 +1190,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     );
     final r =
         await _run(msg, prompt, imagePath: abs, imageRecordPath: saved);
-    await FilesStore.instance.add(
+    await _recordFile(
       name: label,
       type: 'รูป',
       summary: r?.text?.trim() ?? '',

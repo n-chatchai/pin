@@ -105,19 +105,16 @@ class AgentStore {
   /// Push the WHOLE memory (facts + knowledge across all rooms) to the ปิ่น DM as
   /// an E2EE blob. Embeddings are excluded (derived, recomputed on-device).
   /// Best-effort — no ปิ่น room or a network failure is a silent no-op.
-  Future<void> _persistMemory() async {
+  Future<bool> _persistMemory() async {
     final rid = await MatrixService.instance.pinRoomId();
-    if (rid == null) return;
-    try {
-      await MatrixService.instance
-          .saveEncryptedBlob(rid, 'io.tokens2.memory', {
-        'facts': {for (final e in _facts.entries) e.key: e.value},
-        'knowledge': {
-          for (final e in _knowledge.entries)
-            e.key: [for (final k in e.value) k.toJson()],
-        },
-      });
-    } catch (_) {/* best-effort */}
+    if (rid == null) return false;
+    return MatrixService.instance.saveEncryptedBlob(rid, 'io.tokens2.memory', {
+      'facts': {for (final e in _facts.entries) e.key: e.value},
+      'knowledge': {
+        for (final e in _knowledge.entries)
+          e.key: [for (final k in e.value) k.toJson()],
+      },
+    });
   }
 
   /// Feed the "ความรู้ใหม่" section: facts then knowledge titles, newest first.
@@ -134,28 +131,29 @@ class AgentStore {
   // -- facts -----------------------------------------------------------------
   List<String> facts(String room) => List.of(_facts[room] ?? const []);
 
-  Future<void> addFact(String room, String text) async {
+  Future<bool> addFact(String room, String text) async {
     final f = _facts.putIfAbsent(room, () => []);
-    if (!f.contains(text)) {
-      f.add(text);
-      if (f.length > _maxFacts) f.removeRange(0, f.length - _maxFacts);
-      await _persistMemory();
-      _refreshMemoryController();
-    }
+    if (f.contains(text)) return true; // already recorded
+    f.add(text);
+    if (f.length > _maxFacts) f.removeRange(0, f.length - _maxFacts);
+    final ok = await _persistMemory();
+    _refreshMemoryController();
+    return ok;
   }
 
   // -- knowledge -------------------------------------------------------------
   List<String> knowledgeTitles(String room) =>
       (_knowledge[room] ?? const []).map((k) => k.title).toList();
 
-  Future<void> addKnowledge(String room, KnowledgeItem item) async {
+  Future<bool> addKnowledge(String room, KnowledgeItem item) async {
     final k = _knowledge.putIfAbsent(room, () => []);
     k.add(item);
     if (k.length > _maxKnowledge) k.removeRange(0, k.length - _maxKnowledge);
-    await _persistMemory();
+    final ok = await _persistMemory();
     _refreshMemoryController();
     // Warm the embedding cache so the first recall is fast. Best-effort.
     unawaited(_embed(item.embedText));
+    return ok;
   }
 
   /// Embed [text] on-device, memoized. Null when no model is provisioned.
@@ -192,10 +190,12 @@ class AgentStore {
   /// Scheduled reminders/jobs the agent set (shown in the left "ตอนนี้" panel).
   List<Map<String, dynamic>> reminders() => List.of(_reminders);
 
-  Future<void> addReminder(Map<String, dynamic> r) async {
+  /// Returns true once the reminder is recorded in the room (the source of
+  /// truth) — the scheduler relies on this so it never falsely acks.
+  Future<bool> addReminder(Map<String, dynamic> r) async {
     _reminders.removeWhere((x) => x['id'] == r['id']);
     _reminders.add(r);
-    await _persistReminders();
+    return _persistReminders();
   }
 
   Future<void> removeReminder(String id) async {
@@ -204,16 +204,15 @@ class AgentStore {
   }
 
   /// Mirror the whole reminders list to the ปิ่น DM room state (the source of
-  /// truth) and refresh the "ตั้งเวลา" list. Best-effort.
-  Future<void> _persistReminders() async {
+  /// truth) and refresh the "ตั้งเวลา" list. Returns whether the room write
+  /// actually landed.
+  Future<bool> _persistReminders() async {
     final rid = await MatrixService.instance.pinRoomId();
-    if (rid != null) {
-      try {
+    final ok = rid != null &&
         await MatrixService.instance
             .saveListToRoom(rid, 'io.tokens2.reminders', _reminders.cast());
-      } catch (_) {/* best-effort */}
-    }
     JobsController.instance.updateFromJson(jsonEncode(_reminders));
+    return ok;
   }
 
   /// Drop one-shot reminders whose time has already passed (called on load).

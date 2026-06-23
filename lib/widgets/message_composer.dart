@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -179,8 +178,6 @@ class _MessageComposerState extends State<MessageComposer> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The "+" panel floats directly above the bar (capabilities + tools).
-          if (_panelOpen && !_recording) _capPanel(scheme),
           // Solid lifted card (Claude-style): white surface, hairline edge, soft
           // drop shadow so it floats above the tinted screen instead of sinking in.
           Container(
@@ -297,8 +294,7 @@ class _MessageComposerState extends State<MessageComposer> {
               key: const ValueKey('icons'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _togglePanel, scheme,
-                    active: _panelOpen),
+                _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _openSheet, scheme),
                 const SizedBox(width: 6),
                 _roundBtn(PhosphorIconsLight.camera, 'กล้อง',
                     () => widget.onMedia?.call('camera'), scheme),
@@ -327,7 +323,8 @@ class _MessageComposerState extends State<MessageComposer> {
         'ขอดูอัตราแลกเปลี่ยน'),
     (['generate_image'], PhosphorIconsLight.image, 'วาดรูป',
         'ช่วยวาดรูปให้หน่อย'),
-    (<String>[], PhosphorIconsLight.bell, 'ตั้งเตือน', 'ช่วยตั้งเตือนหน่อย'),
+    (<String>[], PhosphorIconsLight.bell, 'ตั้งเวลา',
+        'ช่วยตั้งเตือนหรือตั้งตารางเวลาประจำให้หน่อย'),
     (['joke'], PhosphorIconsLight.smiley, 'เล่ามุก', 'เล่ามุกให้ฟังหน่อย'),
   ];
 
@@ -348,12 +345,6 @@ class _MessageComposerState extends State<MessageComposer> {
                 if (s.$1.isEmpty || s.$1.any(_catNames.contains)) s
             ];
 
-  void _togglePanel() {
-    if (!_panelOpen) FocusScope.of(context).unfocus(); // drop the keyboard
-    setState(() => _panelOpen = !_panelOpen);
-    widget.onPanelToggled?.call(_panelOpen);
-  }
-
   void _runCap(String prompt) {
     setState(() => _panelOpen = false);
     widget.onPanelToggled?.call(false);
@@ -366,105 +357,117 @@ class _MessageComposerState extends State<MessageComposer> {
     widget.onMedia?.call(id);
   }
 
-  // ----- "+" panel ----------------------------------------------------------
+  // ----- "+" sheet ----------------------------------------------------------
 
-  Widget _capPanel(ColorScheme scheme) {
+  /// The "+" opens a bottom sheet (slides up like the photo picker) with the
+  /// capabilities + tools laid out as an icon grid.
+  void _openSheet() {
+    FocusScope.of(context).unfocus();
+    widget.onPanelToggled?.call(true);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _capSheet(),
+    ).whenComplete(() => widget.onPanelToggled?.call(false));
+  }
+
+  Widget _capSheet() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x1A282822), blurRadius: 30, offset: Offset(0, 10)),
-        ],
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            color: Colors.white.withValues(alpha: 0.85),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _panelLabel('ความสามารถ'),
-                _badgeRow([
-                  for (final (_, icon, label, prompt) in _visibleCaps)
-                    _badge(icon, label, () => _runCap(prompt)),
-                ]),
-                const SizedBox(height: 18),
-                _panelLabel('เครื่องมือ'),
-                _badgeRow([
-                  for (final (id, icon, label) in _toolSpecs)
-                    _badge(icon, label, () => _runTool(id), isTool: true),
-                ]),
-              ],
-            ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: PinPalette.line,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _sheetLabel('ความสามารถ'),
+              _grid([
+                for (final (_, icon, label, prompt) in _visibleCaps)
+                  _tile(icon, label, () {
+                    Navigator.pop(context);
+                    _runCap(prompt);
+                  }),
+              ]),
+              const SizedBox(height: 18),
+              _sheetLabel('เครื่องมือ'),
+              _grid([
+                for (final (id, icon, label) in _toolSpecs)
+                  _tile(icon, label, () {
+                    Navigator.pop(context);
+                    _runTool(id);
+                  }, isTool: true),
+              ]),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _panelLabel(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+  Widget _sheetLabel(String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
         child: Text(t,
             style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.4,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
                 color: PinPalette.ink3)),
       );
 
-  Widget _badgeRow(List<Widget> badges) => SizedBox(
-        height: 34,
-        child: ShaderMask(
-          shaderCallback: (Rect bounds) {
-            return const LinearGradient(
-              begin: Alignment.centerRight,
-              end: Alignment.centerLeft,
-              colors: [Colors.white, Color(0x00FFFFFF)],
-              stops: [0.0, 0.08],
-            ).createShader(bounds);
-          },
-          blendMode: BlendMode.dstOut,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            itemCount: badges.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 7),
-            itemBuilder: (_, i) => badges[i],
-          ),
-        ),
+  Widget _grid(List<Widget> tiles) => GridView.count(
+        crossAxisCount: 4,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.82,
+        children: tiles,
       );
 
   static const _badgeBg = Color(0xFF23231F);
-  Widget _badge(IconData icon, String label, VoidCallback onTap, {bool isTool = false}) => Material(
-        color: isTool ? Colors.white : _badgeBg,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(100),
-            side: isTool ? const BorderSide(color: PinPalette.line, width: 1) : BorderSide.none,
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(100),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 15, 0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 16, color: isTool ? PinPalette.ink : Colors.white),
-                const SizedBox(width: 7),
-                Text(label,
-                    style: TextStyle(
-                        color: isTool ? PinPalette.ink : Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500)),
-              ],
+  Widget _tile(IconData icon, String label, VoidCallback onTap,
+          {bool isTool = false}) =>
+      InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: isTool ? Colors.white : _badgeBg,
+                borderRadius: BorderRadius.circular(16),
+                border: isTool ? Border.all(color: PinPalette.line) : null,
+              ),
+              child: Icon(icon,
+                  size: 24, color: isTool ? PinPalette.ink : Colors.white),
             ),
-          ),
+            const SizedBox(height: 6),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: PinPalette.ink)),
+          ],
         ),
       );
 

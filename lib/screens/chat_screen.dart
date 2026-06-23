@@ -59,6 +59,7 @@ class ChatScaffold extends StatefulWidget {
 
 class _ChatScaffoldState extends State<ChatScaffold> {
   bool _composerPanelOpen = false;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
@@ -73,11 +74,21 @@ class _ChatScaffoldState extends State<ChatScaffold> {
     final onReply = widget.onReply;
     final onCancelReply = widget.onCancelReply;
     final onReact = widget.onReact;
-    final onFlexAction = widget.onFlexAction;
+    // A card footer with action `open:now` opens the "ตอนนี้" drawer (e.g. the
+    // confirmation after ปิ่น adds a reminder/task); everything else goes up.
+    void onFlexAction(String data) {
+      if (data == 'open:now') {
+        _scaffoldKey.currentState?.openDrawer();
+        return;
+      }
+      widget.onFlexAction?.call(data);
+    }
+
     // Design: no header bar — bubbles/cards fill the screen, two floating
     // buttons sit top-left (ตอนนี้, slides from left) and top-right (menu,
     // slides from right) via the Scaffold's drawer / endDrawer.
     return Scaffold(
+      key: _scaffoldKey,
       drawer: const Drawer(width: 320, child: NowView()),
       // bottom:false → chat fills to the screen edge so it blurs through the
       // glass composer all the way down (no solid bar under it). The composer
