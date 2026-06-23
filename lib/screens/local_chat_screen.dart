@@ -631,6 +631,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         'custom_call': p.customCall,
         'custom_self': p.customSelf,
         'theme': ThemeController.instance.value.key,
+        'lang': p.lang,
+        'onboarded': p.onboarded ? '1' : '0',
+        'persona_setup': '1', // Set to 1 because we are finishing setup
       });
     }
     await PrefsController.instance.update(p.copyWith(personaSetup: true));
@@ -709,7 +712,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       String? recordText,
       String? imageRecordPath,
       String? attachPath,
-      String? attachMime}) async {
+      String? attachMime,
+      String? attachCaption}) async {
     if (_session == null || _botTyping) return null;
     setState(() {
       _messages.add(userMsg);
@@ -729,7 +733,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         await _mirrorImageToRoom(imagePath, r);
       } else if (attachPath != null) {
         await _mirrorAttachToRoom(
-            attachPath, attachMime ?? 'application/octet-stream', r);
+            attachPath, attachMime ?? 'application/octet-stream', r,
+            caption: attachCaption);
       } else {
         await _mirrorToRoom(recordText ?? text, r);
       }
@@ -774,12 +779,13 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// post ปิ่น's summary reply. Stashes the attachment event id in
   /// [_lastFileEventId] so the ไฟล์ tab can reference the room copy.
   Future<void> _mirrorAttachToRoom(
-      String path, String mime, AgentReply? r) async {
+      String path, String mime, AgentReply? r, {String? caption}) async {
     _lastFileEventId = null;
     final rid = _roomId;
     if (rid == null) return;
     try {
-      final ue = await MatrixService.instance.sendUserAttachment(rid, path, mime);
+      final ue = await MatrixService.instance
+          .sendUserAttachment(rid, path, mime, caption: caption);
       _seenEvents.add(ue);
       _lastFileEventId = ue;
       if (r != null) {
@@ -806,7 +812,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     try {
       // Mark our own event ids as seen so their live echo isn't double-rendered
       // (the optimistic bubble is already on screen).
-      final ue = await MatrixService.instance.sendText(rid, userBody, role: 'user');
+      final ue =
+          await MatrixService.instance.sendText(rid, userBody, role: 'user');
       _seenEvents.add(ue);
       if (r != null) {
         final body = (r.text?.isNotEmpty ?? false)
@@ -977,7 +984,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       PinToast.show(context, '${res?['error'] ?? 'อ่านไฟล์นี้ไม่ได้'}');
       return;
     }
-    final body = md.length > 8000 ? md.substring(0, 8000) : md;
+    // Gemini 1.5 Flash supports 1M+ tokens. Bump the max to 500,000 chars (~200 pages).
+    final body = md.length > 500000 ? md.substring(0, 500000) : md;
     final dot = name.lastIndexOf('.');
     final ext = dot > 0 ? name.substring(dot + 1) : '';
     // The user turn IS the file — a real E2EE room attachment that syncs to every
@@ -1035,18 +1043,31 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     final dot = path.lastIndexOf('.');
     final ext = dot > 0 ? path.substring(dot + 1) : 'm4a';
     final saved = await FilesStore.instance.persistMedia(path, ext);
-    await FilesStore.instance
-        .add(name: 'บันทึกเสียง', type: 'เสียง', summary: text, uri: saved);
+
     // Onboarding voice demo: run the transcript as a REAL turn (the agent acts
     // on it for real), then move on to the theme step.
     if (_personaStep >= 0 && _personaStage == 'demo_voice') {
       _personaStage = '';
       _consumeOptions();
       await _run(_text(text, me: true), text);
+      await FilesStore.instance
+          .add(name: 'บันทึกเสียง', type: 'เสียง', summary: text, uri: saved);
       _tourNext(_themeStep);
       return;
     }
-    _onSend(text);
+
+    // One bubble for the whole voice turn: the note rides as a SINGLE m.audio
+    // attachment whose caption is the transcript — mic icon + text, playable,
+    // synced to every device, identical on reload. No separate text turn.
+    final voiceMsg = ChatViewMessage(
+        eventId: 'm${_seq++}', sender: '@me', body: text,
+        time: DateTime.now(), isMe: true, kind: 'audio');
+    await _run(voiceMsg, text,
+        attachPath: path, attachMime: _mimeForName(path), attachCaption: text);
+    // ไฟล์ tab references the SAME attachment (no second upload).
+    await FilesStore.instance.add(
+        name: 'บันทึกเสียง', type: 'เสียง', summary: text, uri: saved,
+        eventId: _lastFileEventId);
   }
 
   /// Get the device GPS fix and hand it to ปิ่น as a turn so it can use it

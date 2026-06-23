@@ -3,14 +3,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
 
 import 'matrix_service.dart';
 
 /// One artifact ปิ่น handled or made (uploaded doc, scan, photo, voice, gen
-/// image). We never keep raw bytes of *server-processed* docs — only this
-/// record. For media (image/audio) we keep a private on-device copy at [uri]
-/// so it can be re-opened; gen images keep their remote URL.
+/// image). The record lives in the ปิ่น DM room state (`io.tokens2.files`) — the
+/// single source of truth. Raw bytes ride the DM as an E2EE attachment ([eventId]);
+/// the local [uri] copy is a disposable cache for fast re-open, rebuilt on demand.
 class FileItem {
   final int id;
   final String name;
@@ -34,21 +33,21 @@ class FileItem {
   bool get isAudio => type == 'เสียง';
   bool get isRemote => uri.startsWith('http');
 
-  static FileItem fromRow(Map<String, Object?> r) => FileItem(
-        id: r['id'] as int,
-        name: '${r['name'] ?? ''}',
-        type: '${r['type'] ?? ''}',
-        summary: '${r['summary'] ?? ''}',
-        uri: '${r['uri'] ?? ''}',
-        createdAt: (r['created_at'] as int?) ?? 0,
-        eventId: (r['event_id'] as String?)?.isEmpty == true
-            ? null
-            : r['event_id'] as String?,
-      );
-
   /// True when the local bytes aren't on THIS device (only metadata synced from
   /// another device) but can be fetched from the DM attachment.
   bool get needsDownload => !isRemote && eventId != null;
+
+  static FileItem fromRoomMap(Map<String, dynamic> m) => FileItem(
+        id: (m['id'] as num?)?.toInt() ?? 0,
+        name: '${m['name'] ?? ''}',
+        type: '${m['type'] ?? ''}',
+        summary: '${m['summary'] ?? ''}',
+        uri: '${m['uri'] ?? ''}',
+        createdAt: (m['created_at'] as num?)?.toInt() ?? 0,
+        eventId: (m['event_id'] as String?)?.isEmpty == true
+            ? null
+            : m['event_id'] as String?,
+      );
 
   /// Row map for mirroring metadata to the ปิ่น DM room state.
   Map<String, dynamic> toRoomMap() => {
@@ -60,20 +59,40 @@ class FileItem {
         'created_at': createdAt,
         if (eventId != null) 'event_id': eventId,
       };
+
+  /// True when this item's text matches a search [q] (name + summary).
+  bool matches(String q) {
+    final t = q.toLowerCase();
+    return name.toLowerCase().contains(t) || summary.toLowerCase().contains(t);
+  }
+
+  /// True when this item belongs to the given filter bucket.
+  /// null = all, 'image' / 'audio' / 'doc' (everything else).
+  bool inFilter(String? filter) => switch (filter) {
+        'image' => type == 'รูป',
+        'audio' => type == 'เสียง',
+        'doc' => type != 'รูป' && type != 'เสียง',
+        _ => true,
+      };
 }
 
-/// On-device SQLite store of processed files, kept newest-first and read in
-/// pages for the "ไฟล์" tab's infinite scroll. Lives in the app's private DB
-/// dir (encrypted at rest by iOS Data Protection); nothing leaves the phone.
+/// In-memory list of processed files, sourced from the ปิ่น DM room state (the
+/// single source of truth). No local database — the list is seeded once from the
+/// room ([loadFromRoom]) and filtered/paged in memory for the "ไฟล์" tab. Bytes
+/// live in the room as E2EE attachments; the on-device [uri] copies under
+/// `media/<acct>/` are a disposable cache that [resolveBytes] re-downloads.
+///
+/// ponytail: whole list lives in one state event (~64KB → ~300 files). Past that,
+/// move records to timeline events + Matrix /search.
 class FilesStore {
   FilesStore._();
   static final FilesStore instance = FilesStore._();
 
-  Database? _db;
-  String? _dbAccount; // which account the open _db belongs to
+  final List<FileItem> _items = []; // newest-first
+  String? _loadedAccount; // which account [_items] belongs to
 
-  /// Sanitized account key for per-account file isolation (db + media dir).
-  /// Null account → legacy shared names so pre-upgrade installs keep working.
+  /// Sanitized account key for per-account media isolation.
+  /// Null account → legacy shared name so pre-upgrade installs keep working.
   String get _acct {
     final uid = MatrixService.instance.userId;
     return uid == null
@@ -105,45 +124,36 @@ class FilesStore {
     return p.join(dir.path, stored);
   }
 
-  /// Close the open DB so the next account opens its own. Called on logout.
+  /// Drop the in-memory list so the next account reloads its own. On logout.
   Future<void> reset() async {
-    await _db?.close();
-    _db = null;
-    _dbAccount = null;
+    _items.clear();
+    _loadedAccount = null;
   }
 
-  Future<Database> _open() async {
+  /// Seed the in-memory list from the ปิ่น DM room (the single source of truth),
+  /// newest-first. Re-reads when the logged-in account changed under us.
+  Future<void> _ensureLoaded() async {
     final acct = _acct;
-    // Reopen if the logged-in account changed under us (defensive — logout
-    // calls reset(), but this guards a missed reset).
-    if (_db != null && _dbAccount == acct) return _db!;
-    await _db?.close();
-    final dir = await getApplicationSupportDirectory();
-    final name = acct.isEmpty ? 'pin_files.db' : 'pin_files_$acct.db';
-    _dbAccount = acct;
-    _db = await openDatabase(
-      p.join(dir.path, name),
-      version: 3,
-      onCreate: (db, _) => db.execute('''
-        CREATE TABLE files(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          type TEXT,
-          summary TEXT,
-          uri TEXT,
-          created_at INTEGER NOT NULL,
-          event_id TEXT
-        )'''),
-      onUpgrade: (db, old, _) async {
-        if (old < 2) await db.execute('ALTER TABLE files ADD COLUMN uri TEXT');
-        // event_id: the ปิ่น DM attachment event for this file's bytes, so the
-        // ไฟล์ tab can re-download them via downloadMedia after a reinstall.
-        if (old < 3) {
-          await db.execute('ALTER TABLE files ADD COLUMN event_id TEXT');
-        }
-      },
-    );
-    return _db!;
+    if (_loadedAccount == acct) return;
+    _items.clear();
+    _loadedAccount = acct;
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid == null) return;
+    try {
+      final maps = await MatrixService.instance
+          .loadListFromRoom(rid, 'io.tokens2.files');
+      _items
+        ..clear()
+        ..addAll(maps.map(FileItem.fromRoomMap))
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } catch (_) {/* best-effort — empty list until the room syncs */}
+  }
+
+  /// Public seed/refresh used on boot & resume. Re-reads the room list.
+  Future<void> loadFromRoom() async {
+    _loadedAccount = null; // force re-read
+    await _ensureLoaded();
+    FilesController.instance.bump();
   }
 
   /// Copy a media file (image/audio) into the app's private support dir so it
@@ -182,9 +192,8 @@ class FilesStore {
   ///
   /// If [uri] is a LOCAL file, its bytes are uploaded to the ปิ่น DM as an E2EE
   /// attachment (the single source of truth) and the returned event id is stored
-  /// so the ไฟล์ tab can re-download them later via [MatrixService.downloadMedia].
-  /// The SQLite row is the per-account read cache; the room metadata list is the
-  /// source on load. Both room calls are best-effort.
+  /// so the ไฟล์ tab can re-download them later via [resolveBytes]. The room
+  /// metadata list is then rewritten — there is no local database.
   Future<void> add({
     required String name,
     required String type,
@@ -193,13 +202,13 @@ class FilesStore {
     int? when,
     String? eventId,
   }) async {
-    final db = await _open();
+    await _ensureLoaded();
+    final rid = await MatrixService.instance.pinRoomId();
 
     // Upload local bytes to the ปิ่น DM so they survive reinstall/restore. Remote
     // urls and empty uris carry no bytes — nothing to upload. If the caller
     // already posted the bytes as a room attachment (the chat does), it passes
     // the [eventId] so we DON'T upload a second copy.
-    final rid = await MatrixService.instance.pinRoomId();
     if (eventId == null && rid != null && uri.isNotEmpty && !uri.startsWith('http')) {
       try {
         final local = await absPath(uri);
@@ -207,48 +216,55 @@ class FilesStore {
           eventId = await MatrixService.instance
               .sendUserAttachment(rid, local, _mimeFor(local));
         }
-      } catch (_) {/* best-effort — keep the local-only row */}
+      } catch (_) {/* best-effort — keep the metadata-only record */}
     }
 
-    await db.insert('files', {
-      'name': name,
-      'type': type,
-      'summary': summary,
-      'uri': uri,
-      'created_at': when ?? DateTime.now().millisecondsSinceEpoch,
-      'event_id': eventId,
-    });
+    final ts = when ?? DateTime.now().millisecondsSinceEpoch;
+    // id = creation timestamp; bump on the rare same-ms collision so remove()
+    // can address a single record unambiguously.
+    var id = ts;
+    while (_items.any((f) => f.id == id)) {
+      id++;
+    }
+    _items.insert(
+      0,
+      FileItem(
+        id: id,
+        name: name,
+        type: type,
+        summary: summary,
+        uri: uri,
+        createdAt: ts,
+        eventId: eventId,
+      ),
+    );
 
-    // Mirror the whole metadata list (incl. event ids) to the room state.
     if (rid != null) await _persistMetadata(rid);
     FilesController.instance.bump();
   }
 
-  /// Write every file row (as room maps, newest-first) to the ปิ่น DM room state
-  /// so metadata syncs cross-device. Best-effort.
+  /// Write the whole metadata list (newest-first) to the ปิ่น DM room state so
+  /// it syncs cross-device. Best-effort.
   Future<void> _persistMetadata(String roomId) async {
     try {
-      final db = await _open();
-      final rows = await db.query('files', orderBy: 'created_at DESC');
       await MatrixService.instance.saveListToRoom(
         roomId,
         'io.tokens2.files',
-        [for (final r in rows) FileItem.fromRow(r).toRoomMap()],
+        [for (final f in _items) f.toRoomMap()],
       );
     } catch (_) {/* best-effort */}
   }
 
-  /// Seed the file metadata cache from the ปิ่น DM room (the single source of
-  /// truth): upsert each room row into SQLite by id so paging still works, then
-  /// refresh the ไฟล์ tab. Bytes are resolved lazily via [event_id] +
-  /// [MatrixService.downloadMedia]. Best-effort.
   /// Local path to a file's bytes for display/open. Returns the local copy if
   /// present; otherwise (uploaded on ANOTHER device — only metadata synced)
-  /// downloads it from the ปิ่น DM attachment by event id (memoized). Null if
-  /// neither is available.
+  /// downloads it from the ปิ่น DM attachment by event id. Null if neither is
+  /// available.
   Future<String?> resolveBytes(FileItem f) async {
     if (f.isRemote) return f.uri;
-    if (f.uri.isNotEmpty && await File(f.uri).exists()) return f.uri;
+    if (f.uri.isNotEmpty) {
+      final local = await absPath(f.uri);
+      if (await File(local).exists()) return local;
+    }
     final eid = f.eventId;
     if (eid != null && eid.isNotEmpty) {
       final rid = await MatrixService.instance.pinRoomId();
@@ -259,35 +275,6 @@ class FilesStore {
       }
     }
     return null;
-  }
-
-  Future<void> loadFromRoom() async {
-    final rid = await MatrixService.instance.pinRoomId();
-    if (rid == null) return;
-    try {
-      final items = await MatrixService.instance
-          .loadListFromRoom(rid, 'io.tokens2.files');
-      if (items.isEmpty) return;
-      final db = await _open();
-      for (final m in items) {
-        final id = m['id'];
-        if (id is! int) continue;
-        await db.insert(
-          'files',
-          {
-            'id': id,
-            'name': '${m['name'] ?? ''}',
-            'type': '${m['type'] ?? ''}',
-            'summary': '${m['summary'] ?? ''}',
-            'uri': '${m['uri'] ?? ''}',
-            'created_at': (m['created_at'] as int?) ?? 0,
-            'event_id': m['event_id'] as String?,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      FilesController.instance.bump();
-    } catch (_) {/* best-effort */}
   }
 
   /// Best-effort mime type from a file extension (no `mime` package on board).
@@ -328,48 +315,43 @@ class FilesStore {
 
   /// A page of files, newest first. Used by the infinite-scroll list.
   /// [filter]: null = all, 'image'/'audio' = that type, 'doc' = everything else.
-  /// Filtering is in the query so pagination stays correct across pages.
+  /// [query]: optional text match over name + summary.
+  /// Filtering/search/paging all run over the in-memory room list.
   Future<List<FileItem>> page(
-      {required int offset, int limit = 20, String? filter}) async {
-    final db = await _open();
-    String? where;
-    List<Object?>? args;
-    if (filter == 'image') {
-      where = 'type = ?';
-      args = ['รูป'];
-    } else if (filter == 'audio') {
-      where = 'type = ?';
-      args = ['เสียง'];
-    } else if (filter == 'doc') {
-      where = "type NOT IN ('รูป', 'เสียง')";
-    }
-    final rows = await db.query('files',
-        where: where,
-        whereArgs: args,
-        orderBy: 'created_at DESC',
-        limit: limit,
-        offset: offset);
+      {required int offset, int limit = 20, String? filter, String? query}) async {
+    await _ensureLoaded();
+    final q = query?.trim() ?? '';
+    final view = [
+      for (final f in _items)
+        if (f.inFilter(filter) && (q.isEmpty || f.matches(q))) f,
+    ];
+    final slice = view.skip(offset).take(limit);
     // Resolve stored (relative) uris to absolute paths for the UI to open.
-    return Future.wait(rows.map((r) async {
-      final item = FileItem.fromRow(r);
-      if (item.uri.isEmpty || item.isRemote) return item;
-      return FileItem.fromRow({...r, 'uri': await absPath(item.uri)});
+    return Future.wait(slice.map((f) async {
+      if (f.uri.isEmpty || f.isRemote) return f;
+      return FileItem(
+        id: f.id,
+        name: f.name,
+        type: f.type,
+        summary: f.summary,
+        uri: await absPath(f.uri),
+        createdAt: f.createdAt,
+        eventId: f.eventId,
+      );
     }));
   }
 
   Future<int> count() async {
-    final db = await _open();
-    return Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM files')) ??
-        0;
+    await _ensureLoaded();
+    return _items.length;
   }
 
   Future<void> remove(int id) async {
-    final db = await _open();
-    final rows =
-        await db.query('files', columns: ['uri'], where: 'id = ?', whereArgs: [id]);
-    final uri = rows.isEmpty ? '' : '${rows.first['uri'] ?? ''}';
-    await db.delete('files', where: 'id = ?', whereArgs: [id]);
+    await _ensureLoaded();
+    final idx = _items.indexWhere((f) => f.id == id);
+    if (idx < 0) return;
+    final uri = _items[idx].uri;
+    _items.removeAt(idx);
     if (uri.isNotEmpty && !uri.startsWith('http')) {
       try {
         final f = File(await absPath(uri));

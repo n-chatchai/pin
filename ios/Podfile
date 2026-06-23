@@ -1,5 +1,4 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+platform :ios, '15.1'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -28,7 +27,8 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
+
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
@@ -39,5 +39,15 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+  end
+  installer.aggregate_targets.each do |target|
+    target.user_project.targets.each do |app_target|
+      if app_target.name == 'Runner'
+        app_target.build_configurations.each do |config|
+          config.build_settings['OTHER_LDFLAGS'] = ['$(inherited)', '-all_load', '-Wl,-export_dynamic']
+        end
+      end
+    end
+    target.user_project.save
   end
 end

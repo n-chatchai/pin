@@ -27,7 +27,7 @@ String _hhmm(DateTime d) =>
 DateTime? _parseWhen(String raw) {
   final t = raw.trim();
   // Relative: +30m / +2h / +90 (minutes).
-  final rel = RegExp(r'^\+\s*(\d+)\s*([mhd]?)$', caseSensitive: false)
+  final rel = RegExp(r'^\+?\s*(\d+)\s*([mhd]?)$', caseSensitive: false)
       .firstMatch(t);
   if (rel != null) {
     final n = int.parse(rel.group(1)!);
@@ -310,7 +310,6 @@ List<AgentTool> nowTools() => [
               title,
               '${args['summary'] ?? ''}',
               '${args['content'] ?? ''}',
-              null,
             ),
           );
           return "บันทึกความรู้ '$title' แล้ว";
@@ -334,9 +333,9 @@ List<AgentTool> nowTools() => [
           if (rid == null) return 'ยังไม่พร้อม';
           final store = AgentStore();
           await store.load();
-          // No on-device query embedding here → recency-ranked fallback (the
-          // store returns the newest entries when embedding is null).
-          final hits = store.searchKnowledge(rid, null, 5);
+          // On-device semantic recall: the store embeds the query + items via the
+          // bundled model, falling back to recency when no model is provisioned.
+          final hits = await store.searchKnowledge(rid, query, 5);
           if (hits.isEmpty) return 'ยังไม่มีข้อมูลที่บันทึกไว้';
           final lines = [
             for (final k in hits)

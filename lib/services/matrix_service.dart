@@ -520,7 +520,8 @@ class MatrixService {
 
   /// Upload an encrypted attachment into the DM as the human account.
   Future<String> sendUserAttachment(
-      String roomId, String path, String mime) async {
+      String roomId, String path, String mime,
+      {String? caption}) async {
     final bytes = await File(path).readAsBytes();
     return rust.sendAttachment(
       role: 'user',
@@ -528,6 +529,7 @@ class MatrixService {
       filename: p.basename(path),
       mime: mime,
       bytes: bytes,
+      caption: caption,
     );
   }
 

@@ -49,7 +49,15 @@ do
   fi
 done
 
+if [ "$CARGOKIT_DARWIN_PLATFORM_NAME" = "iphoneos" ] || [ "$CARGOKIT_DARWIN_PLATFORM_NAME" = "iphonesimulator" ]; then
+    sed -i.bak 's/crate-type = \["cdylib", "staticlib"\]/crate-type = \["staticlib"\]/' "$CARGOKIT_MANIFEST_DIR/Cargo.toml"
+fi
+
 sh "$BASEDIR/run_build_tool.sh" build-pod "$@"
+
+if [ -f "$CARGOKIT_MANIFEST_DIR/Cargo.toml.bak" ]; then
+    mv "$CARGOKIT_MANIFEST_DIR/Cargo.toml.bak" "$CARGOKIT_MANIFEST_DIR/Cargo.toml"
+fi
 
 # Make a symlink from built framework to phony file, which will be used as input to
 # build script. This should force rebuild (podspec currently doesn't support alwaysOutOfDate

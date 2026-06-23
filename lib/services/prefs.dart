@@ -106,6 +106,9 @@ class PinPrefs {
         personaMode: r['persona_mode'],
         customCall: r['custom_call'],
         customSelf: r['custom_self'],
+        lang: r['lang'],
+        onboarded: r['onboarded'] == '1',
+        personaSetup: r['persona_setup'] == '1',
       );
 
   Map<String, String> toMap() => {
@@ -138,7 +141,7 @@ class PinPrefs {
   /// previous one's name or "already onboarded" state.
   static const _roomDerivedKeys = {
     'pinName', 'userName', 'userCall', 'pinSelf', 'tone', 'pinEnding',
-    'personaMode', 'customCall', 'customSelf', 'onboarded', 'personaSetup',
+    'personaMode', 'customCall', 'customSelf', 'onboarded', 'personaSetup', 'lang',
   };
   Map<String, String> toLocalMap() {
     final m = toMap();

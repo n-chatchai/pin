@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 
+import 'dart:io';
+
 import 'config.dart';
 import 'services/api_log.dart';
 import 'src/rust/api/matrix_trace.dart';
@@ -20,6 +22,7 @@ import 'services/matrix_service.dart';
 import 'services/notification_service.dart';
 import 'services/prefs.dart';
 import 'src/rust/frb_generated.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'theme/pin_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -33,7 +36,11 @@ Future<void> main() async {
   // not the legacy ACTION_GET_CONTENT that opens Google Photos with no exit.
   final picker = ImagePickerPlatform.instance;
   if (picker is ImagePickerAndroid) picker.useAndroidPhotoPicker = true;
-  await RustLib.init();
+  await RustLib.init(
+    externalLibrary: Platform.isIOS
+        ? ExternalLibrary.process(iKnowHowToUseIt: true)
+        : null,
+  );
   // Debug builds only: passively observe matrix-sdk's own HTTP tracing spans
   // (method/url/status/ms — no headers, no bodies) into the API log. Read-only;
   // it never touches the connection, so it can't affect login/sync.

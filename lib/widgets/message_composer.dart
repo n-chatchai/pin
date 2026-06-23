@@ -148,9 +148,11 @@ class _MessageComposerState extends State<MessageComposer> {
     // Lift the card clear of the system nav bar (Android 3-button bar is a solid
     // ~48px; iOS/gesture pill is thinner) PLUS a small gap so it never touches.
     // viewPadding = the raw inset, never consumed by a SafeArea.
+    // Sit at the very bottom: just clear of the system safe-area (home indicator
+    // / nav bar) with a minimal gap — no extra float.
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(14, 0, 14, bottomInset.clamp(0, 80) + 10),
+      padding: EdgeInsets.fromLTRB(14, 0, 14, bottomInset.clamp(6, 80)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

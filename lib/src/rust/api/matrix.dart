@@ -171,12 +171,14 @@ Future<String> sendAttachment({
   required String filename,
   required String mime,
   required List<int> bytes,
+  String? caption,
 }) => RustLib.instance.api.crateApiMatrixSendAttachment(
   role: role,
   roomId: roomId,
   filename: filename,
   mime: mime,
   bytes: bytes,
+  caption: caption,
 );
 
 /// Paginate `room_id` backward (newest→oldest) from the `role` client. Pass the

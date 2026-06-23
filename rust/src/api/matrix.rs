@@ -22,7 +22,7 @@ use matrix_sdk::{
             typing::SyncTypingEvent,
             room::{
                 message::{
-                    MessageType, Relation, SyncRoomMessageEvent,
+                    MessageType, Relation, SyncRoomMessageEvent, TextMessageEventContent,
                 },
                 MediaSource,
             },
@@ -832,17 +832,20 @@ pub fn send_attachment(
     filename: String,
     mime: String,
     bytes: Vec<u8>,
+    caption: Option<String>,
 ) -> Result<String, String> {
     block(async move {
         let room = room_by_id_role(&role, &room_id).await?;
         let mime_t: mime::Mime = mime.parse().map_err(|_| "bad mime".to_string())?;
+        // A caption becomes the message body (MSC2530) with the filename moved to
+        // the `filename` field — so a voice note rides as one m.audio whose body
+        // is its transcript (mic icon + text on every device, no 2nd bubble).
+        let mut config = matrix_sdk::attachment::AttachmentConfig::new();
+        if let Some(c) = caption {
+            config = config.caption(Some(TextMessageEventContent::plain(c)));
+        }
         let resp = room
-            .send_attachment(
-                filename,
-                &mime_t,
-                bytes,
-                matrix_sdk::attachment::AttachmentConfig::new(),
-            )
+            .send_attachment(filename, &mime_t, bytes, config)
             .await
             .map_err(|e| e.to_string())?;
         Ok(resp.event_id.to_string())

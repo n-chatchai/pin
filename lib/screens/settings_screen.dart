@@ -17,6 +17,7 @@ import '../widgets/pin_toast.dart';
 import '../widgets/recovery_qr.dart';
 import '../agent/agent_config.dart';
 import '../agent/agent_session.dart';
+import '../agent/embedder.dart';
 import '../widgets/flex_card_view.dart';
 import 'abilities_screen.dart';
 import 'device_data_screen.dart';
@@ -49,6 +50,9 @@ Future<void> _updatePersona(PinPrefs np) async {
       'custom_call': np.customCall,
       'custom_self': np.customSelf,
       'theme': ThemeController.instance.value.key,
+      'lang': np.lang,
+      'onboarded': np.onboarded ? '1' : '0',
+      'persona_setup': np.personaSetup ? '1' : '0',
     });
   }
 }
@@ -477,6 +481,7 @@ typedef _DebugData = ({
   rust.E2eeStatus status,
   String? roomId,
   List<String> members,
+  bool embedReady,
 });
 
 class _E2eeDebugState extends State<_E2eeDebug> {
@@ -495,11 +500,15 @@ class _E2eeDebugState extends State<_E2eeDebug> {
     final members = roomId == null
         ? <String>[]
         : await MatrixService.instance.roomMembers(roomId).catchError((_) => <String>[]);
+    // Actually run an embed → proves the ONNX lib loaded + model infers on this
+    // device (not just that the asset is bundled). Null = recency fallback.
+    final embedReady = (await Embedder.instance.embedQuery('ทดสอบ')) != null;
     return (
       appVersion: '${info.version} (${info.buildNumber})',
       status: status,
       roomId: roomId,
       members: members,
+      embedReady: embedReady,
     );
   }
 
@@ -530,7 +539,8 @@ class _E2eeDebugState extends State<_E2eeDebug> {
             PhosphorIconsRegular.info,
             'เวอร์ชัน · สถานะระบบ',
             'รุ่น ${d.appVersion} · E2EE '
-                '${d.status.crossSigningReady ? "พร้อม" : "ยังไม่พร้อม"}',
+                '${d.status.crossSigningReady ? "พร้อม" : "ยังไม่พร้อม"}'
+                ' · Embed ${d.embedReady ? "พร้อม" : "ปิด ${Embedder.instance.lastError ?? ""}"}',
             nav: true,
             onTap: () => push(_DiagnosticsScreen(d)),
           ),

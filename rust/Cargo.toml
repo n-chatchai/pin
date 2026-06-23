@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["staticlib"]
 
 [dependencies]
 flutter_rust_bridge = "=2.12.0"
@@ -21,6 +21,23 @@ mime = "0.3"
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
+tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
+
+# On-device embeddings (see api/embed.rs). `load-dynamic`: ort links nothing at
+# build and dlopens libonnxruntime at RUNTIME.
+#   • Android — WORKS: ship libonnxruntime.so in jniLibs/<abi>/; ort finds it by
+#     soname (the app's native lib dir is on the loader path). Build arm64 only
+#     (`--target-platform android-arm64`); ort has no armv7 path here.
+#   • iOS — embeddings OFF for now: Apple ships ONNX Runtime as a STATIC lib only,
+#     which ort load-dynamic can't dlopen, and static-linking it pulls ORT into
+#     the cdylib that cargo always builds (crate-type can't be per-target) → the
+#     cdylib link fails. Needs a staticlib-only iOS build or a dynamic iOS ORT.
+#     Until then embed_init just fails on iOS → recency fallback (no crash).
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["load-dynamic", "std"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
