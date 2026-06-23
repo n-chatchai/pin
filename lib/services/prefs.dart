@@ -107,8 +107,8 @@ class PinPrefs {
         customCall: r['custom_call'],
         customSelf: r['custom_self'],
         lang: r['lang'],
-        onboarded: r['onboarded'] == '1',
-        personaSetup: r['persona_setup'] == '1',
+        onboarded: r.containsKey('onboarded') ? r['onboarded'] == '1' : null,
+        personaSetup: r.containsKey('persona_setup') ? r['persona_setup'] == '1' : null,
       );
 
   Map<String, String> toMap() => {
