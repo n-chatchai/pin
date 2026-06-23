@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../agent/abilities.dart';
 import '../agent/agent_config.dart';
 import '../agent/catalog_client.dart';
+import '../services/matrix_service.dart';
 import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 import '../widgets/pin_toast.dart';
@@ -22,6 +23,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   List<Map<String, dynamic>> _cats = const []; // [{id,label,count}]
   String? _sel; // selected category id; null = ทั้งหมด
   bool _loading = true;
+  String? _roomId;
+  Set<String> _optedOut = {}; // capabilities the user turned off (opt-out model)
 
   @override
   void initState() {
@@ -30,6 +33,13 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   }
 
   Future<void> _load() async {
+    final roomId = await MatrixService.instance.pinRoomId();
+    final rawList = roomId != null
+        ? await MatrixService.instance
+            .loadListFromRoom(roomId, 'io.tokens2.opted_out_capabilities')
+        : [];
+
+
     final client = CatalogClient(devProxy());
     final manifests = await client.fetchManifests();
     final cats = await client.fetchCategories();
@@ -39,6 +49,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     ].where((a) => !a.pricing.isFree).toList(); // PAID only
     if (!mounted) return;
     setState(() {
+      _roomId = roomId;
+      _optedOut = rawList.map((e) => '${e['name']}').toSet();
       _items = items;
       _cats = cats;
       _loading = false;
@@ -181,10 +193,14 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   Widget _cta(Ability a) {
     final soon = a.status == 'soon';
     final trial = a.status == 'trial';
+    // Opt-out model: a trial capability is ON by default; the user can turn it
+    // off. `isOff` = the user opted out of it.
+    final isOff = trial && _optedOut.contains(a.name);
+
     final word = soon
         ? 'เร็ว ๆ นี้'
         : trial
-            ? 'ทดลองฟรี'
+            ? (isOff ? 'เปิดใช้งาน' : 'ปิดใช้งาน')
             : a.needsConnect
                 ? 'เชื่อม'
                 : a.pricing.tier == 'subscription'
@@ -204,20 +220,42 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
           style: FilledButton.styleFrom(
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            backgroundColor: trial
-                ? Theme.of(context).colorScheme.primary
-                : soon
-                    ? PinPalette.line
-                    : null,
-            foregroundColor: trial ? Colors.white : null,
+            backgroundColor: soon
+                ? PinPalette.line
+                : (trial && isOff)
+                    ? Theme.of(context).colorScheme.primary // re-enable CTA
+                    : null, // on/active → default tonal "ปิดใช้งาน"
+            foregroundColor: (trial && isOff) ? Colors.white : null,
           ),
           onPressed: soon
               ? null
-              : () => PinToast.show(
-                  context,
-                  trial
-                      ? 'เริ่มทดลองฟรี "${a.label}" — เปิดให้ใช้เร็ว ๆ นี้'
-                      : 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว'),
+              : () async {
+                  if (trial) {
+                    if (_roomId == null) return;
+                    setState(() {
+                      if (isOff) {
+                        _optedOut.remove(a.name); // turn back on
+                      } else {
+                        _optedOut.add(a.name); // opt out
+                      }
+                    });
+                    await MatrixService.instance.saveListToRoom(
+                        _roomId!,
+                        'io.tokens2.opted_out_capabilities',
+                        _optedOut.map((e) => {'name': e}).toList());
+                    // Tell any live chat session/composer to reload now, so the
+                    // opt-out drops ดูดวง from ปิ่น this turn (not 30s later).
+                    capabilitiesRevision.value++;
+                    if (!mounted) return;
+                    PinToast.show(
+                        context,
+                        isOff
+                            ? 'เปิดใช้ "${a.label}" แล้ว'
+                            : 'ปิด "${a.label}" แล้ว — $botNameจะไม่เรียกใช้');
+                  } else {
+                    PinToast.show(context, 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว');
+                  }
+                },
           child: Text(word),
         ),
       ],

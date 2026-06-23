@@ -86,7 +86,7 @@ def init() -> None:
         # Migrate older DBs: add commerce/display columns if missing.
         _migrate = {
             "tools": ("label", "blurb", "category", "provider", "pricing_json",
-                      "endpoint", "status"),
+                      "endpoint", "status", "config_json"),
             "skills": ("label", "provider", "pricing_json", "category", "status"),
             "subagents": ("label", "provider", "pricing_json", "category",
                           "status"),
@@ -170,6 +170,8 @@ def _seed_mcp_from_env(c: sqlite3.Connection) -> None:
 # ---- reads used by the catalog / MCP layers --------------------------------
 
 def _tool_dict(r) -> dict:
+    cols = r.keys()
+    cfg = r["config_json"] if "config_json" in cols else None
     out = {
         "name": r["name"], "kind": r["kind"], "description": r["description"],
         "parameters": json.loads(r["parameters_json"] or "{}"),
@@ -177,8 +179,24 @@ def _tool_dict(r) -> dict:
         "label": r["label"], "blurb": r["blurb"], "category": r["category"],
         "provider": r["provider"],
         "pricing": json.loads(r["pricing_json"]) if r["pricing_json"] else None,
+        # Admin-set tool config (e.g. news_reporter RSS feeds) — ships in the
+        # catalog manifest so the on-device tool reads it like its params.
+        "config": json.loads(cfg) if cfg else None,
     }
     return {k: v for k, v in out.items() if v is not None}
+
+
+def get_tool_config(name: str) -> dict:
+    with conn() as c:
+        r = c.execute("SELECT config_json FROM tools WHERE name=?",
+                      (name,)).fetchone()
+    return json.loads(r["config_json"]) if r and r["config_json"] else {}
+
+
+def set_tool_config(name: str, config: dict) -> None:
+    with conn() as c:
+        c.execute("UPDATE tools SET config_json=?,updated_at=? WHERE name=?",
+                  (json.dumps(config), time.time(), name))
 
 
 def enabled_hosted_tools() -> list[dict]:

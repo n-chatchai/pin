@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# Start the ปิ่น LLM proxy in a detached tmux session with a restart loop, so it
-# survives crashes (on-device chat depends on it). No root.
-#   deploy/run.sh [app-dir]
+# (Re)start the ปิ่น LLM proxy via systemd --user. The unit (pin-proxy.service,
+# Restart=always) owns the crash-restart loop and survives reboot (linger on).
+# Run ON the VPS. No root. App dir is ~/pin/proxy (matches the unit's
+# WorkingDirectory) — not parameterised; the unit is.
+#   deploy/run.sh
 set -euo pipefail
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-APP_DIR="${1:-${APP_DIR:-$HOME/pin-proxy}}"
-export PATH="$HOME/.local/bin:$PATH"
-cd "$APP_DIR"
-
-tmux kill-session -t pin-proxy 2>/dev/null || true
-tmux new-session -d -s pin-proxy \
-  "while true; do echo \"[proxy] starting \$(date)\"; uv run pin-proxy; echo \"[proxy] exited rc=\$? — restarting in 2s\"; sleep 2; done 2>&1 | tee -a $APP_DIR/proxy.log"
-
-echo "pin-proxy started (restart loop). logs: $APP_DIR/proxy.log"
+systemctl --user restart pin-proxy
+systemctl --user is-active pin-proxy
+echo "pin-proxy (re)started. logs: journalctl --user -u pin-proxy -f"

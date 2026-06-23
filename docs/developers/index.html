@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>นักพัฒนาปิ่น · Developer Documentation</title>
+<style>
+  :root {
+    --cream: #FAF6EC; --paper: #fff; --ink: #282822; --ink2: #6b6b60; --ink3: #9a9a8c;
+    --green-d: #1c7a4a; --green: #34B06A; --green-soft: #e8f3ec; --yellow: #F2B829;
+    --line: #e9e4d6; --line2: #ddd7c6; --code-bg: #1f2420; --code-ink: #e7e4d8;
+    --th: -apple-system, "Noto Sans Thai", "Sarabun", Segoe UI, system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font-family: var(--th); font-size: 15px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+  a { color: var(--green-d); }
+  .wrap { display: flex; min-height: 100vh; max-width: 1180px; margin: 0 auto; }
+
+  /* sidebar */
+  .side { width: 260px; flex: none; border-right: 1px solid var(--line); padding: 32px 20px; position: sticky; top: 0; height: 100vh; overflow: auto; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo { width: 42px; height: 42px; border-radius: 12px; background: var(--green); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 20px; box-shadow: 0 2px 8px rgba(52,176,106,.35); }
+  .logo b { color: var(--yellow); }
+  .brand .t b { display: block; font-size: 16px; line-height: 1.2; }
+  .brand .t span { font-size: 13px; color: var(--ink2); }
+  nav { display: flex; flex-direction: column; gap: 4px; }
+  nav a { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 8px; color: var(--ink2); text-decoration: none; font-size: 14px; font-weight: 500; transition: background 0.15s, color 0.15s; }
+  nav a .n { width: 22px; height: 22px; border-radius: 6px; background: var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--ink2); }
+  nav a:hover { background: #fff; color: var(--ink); }
+  nav a.on { background: var(--green-soft); color: var(--green-d); font-weight: 600; }
+  nav a.on .n { background: var(--green); color: #fff; }
+  .side .foot { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink3); line-height: 1.6; }
+
+  /* main */
+  main { flex: 1; min-width: 0; padding: 48px 64px 80px; }
+  section { margin-bottom: 60px; padding-bottom: 40px; border-bottom: 1px dashed var(--line); scroll-margin-top: 40px; }
+  section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  
+  .eyebrow { color: var(--green-d); font-weight: 700; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; display: block; }
+  h1 { font-size: 32px; margin: 0 0 12px; letter-spacing: -.01em; line-height: 1.3; }
+  h2 { font-size: 20px; margin: 36px 0 12px; padding-top: 8px; font-weight: 600; }
+  h3 { font-size: 16px; margin: 24px 0 8px; color: var(--green-d); font-weight: 600; }
+  .lead { font-size: 17px; color: var(--ink2); margin: 0 0 16px; line-height: 1.6; }
+  p { margin: 12px 0; }
+  ul, ol { margin: 12px 0; padding-left: 24px; }
+  li { margin: 6px 0; }
+  code { font-family: var(--mono); font-size: .88em; background: rgba(255,255,255,0.7); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; color: var(--green-d); word-break: break-word; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 12px; padding: 16px 20px; overflow-x: auto; font-size: 13.5px; line-height: 1.6; margin: 16px 0; }
+  pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--ink2); font-weight: 600; background: var(--cream); border-bottom: 2px solid var(--line2); }
+  td code { white-space: nowrap; }
+  
+  .note { display: flex; gap: 14px; background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 12px; padding: 16px 20px; margin: 20px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+  .note.warn { border-left-color: var(--yellow); }
+  .note .ic { font-size: 20px; line-height: 1.4; flex: none; }
+  .note b { color: var(--green-d); display: inline-block; margin-bottom: 4px; }
+  .note.warn b { color: #b08200; }
+  
+  .pill { display: inline-block; background: var(--green-soft); color: var(--green-d); border-radius: 20px; padding: 2px 12px; font-size: 12px; font-weight: 600; margin-right: 6px; }
+  .pill.y { background: #fdf3d6; color: #9a7400; }
+  
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
+  .diagram { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--ink2); white-space: pre; overflow-x: auto; margin: 20px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+  
+  .code-group { margin: 16px 0; }
+  .code-tabs { display: flex; gap: 8px; margin-bottom: -1px; }
+  .code-tabs button { background: var(--line); border: 1px solid var(--line); border-bottom: none; border-radius: 8px 8px 0 0; padding: 6px 16px; font-family: var(--th); font-size: 13px; font-weight: 600; color: var(--ink2); cursor: pointer; }
+  .code-tabs button.active { background: var(--code-bg); color: #fff; border-color: var(--code-bg); }
+  .code-pane { display: none; margin-top: 0; border-top-left-radius: 0; }
+  .code-pane.active { display: block; }
+
+  @media(max-width: 860px) {
+    .wrap { flex-direction: column; }
+    .side { width: auto; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--line); padding: 24px; }
+    nav { flex-direction: row; flex-wrap: wrap; }
+    main { padding: 32px 24px 60px; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+
+  /* Print Styles for PDF Export */
+  @media print {
+    body { background: #fff; font-size: 12pt; color: #000; }
+    .wrap { max-width: 100%; display: block; }
+    .side { display: none; } /* ซ่อน Sidebar ตอนปรินต์ */
+    main { padding: 0; }
+    section { margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid #eee; page-break-inside: avoid; }
+    section:last-child { border-bottom: none; }
+    pre, code, .diagram, table, .note { page-break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
+    pre { background: #f8f8f8; color: #333; border: 1px solid #ddd; }
+    code { background: transparent; color: #111; border: none; padding: 0; }
+    h1, h2, h3 { page-break-after: avoid; }
+    .code-tabs { display: none; }
+    .code-pane { display: block !important; margin-top: 16px; border-radius: 8px; }
+    .code-pane::before { content: attr(data-lang); display: block; font-weight: bold; font-family: sans-serif; font-size: 11pt; margin-bottom: 8px; color: #555; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">ปิ<b>่</b>น</div>
+      <div class="t"><b>นักพัฒนาปิ่น</b><span>Developer Documentation</span></div>
+    </div>
+    <nav id="nav">
+      <a href="#p1" class="on"><span class="n">1</span> ภาพรวม &amp; สถาปัตยกรรม</a>
+      <a href="#p2"><span class="n">2</span> เริ่มต้นใช้งาน</a>
+      <a href="#p3"><span class="n">3</span> การสร้างเครื่องมือ</a>
+      <a href="#p4"><span class="n">4</span> การ์ดผลลัพธ์ / UI</a>
+      <a href="#p5"><span class="n">5</span> ส่งรีวิว &amp; เผยแพร่</a>
+    </nav>
+    <div class="foot">
+      <b>กฎเหล็กสำคัญ:</b><br>
+      เครื่องมือต้องทำงานแบบ <b style="color:var(--green-d)">"ตาบอด" (Blind)</b><br>
+      รับเฉพาะพารามิเตอร์ที่ประกาศไว้ และห้ามรับข้อมูลส่วนตัวของผู้ใช้โดยเด็ดขาด
+    </div>
+  </aside>
+
+  <main>
+    <!-- ============ PAGE 1 ============ -->
+    <section id="p1">
+      <span class="eyebrow">บทที่ 1</span>
+      <h1>ภาพรวม &amp; สถาปัตยกรรม</h1>
+      <p class="lead">พัฒนา "ความสามารถ" (Capability) ให้กับปิ่น และเผยแพร่ลง Store เพื่อให้ผู้ใช้งานทุกคนสามารถเรียกใช้งานได้ โดยที่เซิร์ฟเวอร์ของปิ่นจะไม่มีวันเข้าถึงหรือบันทึกข้อมูลส่วนตัวของผู้ใช้</p>
+
+      <h2>ปิ่นคืออะไร?</h2>
+      <p>ปิ่น (Pin) คือผู้ช่วย AI ภาษาไทยบนโทรศัพท์มือถือ โดยมี "สมอง" (Local Engine) ทำงานอยู่บนอุปกรณ์ของผู้ใช้โดยตรง และเชื่อมต่อกับ Large Language Model (LLM) ผ่านทาง <b>Proxy ที่ตาบอด (Blind Proxy)</b> ซึ่งทำหน้าที่เพียงส่งต่อข้อมูลไปยังโมเดลเท่านั้น โดยไม่มีการเก็บบันทึก และไม่สามารถมองเห็นเนื้อหาบทสนทนาหรือตัวตนของผู้ใช้งานแต่อย่างใด</p>
+      <p>ความสามารถใหม่ ๆ จะถูกดึงมาจาก <b>Catalog</b> แบบเรียลไทม์ (Runtime) ทำให้นักพัฒนาสามารถเพิ่มหรืออัปเดตเครื่องมือได้ทันทีโดยไม่ต้องรอให้แอปพลิเคชันหลักอัปเดตเวอร์ชัน และนี่คือช่องทางที่คุณสามารถเข้ามาสร้างสรรค์บริการใหม่ ๆ ได้</p>
+
+      <h2>ประเภทของความสามารถ (Capability)</h2>
+      <table>
+        <tr><th>ประเภท</th><th>สิ่งที่นักพัฒนาต้องเตรียม</th><th>กลไกการทำงาน</th></tr>
+        <tr><td><code>tool</code> (Remote Tool)</td><td>HTTP Server ของคุณ</td><td>Proxy จะส่ง Parameter แคบ ๆ ไปยัง Endpoint ของคุณ และนำผลลัพธ์กลับมาแสดงผล</td></tr>
+        <tr><td><code>mcp</code> (MCP Server)</td><td>MCP Server URL</td><td>Proxy จะทำการเชื่อมต่อกับ MCP Server ของคุณ เพื่อเปิดชุดเครื่องมือ (Tools) หลาย ๆ ตัวพร้อมกัน</td></tr>
+        <tr><td><code>skill</code></td><td>ชุดคำสั่ง (Instructions) ข้อความ</td><td>คำสั่งที่ถูกฉีดเข้าไปใน Persona ของปิ่น (ไม่ต้องมี Server หรือ Code ใด ๆ)</td></tr>
+        <tr><td><code>subagent</code></td><td>System Prompt + รายชื่อ Tools</td><td>ผู้ช่วยย่อยที่ปิ่นจะสามารถมอบหมายงานเฉพาะทางให้ทำใน Sandbox</td></tr>
+      </table>
+      <p><i>หมายเหตุ: เอกสารฉบับนี้จะเน้นไปที่การสร้าง <b>Tool</b> เป็นหลัก เนื่องจากพบได้บ่อยที่สุด สำหรับ MCP, Skill หรือ Subagent ก็ยังคงอ้างอิงมาตรฐานเดียวกันในเรื่องของ Parameters และการสร้างการ์ด (UI)</i></p>
+
+      <h2>สถาปัตยกรรมระบบ</h2>
+      <div class="diagram">ผู้ใช้งานพิมพ์คำสั่ง: “ขอข่าวใหม่ๆ หน่อย”
+      │
+      ▼
+[Local Engine] บนเครื่อง ──── ดึงข้อมูล /catalog ────► รับทราบรายชื่อเครื่องมือ
+      │  
+      │  AI Model ตัดสินใจเรียกใช้: news_reporter(topic: "")
+      ▼
+[Blind Proxy] /tool/news_reporter ── ส่งต่อแค่ {topic:""} ──►  [Endpoint ของคุณ]
+      │                                                        │ ดึง RSS, สรุปผล
+      ◄──────────────  ตอบกลับเป็น {flex: การ์ด}  ─────────────┘
+      ▼
+แอปพลิเคชันนำข้อมูลไปเรนเดอร์เป็นการ์ด UI ด้วยธีมของปิ่น (Native Component)</div>
+
+      <h2>หลักการทำงานแบบ "ตาบอด" และ PII Gate</h2>
+      <ul>
+        <li>เครื่องมือจะได้รับข้อมูล <b>เฉพาะคีย์ที่ประกาศไว้ใน <code>argKeys</code> เท่านั้น</b> โดยแอปพลิเคชันจะทำการตัด Parameter อื่น ๆ ทิ้งทั้งหมดก่อนส่งออกจากเครื่อง</li>
+        <li>ห้ามรับคีย์ที่เกี่ยวข้องกับข้อมูลส่วนบุคคล (PII) โดยเด็ดขาด เช่น <code>identity</code>, <code>conversation</code>, <code>email</code>, <code>token</code>, <code>name</code>, <code>phone</code>, <code>user_id</code>, หรือ <code>history</code> ระบบรักษาความปลอดภัย (Audit) จะทำการ <b>บล็อก (Block)</b> ทันที</li>
+        <li>Logs ของ Proxy จะเก็บบันทึกเพียงแค่ Metadata (เช่น ชื่อเครื่องมือ, รายชื่อคีย์พารามิเตอร์, และสถานะการตอบกลับ) แต่จะไม่บันทึก Value ที่อยู่ข้างใน</li>
+      </ul>
+      <div class="note">
+        <div class="ic">🛡️</div>
+        <div>
+          <b>ทำไมระบบถึงต้อง "ตาบอด"?</b><br>
+          ปิ่นให้คำมั่นสัญญากับผู้ใช้งานว่าข้อมูลส่วนตัวจะไม่มีวันรั่วไหล ดังนั้นเครื่องมือจากภายนอกจึงต้องถูกออกแบบมาให้ "ตาบอด" หากบริการของคุณมีความจำเป็นต้องอ้างอิงข้อมูลผู้ใช้ (เช่น ระบบสมาชิก) ให้พัฒนาในรูปแบบ <code>mcp</code> ซึ่งสามารถจดจำผู้ใช้ผ่าน <code>end_user_ref</code> ที่ Proxy สร้างให้ (ไม่ใช่ตัวตนจริงของผู้ใช้) แทน
+        </div>
+      </div>
+
+      <h2>รูปแบบผลลัพธ์ที่ตอบกลับได้</h2>
+      <ul>
+        <li><code>{"text": "..."}</code> — ข้อความดิบ เพื่อให้โมเดลนำไปเรียบเรียงและสรุปความต่อ (เหมาะกับผลการค้นหาข้อมูล)</li>
+        <li><code>{"flex": { ... }}</code> — การ์ดสำเร็จรูป ที่พร้อมแสดงผลให้ผู้ใช้เห็นทันที (ดูรายละเอียดในบทที่ 4)</li>
+      </ul>
+    </section>
+
+    <!-- ============ PAGE 2 ============ -->
+    <section id="p2">
+      <span class="eyebrow">บทที่ 2</span>
+      <h1>เริ่มต้นใช้งาน</h1>
+      <p class="lead">เริ่มต้นจากศูนย์จนสามารถสร้างเครื่องมือแรกของคุณได้ภายใน 5 นาที</p>
+
+      <h2>1. เข้าสู่ระบบ Developer Portal</h2>
+      <p>เข้าไปที่หน้า <code>/developers</code> และเข้าสู่ระบบด้วย <b>บัญชีปิ่น</b> (บัญชี Matrix ของคุณบน pin-chat) ที่พื้นที่นี้คุณจะสามารถส่ง Capability ใหม่เข้าสู่ระบบ, ติดตามสถานะการรีวิว, และจัดการเครื่องมือที่เผยแพร่ไปแล้วได้</p>
+
+      <h2>2. เลือกประเภทของเครื่องมือ</h2>
+      <table>
+        <tr><th>หากคุณต้องการ...</th><th>ควรเลือกใช้</th></tr>
+        <tr><td>ดึงข้อมูลหรือประมวลผลผ่านเซิร์ฟเวอร์ของคุณ แล้วตอบกลับเป็นการ์ดสวยงาม</td><td><code>tool</code></td></tr>
+        <tr><td>เชื่อมต่อกับชุดเครื่องมือมาตรฐานผ่านโปรโตคอล MCP</td><td><code>mcp</code></td></tr>
+        <tr><td>กำหนดลักษณะนิสัย สไตล์การพูด หรือให้ความรู้เฉพาะทางแก่ปิ่น โดยไม่ต้องพึ่งพาเซิร์ฟเวอร์</td><td><code>skill</code></td></tr>
+        <tr><td>มอบหมายงานเฉพาะทางที่มีความซับซ้อนให้กับผู้ช่วยย่อยทำงานแทน</td><td><code>subagent</code></td></tr>
+      </table>
+
+      <h2>3. Quickstart — โครงสร้าง Tool ขั้นต่ำ</h2>
+      <p>เครื่องมือแบบ Remote Tool คือ Endpoint ธรรมดาที่รับ Request เป็น JSON และตอบกลับเป็น JSON คุณสามารถเลือกใช้เทคโนโลยีใดก็ได้ที่สะดวก ลองดูตัวอย่างการเขียนด้วย Python (FastAPI) หรือ Node.js (Express) ด้านล่าง:</p>
+      
+      <div class="code-group">
+        <div class="code-tabs">
+          <button class="active" onclick="switchCode(this, 'py1')">Python (FastAPI)</button>
+          <button onclick="switchCode(this, 'js1')">Node.js (Express)</button>
+        </div>
+        <pre id="py1" class="code-pane active" data-lang="Python (FastAPI)"><code># ตัวอย่าง FastAPI — Endpoint เดียวพร้อมใช้งาน
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.post("/run")
+async def run(req: Request):
+    # รับเฉพาะคีย์ที่คุณได้ประกาศไว้ใน argKeys
+    args = await req.json()
+    place = (args.get("place") or "").strip()
+    
+    # ... ทำการดึงข้อมูลพยากรณ์อากาศของเมืองนั้น ...
+    
+    return {"flex": {
+        "header": {"icon": "sun", "title": f"สภาพอากาศที่ {place}"},
+        "body": [{"type": "bignum", "value": "32°C", "sub": "โอกาสเกิดฝน 20%"}],
+    }}</code></pre>
+        <pre id="js1" class="code-pane" data-lang="Node.js (Express)"><code>// ตัวอย่าง Node.js Express — Endpoint เดียวพร้อมใช้งาน
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.post('/run', (req, res) => {
+    // รับเฉพาะคีย์ที่คุณได้ประกาศไว้ใน argKeys
+    const args = req.body || {};
+    const place = (args.place || "").trim();
+    
+    // ... ทำการดึงข้อมูลพยากรณ์อากาศของเมืองนั้น ...
+    
+    res.json({"flex": {
+        "header": {"icon": "sun", "title": `สภาพอากาศที่ ${place}`},
+        "body": [{"type": "bignum", "value": "32°C", "sub": "โอกาสเกิดฝน 20%"}],
+    }});
+});
+
+app.listen(3000, () => console.log('Server is running'));</code></pre>
+      </div>
+      <p>คุณสามารถ Deploy โค้ดนี้ไว้ที่ใดก็ได้ที่เชื่อมต่ออินเทอร์เน็ตได้และมี HTTPS รองรับ จากนั้นให้นำ URL ไปกรอกในระบบตอนส่ง Submit</p>
+
+      <h2>4. ส่งเข้ารีวิว (Submit)</h2>
+      <p>ที่หน้า Portal ให้กดปุ่ม Submit พร้อมกับแนบ Payload (JSON) สำหรับอธิบายเครื่องมือของคุณ (รายละเอียดฟิลด์ทั้งหมดดูได้ที่บทที่ 5) ตัวอย่าง Payload สั้น ๆ:</p>
+      <pre><code>{
+  "name": "get_weather",
+  "kind": "remote",
+  "description": "ดูพยากรณ์อากาศของเมืองที่ระบุ",
+  "endpoint": "https://your-server.com/run",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "place": { "type": "string", "description": "ชื่อเมือง" }
+    },
+    "required": ["place"]
+  },
+  "argKeys": ["place"],
+  "label": "พยากรณ์อากาศ",
+  "category": "ข้อมูลทั่วไป",
+  "provider": "YourCo"
+}</code></pre>
+
+      <h2>ภาพรวมเส้นทางการพัฒนา (Lifecycle)</h2>
+      <div class="diagram">สร้าง Endpoint ─► Submit ใน Portal ─► ระบบ Auto-audit ตรวจสอบ ─► ทีมงานปิ่นรีวิว ─► ติดตั้งลง Catalog ─► เจ้าของกดเผยแพร่ ─► ใช้งานจริง (Live)</div>
+    </section>
+
+    <!-- ============ PAGE 3 ============ -->
+    <section id="p3">
+      <span class="eyebrow">บทที่ 3</span>
+      <h1>การสร้างเครื่องมือ · Tool &amp; MCP</h1>
+      <p class="lead">ความเข้าใจเรื่องข้อตกลง (Contract) ระหว่าง Endpoint ของคุณกับ Proxy ของปิ่น</p>
+
+      <h2>ข้อตกลงการเชื่อมต่อ HTTP</h2>
+      <ul>
+        <li><b>Method:</b> <code>POST</code> ไปยัง Endpoint ของคุณเสมอ</li>
+        <li><b>Input:</b> JSON Body จะมีเฉพาะคีย์ที่คุณประกาศไว้ใน <code>argKeys</code> เท่านั้น (Proxy จะดักจับและลบข้อมูลส่วนเกินทิ้งทันที)</li>
+        <li><b>Output:</b> ต้องตอบกลับเป็น JSON เท่านั้น ซึ่งสามารถตอบเป็นข้อความ <code>{"text": ...}</code> หรือการ์ด <code>{"flex": ...}</code></li>
+        <li><b>Timeout:</b> การประมวลผลควรจบภายใน ~30 วินาที หากเกิดข้อผิดพลาด ให้ตอบกลับเป็นข้อความแจ้งเตือนที่ผู้ใช้เข้าใจได้ เช่น <code>{"text": "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์"}</code></li>
+      </ul>
+
+      <h2>การประกาศโครงสร้างเครื่องมือ (Declaration)</h2>
+      <table>
+        <tr><th>ฟิลด์</th><th>ความหมายและการนำไปใช้งาน</th></tr>
+        <tr><td><code>name</code></td><td>ชื่อทางเทคนิคของเครื่องมือ (ใช้ตัวอักษร a-z, _ ) ซึ่งโมเดลจะใช้เรียกคำสั่งนี้</td></tr>
+        <tr><td><code>description</code></td><td>คำอธิบายภาษาไทย เพื่อให้โมเดล AI เข้าใจอย่างชัดเจนว่า "ควรเรียกใช้เครื่องมือนี้ในสถานการณ์ใด"</td></tr>
+        <tr><td><code>parameters</code></td><td>กำหนดโครงสร้างตัวแปรในรูปแบบ JSON-Schema เพื่อบังคับให้โมเดลส่งข้อมูลตาม Format ที่ระบุ</td></tr>
+        <tr><td><code>argKeys</code></td><td>รายชื่อคีย์ที่อนุญาตให้ส่งผ่านได้ (PII Allowlist) โดยต้องตรงกับ <code>properties</code> ที่ประกาศไว้ด้านบน</td></tr>
+        <tr><td><code>endpoint</code></td><td>URL ของเซิร์ฟเวอร์คุณ (เฉพาะการสร้างแบบ Remote Tool)</td></tr>
+      </table>
+
+      <h2>กฎ "Minimal-arg" ขอเท่าที่จำเป็น</h2>
+      <ul>
+        <li>ควรออกแบบรับ Parameter ด้วย <b>คำค้นหา (Query) ที่แคบที่สุด</b> เท่าที่จำเป็นสำหรับการทำงาน (เช่น รับชื่อสถานที่ <code>place</code> หรือหัวข้อ <code>topic</code>)</li>
+        <li>ทุกคีย์ที่อยู่ใน <code>argKeys</code> จะต้องไม่บ่งบอกถึงข้อมูลส่วนบุคคลเด็ดขาด มิฉะนั้นระบบรักษาความปลอดภัยจะทำการ Block อัตโนมัติ</li>
+      </ul>
+      <div class="note warn">
+        <div class="ic">⚠️</div>
+        <div>
+          <b>รายการคีย์ต้องห้าม (Auto-blocked):</b> 
+          <code>identity, conversation, prefs, user, email, token, secret, password, name, phone, address, user_id, history</code>
+        </div>
+      </div>
+
+      <h2>ตัวอย่างโครงสร้างโค้ดเซิร์ฟเวอร์เชิงลึก (News Reporter)</h2>
+      <div class="code-group">
+        <div class="code-tabs">
+          <button class="active" onclick="switchCode(this, 'py2')">Python (FastAPI)</button>
+          <button onclick="switchCode(this, 'js2')">Node.js (Express)</button>
+        </div>
+        <pre id="py2" class="code-pane active" data-lang="Python (FastAPI)"><code>@app.post("/run")
+async def run(req: Request):
+    body = await req.json()
+    # ดึงค่าหัวข้อข่าว ซึ่งเป็นคีย์เดียวที่ผ่าน argKeys มาได้
+    topic = (body.get("topic") or "").strip()
+    
+    # สมมติฟังก์ชันดึง RSS Feeds และเลือกมา 6 ข่าวล่าสุด
+    items = fetch_rss(topic)[:6]
+    
+    # สร้างการ์ด Flex Message
+    cards = [{
+        "header": {"title": item.title},
+        "body":   [{"type": "text", "text": item.summary}],
+        "footer": {
+            "icon": "news", 
+            "text": item.source,
+            "trailing": "อ่านต่อ →", 
+            "action": {"data": item.link}
+        },
+    } for item in items]
+    
+    # ตอบกลับเป็น Carousel ของการ์ด
+    return {"flex": {"carousel": cards}}</code></pre>
+        <pre id="js2" class="code-pane" data-lang="Node.js (Express)"><code>app.post('/run', (req, res) => {
+    // ดึงค่าหัวข้อข่าว ซึ่งเป็นคีย์เดียวที่ผ่าน argKeys มาได้
+    const topic = (req.body.topic || "").trim();
+    
+    // สมมติฟังก์ชันดึง RSS Feeds และเลือกมา 6 ข่าวล่าสุด
+    const items = fetchRss(topic).slice(0, 6);
+    
+    // สร้างการ์ด Flex Message
+    const cards = items.map(item => ({
+        "header": {"title": item.title},
+        "body":   [{"type": "text", "text": item.summary}],
+        "footer": {
+            "icon": "news", 
+            "text": item.source,
+            "trailing": "อ่านต่อ →", 
+            "action": {"data": item.link}
+        }
+    }));
+    
+    // ตอบกลับเป็น Carousel ของการ์ด
+    res.json({"flex": {"carousel": cards}});
+});</code></pre>
+      </div>
+
+      <h2>ทางเลือกสำหรับระบบที่ซับซ้อน: MCP Server</h2>
+      <p>หากคุณมีระบบที่รองรับโปรโตคอล MCP (Model Context Protocol) อยู่แล้ว คุณสามารถส่งประเภทเป็น <code>mcp</code> ได้ โดยระบุ <code>url</code>, <code>headers</code> (เช่น ค่า Authentication สำหรับระบบคุณเอง) และรายการ <code>tools</code> ทั้งหมด (พร้อม <code>name</code>, <code>description</code>, <code>parameters</code>, <code>argKeys</code>) </p>
+      <p>Proxy ของปิ่นจะทำหน้าที่ครอบและเชื่อมต่อให้โดยอัตโนมัติ นอกจากนี้ฝั่ง Admin ของปิ่นยังสามารถกำหนด <b>Defaults/Params</b> ที่ Proxy จะฉีดเข้าไปทุกครั้งที่มีการเรียกใช้งานได้ (เช่น <code>end_user_ref</code> รหัสอ้างอิงผู้ใช้ที่ไม่ระบุตัวตน หรือ <code>lang</code> ภาษาที่ใช้) — ทั้งนี้ เครื่องมือของคุณจะยังคงไม่ทราบตัวตนที่แท้จริงของผู้ใช้งานอยู่ดีเพื่อรักษาความเป็นส่วนตัว</p>
+
+      <h2>การจัดการภาษา</h2>
+      <p>ข้อความต่างๆ ในผลลัพธ์หรือ UI Card ควรถูกจัดทำในภาษาเดียวกับที่ผู้ใช้ตั้งค่าไว้ (ส่วนใหญ่คือภาษาไทย หรือภาษาอังกฤษ) ยกเว้นชื่อเฉพาะทาง โค้ดโปรแกรม หรือ URL ที่ควรคงภาษาต้นฉบับไว้</p>
+    </section>
+
+    <!-- ============ PAGE 4 ============ -->
+    <section id="p4">
+      <span class="eyebrow">บทที่ 4</span>
+      <h1>การ์ดผลลัพธ์ / UI · Flex Spec</h1>
+      <p class="lead">การออกแบบอินเทอร์เฟซ โดยส่งโครงสร้าง JSON (Flex) เพื่อให้แอปพลิเคชันเรนเดอร์ร่วมกับธีมหลักของปิ่นอย่างสวยงาม</p>
+
+      <div class="note">
+        <div class="ic">🎨</div>
+        <div>
+          <b>นักพัฒนาคุมเนื้อหา · แอปพลิเคชันคุมสไตล์</b><br>
+          เพื่อให้ประสบการณ์การใช้งาน (UX) ของปิ่นมีความเป็นหนึ่งเดียว (Brand Consistency) โทนสี, ฟอนต์, เงา, และระยะห่างต่างๆ จะถูกล็อกควบคุมโดยธีมของแอปทั้งหมด หากคุณพยายามส่ง Argument เพื่อบังคับสไตล์เอง ระบบจะละเว้นค่านั้นๆ 
+        </div>
+      </div>
+
+      <h2>โครงสร้างระดับบนสุด (Top-level)</h2>
+      <p>คุณสามารถตอบกลับด้วย <code>{"flex": { ... }}</code> โดยเลือกโครงสร้างได้สองแบบหลัก:</p>
+      <ul>
+        <li><code>{"carousel": [card1, card2, ...]}</code> = ชุดการ์ดเรียงต่อกันในแนวนอน เลื่อนปัดซ้ายขวาได้ (Swipeable) ควรมี 2 ใบขึ้นไป</li>
+        <li><code>{"header": ..., "body": ..., "footer": ...}</code> = การ์ดเดี่ยว แสดงผลเต็มความกว้างของหน้าจอแชท</li>
+      </ul>
+
+      <h3>Header &nbsp;<span class="pill">ส่วนบนสุด</span></h3>
+      <p>รับข้อมูล: <code>{ icon?, title, subtitle?, trailing? }</code></p>
+      
+      <h3>Footer &nbsp;<span class="pill">ส่วนล่างสุด</span></h3>
+      <p>รับข้อมูล: <code>{ icon?, text, trailing?, action?: {data} }</code><br> 
+      หากใส่ฟิลด์ <code>action.data</code> แถบ Footer จะสามารถกดแตะได้ (รองรับการเปิดลิงก์ หรือส่ง Postback กลับไปยังระบบ)</p>
+
+      <h2>Body = รายการบล็อกแสดงเนื้อหา</h2>
+      <p>ฟิลด์ Body รับค่าเป็น Array ของบล็อก (Blocks) โดยแต่ละบล็อกจะแสดงผลเรียงต่อกันจากบนลงล่าง ชนิดของบล็อกที่รองรับมีดังนี้:</p>
+      <table>
+        <tr><th>Type (ชนิด)</th><th>Fields (ฟิลด์ที่รองรับ)</th><th>หน้าที่และการแสดงผล</th></tr>
+        <tr><td><code>text</code></td><td><code>text, style?(body·title·muted), color?(pos·neg·accent·muted), maxLines?</code></td><td>ข้อความบรรยายทั่วไป</td></tr>
+        <tr><td><code>kv</code></td><td><code>k, v, sub?, color?</code></td><td>แถวข้อมูลแบบ Key-Value (ป้ายชื่อซ้าย ค่าข้อมูลขวา)</td></tr>
+        <tr><td><code>bignum</code></td><td><code>value, sub?, delta?</code></td><td>ตัวเลขขนาดใหญ่โดดเด่น (หากกำหนด delta ระบบจะแสดงสีแดง/เขียวอัตโนมัติ)</td></tr>
+        <tr><td><code>task</code></td><td><code>tag, text, due?</code></td><td>แสดงรายการงาน (Task) พร้อมป้ายกำกับและวันครบกำหนด</td></tr>
+        <tr><td><code>agenda</code></td><td><code>time, text</code></td><td>แสดงตารางเวลาและกิจกรรม</td></tr>
+        <tr><td><code>progress</code></td><td><code>value(0–1), label?</code></td><td>แสดงแถบแสดงความคืบหน้า (Progress Bar)</td></tr>
+        <tr><td><code>gauge</code></td><td><code>value, max?, label?</code></td><td>แสดงกราฟแบบเกจครึ่งวงกลม</td></tr>
+        <tr><td><code>bars</code></td><td><code>values[], labels[], highlight?</code></td><td>กราฟแท่งแบบง่าย</td></tr>
+        <tr><td><code>line</code></td><td><code>points[]</code></td><td>กราฟเส้นแนวโน้ม</td></tr>
+        <tr><td><code>divider</code></td><td>—</td><td>ขีดเส้นแบ่งคั่นระหว่างเนื้อหา</td></tr>
+        <tr><td><code>button</code></td><td><code>label, action{data}</code></td><td>ปุ่มกด เพื่อให้ผู้ใช้กด Action (Postback)</td></tr>
+        <tr><td><code>html</code></td><td><code>html</code></td><td>ทางเลือกสุดท้าย (รองรับแค่ HTML Subset เบื้องต้น)</td></tr>
+      </table>
+
+      <h3>รายชื่อไอคอน (สำหรับ Header/Footer)</h3>
+      <p>คุณสามารถใส่คีย์ <code>icon</code> ด้วยชื่อต่อไปนี้: <br>
+      <code>news, sun, money, fx, chart, calendar, tasks, fuel, air, draft, image, file, audio, video, sparkles, heart, clock</code> <br>
+      (หากระบุชื่อไอคอนที่ระบบไม่รู้จัก จะแสดงผลเป็นรูป ⚡ ทันที)</p>
+
+      <div class="note warn">
+        <div class="ic">🧩</div>
+        <div>
+          <b>คำเตือนเกี่ยวกับการใช้บล็อก <code>html</code></b><br>
+          ระบบจะเรนเดอร์บล็อก HTML ด้วยไลบรารีเนทีฟ (แปลง HTML เบื้องต้นให้เป็น Widget) — <b>จะไม่มีการใช้ WebView ไม่มี JavaScript และไม่สามารถเขียน CSS Custom แทรกได้</b> <br>คุณควรใช้ <code>html</code> เป็นทางเลือกสุดท้ายสำหรับจัดเลย์เอาต์พิเศษที่ไม่สามารถทำได้ด้วยบล็อกมาตรฐานเท่านั้น ไม่ใช่เพื่อเป้าหมายในการดัดแปลงสไตล์หรือหน้าตาของการ์ด
+        </div>
+      </div>
+
+      <h2>ตัวอย่างเคสใช้งานจริง</h2>
+      <div class="grid2">
+        <div>
+          <h3>รายงานข่าวเศรษฐกิจ (News)</h3>
+          <p><i>โครงสร้าง JSON ที่เซิร์ฟเวอร์ตอบกลับ:</i></p>
+<pre><code>{
+  "carousel": [
+    {
+      "header": { "title": "กนง.ลดดอกเบี้ย เซอร์ไพรส์ตลาด" },
+      "body": [
+        {
+          "type": "text",
+          "text": "มีมติให้ปรับลดอัตราดอกเบี้ย 0.25% ครั้งแรกรอบปี หวังหนุนเศรษฐกิจ..."
+        }
+      ],
+      "footer": {
+        "icon": "news",
+        "text": "สำนักข่าวเศรษฐกิจ",
+        "trailing": "อ่านต่อ →",
+        "action": { "data": "https://..." }
+      }
+    }
+  ]
+}</code></pre>
+        </div>
+        <div>
+          <h3>การแสดงผล (Rendering Result)</h3>
+          <ul>
+            <li>แสดงเป็นชุดการ์ดที่เลื่อนปัดไปมาได้ (Swipe) โดยมองเห็นใบถัดไปโผล่มาประมาณ 25% เพื่อบอกผู้ใช้ว่าเลื่อนต่อได้</li>
+            <li><b>Header:</b> แสดงหัวข้อด้วยสีแบรนด์และตัวอักษรหนา</li>
+            <li><b>Body:</b> เนื้อหาสรุปข่าว รองรับการเลื่อนอ่านภายในตัวการ์ดหากข้อความยาวเกินไป</li>
+            <li><b>Footer:</b> แถบด้านล่างที่แตะสัมผัสได้ มุมซ้ายบอกแหล่งข่าว พร้อมมีคำว่า <code>อ่านต่อ →</code> ทางมุมขวา เมื่อกดแล้วจะทำการเปิดลิงก์เบราว์เซอร์</li>
+          </ul>
+          <h3>ตัวอย่างการ์ดสั้นแบบ Bignum (อากาศ)</h3>
+<pre><code>{
+  "header": { "icon": "sun", "title": "กรุงเทพมหานคร" },
+  "body": [
+    {
+      "type": "bignum", 
+      "value": "34°",
+      "sub": "ต่ำสุด 27° · ฝน 40%"
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE 5 ============ -->
+    <section id="p5">
+      <span class="eyebrow">บทที่ 5</span>
+      <h1>ส่งรีวิว &amp; เผยแพร่</h1>
+      <p class="lead">เส้นทางจากส่งผลงานไปจนถึงการปล่อย (Live) ให้ผู้ใช้งานจริงทุกคนสามารถดาวน์โหลดเครื่องมือของคุณได้</p>
+
+      <h2>1. ส่งงานผ่านระบบ Portal</h2>
+      <p>กระบวนการยื่นเรื่องให้ระบุ 3 อย่างหลัก ๆ ได้แก่: <code>type</code> (ประเภทของ Capability: tool, mcp, skill, subagent), <code>name</code> (ชื่อเครื่องมือ), และ <code>payload</code> (ข้อมูลการตั้งค่าแบบ JSON)</p>
+      <table>
+        <tr><th>Type</th><th>สิ่งที่ต้องมีใน Payload</th></tr>
+        <tr><td><code>tool</code></td><td><code>endpoint</code>, <code>description</code>, <code>parameters</code>, <code>argKeys</code> และข้อมูลสำหรับโชว์หน้าร้าน (Display Info)</td></tr>
+        <tr><td><code>mcp</code></td><td><code>url</code>, <code>headers</code>, และ Array ของ <code>tools[]</code> (ซึ่งทุกตัวต้องมี <code>argKeys</code> เช่นกัน)</td></tr>
+        <tr><td><code>skill</code></td><td><code>instructions</code> (คำสั่ง Prompt) และค่า <code>requires</code> (หากมีการใช้เครื่องมือตัวอื่นช่วย)</td></tr>
+        <tr><td><code>subagent</code></td><td><code>system</code> (System Prompt), <code>toolNames[]</code> (เครื่องมือที่อนุญาตให้ใช้), และ <code>maxSteps</code> (จำนวนก้าวการทำงานสูงสุด)</td></tr>
+      </table>
+
+      <h2>2. Auto-audit (กระบวนการตรวจจับอัตโนมัติ)</h2>
+      <p>ก่อนที่ใบคำขอของคุณจะถึงมือทีมงานปิ่น ระบบจะทำการตรวจสอบความปลอดภัยเบื้องต้น:</p>
+      <ul>
+        <li><span class="pill y">Block (ระงับ)</span>: หากพบ <code>argKey</code> ที่อยู่ในหมวดหมู่ต้องห้าม หรือเครื่องมือประเภท <code>tool</code> ไม่มีการระบุ Endpoint URL</li>
+        <li><span class="pill">Warn (แจ้งเตือน)</span>: หากไม่ประกาศ <code>argKeys</code>, เครื่องมือ <code>skill</code> ไม่มี Instructions, หรือ <code>subagent</code> ไม่ได้ระบุ System Prompt / รายชื่อเครื่องมือ</li>
+      </ul>
+
+      <h2>3. การพิจารณา (Review) และติดตั้ง</h2>
+      <p>ผู้ดูแลระบบของปิ่นจะเข้ามาตรวจสอบคุณภาพ หากผ่านการอนุมัติ สถานะจะเปลี่ยนจาก <code>pending</code> ไปเป็น <code>approved</code> (อนุมัติ) และเครื่องมือของคุณจะถูกติดตั้งเข้าสู่ Catalog คุณสามารถติดตามสถานะทั้งหมดได้ตลอดเวลาในหน้า Portal</p>
+
+      <h2>4. ข้อมูลสำหรับจัดแสดงในหน้าร้าน (Store Listing)</h2>
+      <p>หากคุณระบุฟิลด์เหล่านี้ใน Payload เครื่องมือของคุณจะถูกนำเสนอในหน้าร้านเครื่องมืออย่างสวยงาม:</p>
+      <table>
+        <tr><th>ฟิลด์</th><th>คำอธิบาย</th></tr>
+        <tr><td><code>label</code></td><td>ชื่อที่จะแสดงต่อผู้ใช้ทั่วไป (เช่น "เช็คพยากรณ์อากาศ")</td></tr>
+        <tr><td><code>blurb</code></td><td>คำโปรยหรือสโลแกนสั้น ๆ ดึงดูดความสนใจ</td></tr>
+        <tr><td><code>category</code> / <code>provider</code></td><td>หมวดหมู่การใช้งาน / ชื่อผู้ให้บริการหรือนักพัฒนา</td></tr>
+        <tr><td><code>pricing</code></td><td>โมเดลราคา: <code>free</code> (ฟรี), <code>onetime</code> (จ่ายครั้งเดียว), <code>subscription</code> (จ่ายรายเดือน)</td></tr>
+        <tr><td><code>status</code></td><td>สถานะการให้บริการ: <code>live</code> (ใช้งานได้ทันที), <code>trial</code> (ทดลองใช้ฟรี), <code>soon</code> (เตรียมพบกันเร็ว ๆ นี้)</td></tr>
+      </table>
+
+      <div class="note">
+        <div class="ic">💡</div>
+        <div>
+          <b>ความสามารถเปิดโดยปริยาย (Opt-out):</b><br>
+          ความสามารถที่อยู่ใน Catalog ปิ่นสามารถเรียกใช้ได้ทันทีโดยปริยาย ผู้ใช้ <b>ไม่ต้องกดเปิดเอง</b> — เช่น ปิ่นสามารถ "ดูดวง" ให้ได้ตั้งแต่ครั้งแรก ฟิลด์ <code>status</code> (เช่น <code>trial</code>) และ <code>pricing</code> ใช้สำหรับการแสดงผลและการคิดเงินในหน้าร้านเท่านั้น <b>ไม่ได้ปิดกั้นการเรียกใช้</b> ผู้ใช้ที่ไม่ต้องการความสามารถใดสามารถปิด (Opt-out) ได้จากหน้า "ความสามารถ" ของแอป
+        </div>
+      </div>
+
+      <h2>5. การปรับค่า Params (หลังใช้งานจริง)</h2>
+      <p>หลังจากที่เครื่องมือ Live แล้ว หากคุณมีความจำเป็นต้องปรับตั้งค่าเริ่มต้น (Defaults) เช่น เปลี่ยน RSS URL ต้นทางสำหรับระบบ News Reporter, หรือแก้ไขค่า Default Params ของเซิร์ฟเวอร์ MCP คุณสามารถปรับได้จากหน้า "การตั้งค่าเครื่องมือ" บนการ์ดใน Store ของคุณได้ทันที <b>ค่าที่ปรับเปลี่ยนจะไหลไปถึงเครื่องลูกข่ายโดยอัตโนมัติ ไม่ต้องสั่ง Deploy แต่อย่างใด</b></p>
+
+      <h2>6. การเผยแพร่ Catalog (Publishing) และเวอร์ชันอัปเดต</h2>
+      <ul>
+        <li>เมื่อเจ้าของกดยืนยัน <b>"เผยแพร่ Catalog"</b> ระบบจะทำการสร้าง Snapshot รุ่นใหม่พร้อมเซ็นรับรอง (Signed) โทรศัพท์มือถือของผู้ใช้จะดาวน์โหลด Snapshot ล่าสุดเพื่อใช้งานใน Runtime อย่างปลอดภัย</li>
+        <li>หากคุณทำการอัปเดต Schema ของระบบ MCP คุณสามารถสั่ง Refresh ผ่านหน้า Portal ได้ทันที โดยที่แอปพลิเคชันปิ่นตัวหลักของผู้ใช้งานไม่จำเป็นต้องถูก Rebuild หรือรออัปเดตเวอร์ชันจาก App Store เลย</li>
+      </ul>
+
+      <div class="note">
+        <div class="ic">✅</div>
+        <div>
+          <b>Checklist สุดท้ายก่อนส่งงาน:</b><br>
+          ตรวจให้มั่นใจว่าไม่มี PII หลุดเข้าไปอยู่ใน <code>argKeys</code> · ค่า <code>description</code> อธิบายชัดเจนว่าเมื่อไหร่ AI จึงควรเรียกใช้งาน · Endpoint รองรับ HTTPS และมีการจัดการ Error ที่ดี · โครงสร้างการ์ด UI อ่านง่าย ไม่ยัดเยียดข้อมูล และสื่อสารด้วยภาษาที่ผู้ใช้อ่านเข้าใจ
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Script สำหรับสลับโค้ดตัวอย่างในเอกสาร
+  function switchCode(btn, targetId) {
+    const group = btn.closest('.code-group');
+    group.querySelectorAll('.code-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    group.querySelectorAll('.code-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+  }
+  
+  // Script สำหรับเน้นไฮไลท์เมนูเมื่อเลื่อนหน้าจอ
+  const sections = document.querySelectorAll('section');
+  const navLinks = document.querySelectorAll('#nav a');
+  
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      if (scrollY >= sectionTop - 100) {
+        current = section.getAttribute('id');
+      }
+    });
+    
+    navLinks.forEach(link => {
+      link.classList.remove('on');
+      if (link.getAttribute('href') === `#${current}`) {
+        link.classList.add('on');
+      }
+    });
+  });
+</script>
+</body>
+</html>

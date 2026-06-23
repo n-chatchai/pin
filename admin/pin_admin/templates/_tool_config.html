@@ -1,0 +1,19 @@
+<div class="sec-h"><h3>ตั้งค่า params · {{ name }}</h3>
+  <a class="tg" hx-get="/admin/tab/store" hx-target="#panel">← กลับ</a></div>
+<p class="hint" style="margin:0 0 12px">แหล่งข่าว RSS — หนึ่งฟีดต่อบรรทัด:
+  <span class="mono">url | ชื่อ | slug</span> (ชื่อ/slug ไม่บังคับ; slug = กรองเฉพาะลิงก์ที่มีคำนั้น).
+  เครื่องลูกดึงไปใช้ตอนผู้ใช้ขอข่าว.</p>
+<form hx-post="/admin/tool/{{ name }}/config" hx-target="#panel"
+      style="background:#fff;border:1px solid var(--line);border-radius:11px;padding:16px;max-width:640px">
+{% for tid, tlabel, feeds in topics %}
+  <div style="margin-bottom:14px">
+    <label style="display:block;font-weight:600;margin-bottom:6px">{{ tlabel }}
+      <span class="mono" style="color:var(--ink2)">({{ tid }})</span></label>
+    <textarea name="{{ tid }}" rows="5" spellcheck="false"
+      style="width:100%;font-family:monospace;font-size:12.5px;border:1px solid var(--line2);border-radius:7px;padding:9px;box-sizing:border-box"
+>{% for s in feeds %}{{ s.url }}{% if s.name %} | {{ s.name }}{% endif %}{% if s.slug %} | {{ s.slug }}{% endif %}
+{% endfor %}</textarea>
+  </div>
+{% endfor %}
+  <button class="btn p" type="submit">บันทึก</button>
+</form>

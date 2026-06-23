@@ -100,6 +100,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       debugPrint('pin DM bring-up failed (local fallback): $e');
     }
     if (_roomId != null) {
+      _session = AgentSession(room: _roomId!, proxy: devProxy());
       // Persona (a room-state read) is independent of the transcript, so overlap
       // it with pagination instead of paying two sequential round-trips. Awaited
       // before the greeting/quick-replies below, which fill in the persona.

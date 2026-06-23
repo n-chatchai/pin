@@ -291,6 +291,39 @@ def tool_save(name: str, request: Request, admin: str = Depends(owner),
     return tab_tools(request, admin)
 
 
+# Per-tool "params" editor, reached from the store card (like the MCP defaults
+# editor). news_reporter's params = its RSS feeds per topic.
+_NEWS_TOPICS = [("general", "ข่าวทั่วไป"), ("ai", "ข่าว AI")]
+
+
+@router.get("/tool/{name}/config", response_class=HTMLResponse)
+def tool_config(name: str, request: Request, admin: str = Depends(owner)):
+    sources = store.get_tool_config(name).get("sources", {})
+    topics = [(tid, lbl, sources.get(tid, [])) for tid, lbl in _NEWS_TOPICS]
+    return templates.TemplateResponse(
+        request, "_tool_config.html", {"name": name, "topics": topics})
+
+
+@router.post("/tool/{name}/config", response_class=HTMLResponse)
+async def tool_config_save(name: str, request: Request,
+                           admin: str = Depends(owner)):
+    f = await request.form()
+    sources: dict[str, list] = {}
+    for tid, _ in _NEWS_TOPICS:
+        feeds = []
+        for line in (f.get(tid) or "").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = [p.strip() for p in line.split("|")]  # url | name | slug
+            feeds.append({"url": parts[0],
+                          "name": parts[1] if len(parts) > 1 else "",
+                          "slug": parts[2] if len(parts) > 2 else ""})
+        sources[tid] = feeds
+    store.set_tool_config(name, {"sources": sources})
+    return tab_store(request, admin)
+
+
 def _render_registry(request: Request, tab: str):
     table, items = _REG[tab]
     installed = store.installed_names(table)

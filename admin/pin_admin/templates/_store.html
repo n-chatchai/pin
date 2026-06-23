@@ -42,6 +42,8 @@
     <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
       {% if m.kind == 'mcp' and m.get('server') %}
         <a class="tg" hx-get="/admin/mcp/server/{{ m.server }}/tools" hx-target="#panel">ตั้งค่า params</a>
+      {% elif m.name == 'news_reporter' %}
+        <a class="tg" hx-get="/admin/tool/{{ m.name }}/config" hx-target="#panel">ตั้งค่า params</a>
       {% endif %}
       <a class="tg" style="color:{{ 'var(--red)' if m.enabled else 'var(--green-d)' }}"
          hx-post="/admin/store/{{ m.name }}/toggle" hx-target="#panel">{{ 'ปิด' if m.enabled else 'เปิด' }}</a>

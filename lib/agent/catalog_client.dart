@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'abilities.dart';
 import 'agent_reply.dart';
+import 'news_tool.dart';
 import 'proxy_client.dart';
 import 'subagent.dart';
 import 'tools.dart';
@@ -32,7 +33,7 @@ class CatalogClient {
 
   /// Fetch the catalog and split it: callable tools (remote/mcp) vs skills
   /// (instructions injected into the persona, not tools). Best-effort.
-  Future<CatalogResult> fetch() async {
+  Future<CatalogResult> fetch({Set<String> optedOut = const {}}) async {
     final manifests = await fetchManifests();
     // Map each capability's name → Thai label so the "ใช้: …" hint shows Thai.
     registerAbilityLabels({
@@ -43,13 +44,19 @@ class CatalogClient {
     final skills = <String, Map<String, dynamic>>{}; // name -> manifest
     final subagents = <SubagentSpec>[];
     for (final m in manifests) {
+      final name = '${m['name']}';
+      // Opt-out model: every catalog capability is available by default (so ปิ่น
+      // can ดูดวง out of the box). The user disables the ones they don't want from
+      // the abilities store; those names land in `optedOut` and drop out here.
+      if (optedOut.contains(name)) continue;
+
       switch (m['kind']) {
         case 'skill':
           final ins = m['instructions'];
-          if (ins is String && ins.isNotEmpty) skills['${m['name']}'] = m;
+          if (ins is String && ins.isNotEmpty) skills[name] = m;
         case 'subagent':
           subagents.add(SubagentSpec(
-            name: '${m['name']}',
+            name: name,
             description: '${m['description'] ?? ''}',
             system: '${m['system'] ?? ''}',
             toolNames: (m['toolNames'] as List?)?.map((e) => '$e').toList() ??
@@ -102,6 +109,10 @@ class CatalogClient {
 
   AgentTool _fromManifest(Map<String, dynamic> m) {
     final name = '${m['name']}';
+    // news_reporter runs on-device (RSS fetch + summarise); the manifest only
+    // carries its config (admin-set feeds). Build the local tool, not a remote
+    // proxy call. Its dead 8091 endpoint in the catalog is ignored.
+    if (name == 'news_reporter') return newsTool(proxy, config: m['config']);
     final decl = <String, dynamic>{
       'type': 'function',
       'function': {

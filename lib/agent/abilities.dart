@@ -1,6 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+/// Bumped whenever the user changes which capabilities are opted into (the
+/// abilities store). A live [AgentSession] and the composer panel watch this so
+/// an opt-out takes effect on the next turn instead of waiting out the 30s
+/// catalog-staleness window — otherwise ปิ่น could still call a just-disabled
+/// capability (e.g. keep ดูดวง after the user opted out).
+final ValueNotifier<int> capabilitiesRevision = ValueNotifier<int>(0);
+
 /// How a capability is priced. `free` = add yourself; `onetime` = buy once;
 /// `subscription` = recurring. Drives the action button in the abilities UI.
 class Pricing {

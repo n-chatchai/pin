@@ -12,6 +12,7 @@ import 'abilities.dart';
 import 'remote_tools.dart';
 import 'subagent.dart';
 import 'tools.dart';
+import '../services/matrix_service.dart';
 
 /// Drives the device brain for one room. Builds the system prompt (persona +
 /// capabilities), exposes the stateless tools, and runs a turn. The transcript
@@ -27,6 +28,8 @@ class AgentSession {
   Map<String, Map<String, dynamic>> _catalogSkills = const {}; // name->manifest
   List<SubagentSpec> _catalogSubagents = const [];
   DateTime? _catalogAt; // last successful/attempted catalog load
+  int _catalogRev = -1; // capabilitiesRevision seen at the last catalog load
+  Set<String> _optedOut = const {}; // capabilities the user turned off
 
   /// Model-context transcript, held in memory only — the encrypted DM room is the
   /// source of truth. Seeded from the DM at boot ([seedTurns]) and appended each
@@ -49,7 +52,14 @@ class AgentSession {
   });
 
   Future<void> loadCatalog() async {
-    final r = await CatalogClient(proxy).fetch();
+    final optedOut = <String>{};
+    if (room.startsWith('!')) {
+      final rawList = await MatrixService.instance
+          .loadListFromRoom(room, 'io.tokens2.opted_out_capabilities');
+      optedOut.addAll(rawList.map((e) => '${e['name']}'));
+    }
+    _optedOut = optedOut;
+    final r = await CatalogClient(proxy).fetch(optedOut: optedOut);
     // Only overwrite when we actually got something (or it's the first load) —
     // a transient network failure shouldn't wipe a good catalog.
     if (_catalogAt == null ||
@@ -59,6 +69,7 @@ class AgentSession {
       _catalogSubagents = r.subagents;
     }
     _catalogAt = DateTime.now();
+    _catalogRev = capabilitiesRevision.value;
   }
 
   static String _two(int n) => n.toString().padLeft(2, '0');
@@ -98,14 +109,26 @@ class AgentSession {
         '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
         '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
         'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
-    // Catalog skill instructions (all on — the local skill toggle was removed
-    // with on-device memory; capability gating will move to room state later).
+    // Catalog skill instructions. Capabilities the user opted out of are already
+    // filtered upstream (CatalogClient.fetch), so _catalogSkills holds only the
+    // ones in effect for this user.
     final blocks = <String>[
       for (final e in _catalogSkills.entries) '${e.value['instructions']}',
     ];
     if (blocks.isNotEmpty) {
       s += '\n\nความสามารถที่เปิดไว้:\n'
           '${blocks.map((b) => '- $b').join('\n')}';
+    }
+    // Capabilities the user switched OFF. Removing the tool isn't enough — the
+    // model will otherwise fake the result itself (e.g. "ดูดวง" via render_html).
+    // Tell it explicitly to refuse, not improvise.
+    if (_optedOut.isNotEmpty) {
+      final names =
+          _optedOut.map(abilityLabel).where((s) => s.isNotEmpty).join(', ');
+      s += '\n\nความสามารถที่ผู้ใช้ปิดไว้: $names. '
+          'ห้ามทำสิ่งเหล่านี้เองเด็ดขาด — รวมถึงห้ามแต่งผลลัพธ์เป็นข้อความ ตาราง '
+          'การ์ด หรือ HTML. ถ้าผู้ใช้ขอ ให้บอกสั้น ๆ ว่าความสามารถนี้ถูกปิดอยู่ '
+          'เปิดใหม่ได้ที่หน้า "ความสามารถ".';
     }
     return s;
   }
@@ -225,9 +248,12 @@ class AgentSession {
       bool persistUser = true,
       String? recordText,
       String? imageRecordPath}) async {
-    // Refresh the catalog if it's stale so a just-published capability works
+    // Refresh the catalog if it's stale, or if the user just changed which
+    // capabilities are opted in (so an opt-out drops the tool this turn — not up
+    // to 30s later), so a just-published/just-disabled capability takes effect
     // without a restart.
     if (_catalogAt == null ||
+        _catalogRev != capabilitiesRevision.value ||
         DateTime.now().difference(_catalogAt!) > const Duration(seconds: 30)) {
       await loadCatalog();
     }

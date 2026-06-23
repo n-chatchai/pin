@@ -1,24 +1,30 @@
-# ปิ่น proxy + admin — Caddy reverse proxy with automatic TLS.
-# Replace the domain; point DNS at the VPS. Caddy fetches/renews Let's Encrypt.
+# ปิ่น proxy + admin — Caddy reverse proxy blocks. REFERENCE ONLY.
 #
-#   caddy run --config deploy/Caddyfile
+# The DEPLOYED config is the root-owned /etc/caddy/Caddyfile on the VPS (shared
+# with other tenants: taemdee, salesdee, lakkana, livekit, chat.tokens2.io …).
+# Edit it there with sudo, then `sudo systemctl reload caddy`. This file is the
+# pin slice of it, kept in-repo as documentation — Caddy is NOT run from here.
 #
-# Device endpoints (/infer /tool /embed /catalog /schedule) and the admin UI
-# (/admin) share one origin; admin is gated by its own login (admin.py), the
-# device endpoints by the bearer token. Bind the app to localhost so only Caddy
-# faces the internet.
+# TLS = Cloudflare origin certs (/etc/ssl/cloudflare/tokens2.io.*), not ACME;
+# DNS is proxied through Cloudflare. Apps bind 127.0.0.1 so only Caddy is public.
 
-proxy.tokens2.io {
-	encode zstd gzip
-
-	# Admin backoffice — owner login (cookie). Optional: add IP allowlist.
-	@admin path /admin*
-	handle @admin {
-		reverse_proxy 127.0.0.1:8088
+# Device API — /infer /tool /embed /catalog /schedule, bearer-auth in-app.
+pin-gateway.tokens2.io {
+	tls /etc/ssl/cloudflare/tokens2.io.pem /etc/ssl/cloudflare/tokens2.io.key
+	encode gzip
+	request_body {
+		max_size 50MB
 	}
-
-	# Device API (bearer-authenticated inside the app).
-	handle {
-		reverse_proxy 127.0.0.1:8088
+	reverse_proxy 127.0.0.1:8088 {
+		transport http {
+			read_timeout 120s
+		}
 	}
+}
+
+# Admin backoffice (pin_admin, port 8800) — owner login cookie (admin.py).
+pin-admin.tokens2.io {
+	tls /etc/ssl/cloudflare/tokens2.io.pem /etc/ssl/cloudflare/tokens2.io.key
+	encode gzip
+	reverse_proxy 127.0.0.1:8800
 }

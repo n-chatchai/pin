@@ -365,32 +365,43 @@ class _FilesTabState extends State<FilesTab> {
   Widget _chips() {
     return SizedBox(
       height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-        children: [
-          for (final (id, label) in _filters)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(label),
-                selected: _filter == id,
-                onSelected: (_) => _setFilter(id),
-                showCheckmark: false,
-                labelStyle: TextStyle(
-                    color: _filter == id ? Colors.white : PinPalette.ink,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5),
-                selectedColor: Theme.of(context).colorScheme.primary,
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                    color: _filter == id
-                        ? Theme.of(context).colorScheme.primary
-                        : PinPalette.line),
-                shape: const StadiumBorder(),
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+            colors: [Colors.white, Color(0x00FFFFFF)],
+            stops: [0.0, 0.08],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstOut,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          children: [
+            for (final (id, label) in _filters)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(label),
+                  selected: _filter == id,
+                  onSelected: (selected) => _setFilter(selected ? id : null),
+                  showCheckmark: false,
+                  labelStyle: TextStyle(
+                      color: _filter == id ? Colors.white : PinPalette.ink,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5),
+                  selectedColor: Theme.of(context).colorScheme.primary,
+                  backgroundColor: Colors.white,
+                  side: BorderSide(
+                      color: _filter == id
+                          ? Theme.of(context).colorScheme.primary
+                          : PinPalette.line),
+                  shape: const StadiumBorder(),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -8,8 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../agent/agent_config.dart';
+import '../agent/abilities.dart';
 import '../agent/catalog_client.dart';
 import '../theme/pin_theme.dart';
+import '../services/matrix_service.dart';
 import 'pin_toast.dart';
 
 /// FluffyChat-style message composer:
@@ -28,6 +31,7 @@ class MessageComposer extends StatefulWidget {
   final String? replyToSender;
   final String? replyToBody;
   final VoidCallback? onCancelReply;
+  final ValueChanged<bool>? onPanelToggled;
 
   const MessageComposer({
     super.key,
@@ -37,6 +41,7 @@ class MessageComposer extends StatefulWidget {
     this.replyToSender,
     this.replyToBody,
     this.onCancelReply,
+    this.onPanelToggled,
   });
 
   @override
@@ -74,20 +79,38 @@ class _MessageComposerState extends State<MessageComposer> {
       setState(() {});
     });
     _loadCaps();
+    // Reload the panel when the user opts a capability in/out, so it stays in
+    // sync with what ปิ่น can actually do.
+    capabilitiesRevision.addListener(_loadCaps);
   }
 
   /// Learn which capabilities the catalog has enabled, so the panel only shows
   /// real ones (a disabled/coming-soon capability drops out). Best-effort.
   Future<void> _loadCaps() async {
     try {
+      final roomId = await MatrixService.instance.pinRoomId();
+      final optedOutRaw = roomId != null
+          ? await MatrixService.instance
+              .loadListFromRoom(roomId, 'io.tokens2.opted_out_capabilities')
+          : [];
+      final optedOut = optedOutRaw.map((e) => '${e['name']}').toSet();
+
       final m = await CatalogClient(devProxy()).fetchManifests();
       if (!mounted) return;
-      setState(() => _catNames = {for (final e in m) '${e['name']}'});
+      setState(() {
+        // Opt-out: show every catalog capability except the ones the user turned
+        // off — matching what ปิ่น can actually do.
+        _catNames = {
+          for (final e in m)
+            if (!optedOut.contains('${e['name']}')) '${e['name']}'
+        };
+      });
     } catch (_) {/* keep optimistic full list */}
   }
 
   @override
   void dispose() {
+    capabilitiesRevision.removeListener(_loadCaps);
     _recordTimer?.cancel();
     _recorder.dispose();
     _controller.dispose();
@@ -328,15 +351,18 @@ class _MessageComposerState extends State<MessageComposer> {
   void _togglePanel() {
     if (!_panelOpen) FocusScope.of(context).unfocus(); // drop the keyboard
     setState(() => _panelOpen = !_panelOpen);
+    widget.onPanelToggled?.call(_panelOpen);
   }
 
   void _runCap(String prompt) {
     setState(() => _panelOpen = false);
+    widget.onPanelToggled?.call(false);
     widget.onSend(prompt);
   }
 
   void _runTool(String id) {
     setState(() => _panelOpen = false);
+    widget.onPanelToggled?.call(false);
     widget.onMedia?.call(id);
   }
 
@@ -345,37 +371,45 @@ class _MessageComposerState extends State<MessageComposer> {
   Widget _capPanel(ColorScheme scheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(vertical: 13),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
               color: Color(0x1A282822), blurRadius: 30, offset: Offset(0, 10)),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _panelLabel('ความสามารถ'),
-          _badgeRow([
-            for (final (_, icon, label, prompt) in _visibleCaps)
-              _badge(icon, label, () => _runCap(prompt)),
-          ]),
-          const SizedBox(height: 12),
-          _panelLabel('เครื่องมือ'),
-          _badgeRow([
-            for (final (id, icon, label) in _toolSpecs)
-              _badge(icon, label, () => _runTool(id)),
-          ]),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            color: Colors.white.withValues(alpha: 0.85),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _panelLabel('ความสามารถ'),
+                _badgeRow([
+                  for (final (_, icon, label, prompt) in _visibleCaps)
+                    _badge(icon, label, () => _runCap(prompt)),
+                ]),
+                const SizedBox(height: 18),
+                _panelLabel('เครื่องมือ'),
+                _badgeRow([
+                  for (final (id, icon, label) in _toolSpecs)
+                    _badge(icon, label, () => _runTool(id), isTool: true),
+                ]),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _panelLabel(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 9),
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
         child: Text(t,
             style: const TextStyle(
                 fontSize: 10,
@@ -386,19 +420,33 @@ class _MessageComposerState extends State<MessageComposer> {
 
   Widget _badgeRow(List<Widget> badges) => SizedBox(
         height: 34,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          itemCount: badges.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 7),
-          itemBuilder: (_, i) => badges[i],
+        child: ShaderMask(
+          shaderCallback: (Rect bounds) {
+            return const LinearGradient(
+              begin: Alignment.centerRight,
+              end: Alignment.centerLeft,
+              colors: [Colors.white, Color(0x00FFFFFF)],
+              stops: [0.0, 0.08],
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.dstOut,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            itemCount: badges.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 7),
+            itemBuilder: (_, i) => badges[i],
+          ),
         ),
       );
 
   static const _badgeBg = Color(0xFF23231F);
-  Widget _badge(IconData icon, String label, VoidCallback onTap) => Material(
-        color: _badgeBg,
-        borderRadius: BorderRadius.circular(100),
+  Widget _badge(IconData icon, String label, VoidCallback onTap, {bool isTool = false}) => Material(
+        color: isTool ? Colors.white : _badgeBg,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
+            side: isTool ? const BorderSide(color: PinPalette.line, width: 1) : BorderSide.none,
+        ),
         child: InkWell(
           borderRadius: BorderRadius.circular(100),
           onTap: onTap,
@@ -407,11 +455,11 @@ class _MessageComposerState extends State<MessageComposer> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: Colors.white),
+                Icon(icon, size: 16, color: isTool ? PinPalette.ink : Colors.white),
                 const SizedBox(width: 7),
                 Text(label,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: isTool ? PinPalette.ink : Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.w500)),
               ],

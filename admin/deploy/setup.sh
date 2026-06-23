@@ -4,7 +4,7 @@
 #   deploy/setup.sh [app-dir]
 set -euo pipefail
 
-APP_DIR="${1:-${APP_DIR:-$HOME/pin-admin}}"
+APP_DIR="${1:-${APP_DIR:-$HOME/pin/admin}}"
 export PATH="$HOME/.local/bin:$PATH"
 
 if ! command -v uv >/dev/null 2>&1; then

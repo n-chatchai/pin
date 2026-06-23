@@ -58,6 +58,8 @@ class ChatScaffold extends StatefulWidget {
 }
 
 class _ChatScaffoldState extends State<ChatScaffold> {
+  bool _composerPanelOpen = false;
+
   @override
   Widget build(BuildContext context) {
     final messages = widget.messages;
@@ -163,6 +165,15 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                         ),
               ),
             ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: _composerPanelOpen ? 1.0 : 0.0,
+                  child: Container(color: const Color.fromRGBO(28, 28, 24, 0.14)),
+                ),
+              ),
+            ),
             Positioned(
               left: 0,
               right: 0,
@@ -177,6 +188,7 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                     replyToSender: replyTo?.senderName,
                     replyToBody: replyTo?.body,
                     onCancelReply: onCancelReply,
+                    onPanelToggled: (open) => setState(() => _composerPanelOpen = open),
                   ),
                 ],
               ),
