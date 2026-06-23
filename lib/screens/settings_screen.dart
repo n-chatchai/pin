@@ -12,6 +12,7 @@ import '../src/rust/api/matrix.dart' as rust;
 import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 import '../theme/theme_controller.dart';
+import '../widgets/pin_button.dart';
 import '../widgets/theme_picker.dart';
 import '../widgets/pin_toast.dart';
 import '../widgets/recovery_qr.dart';
@@ -112,18 +113,9 @@ class SettingsScreen extends StatelessWidget {
               ),
             ]),
             _section('ทั่วไป'),
+            // Language picker removed — Thai-only for now (English not ready);
+            // locale is forced to Thai in PrefsController.
             _card([
-              ListTile(
-                leading: const Icon(PhosphorIconsRegular.globe),
-                title: const Text('ภาษา · Language'),
-                trailing: _LangToggle(
-                  lang: p.lang,
-                  // English not ready yet — show a toast and stay on Thai.
-                  onChanged: (v) => v == 'en'
-                      ? PinToast.show(context, 'English is coming soon')
-                      : PrefsController.instance.update(p.copyWith(lang: v)),
-                ),
-              ),
               ValueListenableBuilder<PinPalette>(
                 valueListenable: ThemeController.instance,
                 builder: (context, palette, _) => ListTile(
@@ -241,47 +233,6 @@ class SettingsScreen extends StatelessWidget {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const WelcomeScreen()),
       (_) => false,
-    );
-  }
-}
-
-class _LangToggle extends StatelessWidget {
-  final String lang;
-  final ValueChanged<String> onChanged;
-  const _LangToggle({required this.lang, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    Widget seg(String code, String label) {
-      final on = lang == code;
-      return GestureDetector(
-        onTap: () => onChanged(code),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: on ? scheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(label,
-              style: TextStyle(
-                  color: on ? Colors.white : PinPalette.ink2,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12)),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.all(2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [seg('th', 'TH'), seg('en', 'EN')],
-      ),
     );
   }
 }
@@ -823,11 +774,7 @@ class _DebugActionScreenState extends State<_DebugActionScreen> {
               _card(const Text('(ว่าง)')),
           ],
           const SizedBox(height: 16),
-          FilledButton.icon(
-            icon: const Icon(PhosphorIconsRegular.arrowsClockwise, size: 16),
-            label: const Text('รันอีกครั้ง'),
-            onPressed: _running ? null : _go,
-          ),
+          PinButton('รันอีกครั้ง', onTap: _running ? null : _go, busy: _running),
         ],
       ),
     );
@@ -883,13 +830,10 @@ class _DiagnosticsScreen extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 16),
-          FilledButton.icon(
-            icon: const Icon(PhosphorIconsRegular.copy, size: 16),
-            label: const Text('คัดลอกทั้งหมด'),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(
-                  text: rows.map((r) => '${r.$1}: ${r.$2}').join('\n')));
-              PinToast.show(context, 'คัดลอกแล้ว');
+          PinButton('คัดลอกทั้งหมด', onTap: () {
+            Clipboard.setData(ClipboardData(
+                text: rows.map((r) => '${r.$1}: ${r.$2}').join('\n')));
+            PinToast.show(context, 'คัดลอกแล้ว');
             },
           ),
         ],
@@ -965,10 +909,8 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
           ),
           const SizedBox(height: 16),
           if (_key == null)
-            FilledButton(
-              onPressed: _running ? null : _reset,
-              child: Text(_running ? 'กำลังตั้งค่า…' : 'ตั้งค่าใหม่'),
-            ),
+            PinButton('ตั้งค่าใหม่',
+                onTap: _running ? null : _reset, busy: _running),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -991,20 +933,15 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
                       fontFamily: 'monospace', fontSize: 14, height: 1.5)),
             ),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              icon: const Icon(PhosphorIconsRegular.qrCode, size: 16),
-              label: const Text('บันทึกเป็น QR'),
-              onPressed: () => shareRecoveryQr(context, _qrData ?? _key!,
-                  caption: MatrixService.instance.userEmail),
-            ),
+            PinButton('บันทึกเป็น QR',
+                onTap: () => shareRecoveryQr(context, _qrData ?? _key!,
+                    caption: MatrixService.instance.userEmail)),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(PhosphorIconsRegular.copy, size: 16),
-              label: const Text('คัดลอกกุญแจ'),
-              onPressed: () {
+            Center(
+              child: PinButton.text('คัดลอกกุญแจ', onTap: () {
                 Clipboard.setData(ClipboardData(text: _key!));
                 PinToast.show(context, 'คัดลอกแล้ว');
-              },
+              }),
             ),
           ],
         ],

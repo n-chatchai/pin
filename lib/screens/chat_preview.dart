@@ -27,7 +27,7 @@ class _ChatPreviewState extends State<ChatPreview> {
       ChatViewMessage(
         eventId: '1',
         sender: '@pin-bot:pin-chat.tokens2.io',
-        body: 'สวัสดีครับ ผมปิ่น ผู้ช่วยส่วนตัวของคุณ 🪮\nวันนี้ให้ช่วยอะไรดี?',
+        body: 'สวัสดีค่ะ ปิ่นเอง ผู้ช่วยส่วนตัวของคุณ 🪮\nวันนี้ให้ช่วยอะไรดีคะ?',
         time: t(42),
         isMe: false,
       ),
@@ -41,7 +41,7 @@ class _ChatPreviewState extends State<ChatPreview> {
       ChatViewMessage(
         eventId: '3',
         sender: '@pin-bot:pin-chat.tokens2.io',
-        body: 'พรุ่งนี้กรุงเทพฯ ฝน 80% ช่วงบ่าย อุณหภูมิ 24–31°C เอาร่มไปด้วยนะครับ ☔',
+        body: 'พรุ่งนี้กรุงเทพฯ ฝน 80% ช่วงบ่าย อุณหภูมิ 24–31°C เอาร่มไปด้วยนะคะ ☔',
         time: t(39),
         isMe: false,
         reactions: {'👍': 1},
@@ -56,7 +56,7 @@ class _ChatPreviewState extends State<ChatPreview> {
       ChatViewMessage(
         eventId: '5',
         sender: '@pin-bot:pin-chat.tokens2.io',
-        body: 'ตั้งให้แล้วครับ ⏰ เตือนกินยาทุกวัน 09:00 น.',
+        body: 'ตั้งให้แล้วค่ะ ⏰ เตือนกินยาทุกวัน 09:00 น.',
         time: t(19),
         isMe: false,
         replyToSender: 'test',

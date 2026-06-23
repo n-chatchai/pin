@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -220,12 +219,9 @@ class PrefsController extends ValueNotifier<PinPrefs> {
   static const _key = 'prefs';
 
   Future<void> load() async {
-    // Device language: Thai locale → th, anything else → en.
-    final detected =
-        ui.PlatformDispatcher.instance.locale.languageCode == 'th' ? 'th' : 'en';
     final raw = await _storage.read(key: _key);
     if (raw == null) {
-      value = PinPrefs(lang: detected);
+      value = const PinPrefs(); // Thai-only app (lang defaults to 'th')
       return;
     }
     final map = <String, String>{
@@ -236,10 +232,9 @@ class PrefsController extends ValueNotifier<PinPrefs> {
     // onboarded/personaSetup are room-derived — never trust a persisted value
     // (older builds wrote them, and they go stale). Start false; AfterAuth's
     // rehydrate flips them true iff the ปิ่น room actually carries a persona.
-    p = p.copyWith(onboarded: false, personaSetup: false);
-    // Until the user picks a language by hand, keep following the device — so
-    // an English phone shows English even if old saved prefs defaulted to Thai.
-    if (!p.langExplicit) p = p.copyWith(lang: detected);
+    // Force Thai: English isn't ready and the language picker is disabled, so we
+    // never follow the device locale (an English phone must still get Thai).
+    p = p.copyWith(onboarded: false, personaSetup: false, lang: 'th');
     value = p;
   }
 
@@ -257,8 +252,6 @@ class PrefsController extends ValueNotifier<PinPrefs> {
   /// skips onboarding. Persona then re-hydrates from the next account's room.
   Future<void> reset() async {
     await _storage.delete(key: _key);
-    final detected =
-        ui.PlatformDispatcher.instance.locale.languageCode == 'th' ? 'th' : 'en';
-    value = PinPrefs(lang: detected);
+    value = const PinPrefs(); // Thai-only (lang defaults to 'th')
   }
 }

@@ -190,75 +190,112 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     );
   }
 
+  // Fixed CTA width so every card's trailing control lines up (and the trial
+  // toggle doesn't change width when its label flips on↔off).
+  static const double _ctaWidth = 116;
+
   Widget _cta(Ability a) {
     final soon = a.status == 'soon';
     final trial = a.status == 'trial';
-    // Opt-out model: a trial capability is ON by default; the user can turn it
-    // off. `isOff` = the user opted out of it.
-    final isOff = trial && _optedOut.contains(a.name);
+    final primary = Theme.of(context).colorScheme.primary;
+
+    // Trial = opt-out, on by default. Show the STATE as a toggle pill (icon +
+    // เปิด/ปิด) — far easier to read at a glance than an action verb.
+    if (trial) {
+      final on = !_optedOut.contains(a.name);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('ฟรี',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.5,
+                  color: PinPalette.ink)),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _toggleTrial(a, on),
+            child: Container(
+              width: _ctaWidth,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: on ? primary.withValues(alpha: 0.12) : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: on ? primary : PinPalette.line),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(on ? Icons.toggle_on : Icons.toggle_off,
+                      size: 22, color: on ? primary : PinPalette.ink3),
+                  const SizedBox(width: 5),
+                  Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: on ? primary : PinPalette.ink2)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     final word = soon
         ? 'เร็ว ๆ นี้'
-        : trial
-            ? (isOff ? 'เปิดใช้งาน' : 'ปิดใช้งาน')
-            : a.needsConnect
-                ? 'เชื่อม'
-                : a.pricing.tier == 'subscription'
-                    ? 'สมัคร'
-                    : 'ซื้อ';
-    // Trial → "ฟรี" up top + the post-trial price as the button caption hint.
-    final priceLabel = trial ? 'ฟรี' : a.pricing.label;
+        : a.needsConnect
+            ? 'เชื่อม'
+            : a.pricing.tier == 'subscription'
+                ? 'สมัคร'
+                : 'ซื้อ';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(priceLabel,
+        Text(a.pricing.label,
             style: const TextStyle(
                 fontWeight: FontWeight.w700, fontSize: 13.5, color: PinPalette.ink)),
         const SizedBox(height: 6),
-        FilledButton.tonal(
-          style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            backgroundColor: soon
-                ? PinPalette.line
-                : (trial && isOff)
-                    ? Theme.of(context).colorScheme.primary // re-enable CTA
-                    : null, // on/active → default tonal "ปิดใช้งาน"
-            foregroundColor: (trial && isOff) ? Colors.white : null,
+        SizedBox(
+          width: _ctaWidth,
+          child: FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              backgroundColor: soon ? PinPalette.line : null,
+            ),
+            onPressed: soon
+                ? null
+                : () => PinToast.show(
+                    context, 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว'),
+            child: Text(word),
           ),
-          onPressed: soon
-              ? null
-              : () async {
-                  if (trial) {
-                    if (_roomId == null) return;
-                    setState(() {
-                      if (isOff) {
-                        _optedOut.remove(a.name); // turn back on
-                      } else {
-                        _optedOut.add(a.name); // opt out
-                      }
-                    });
-                    await MatrixService.instance.saveListToRoom(
-                        _roomId!,
-                        'io.tokens2.opted_out_capabilities',
-                        _optedOut.map((e) => {'name': e}).toList());
-                    // Tell any live chat session/composer to reload now, so the
-                    // opt-out drops ดูดวง from ปิ่น this turn (not 30s later).
-                    capabilitiesRevision.value++;
-                    if (!mounted) return;
-                    PinToast.show(
-                        context,
-                        isOff
-                            ? 'เปิดใช้ "${a.label}" แล้ว'
-                            : 'ปิด "${a.label}" แล้ว — $botNameจะไม่เรียกใช้');
-                  } else {
-                    PinToast.show(context, 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว');
-                  }
-                },
-          child: Text(word),
         ),
       ],
     );
+  }
+
+  Future<void> _toggleTrial(Ability a, bool currentlyOn) async {
+    if (_roomId == null) return;
+    setState(() {
+      if (currentlyOn) {
+        _optedOut.add(a.name); // turn off (opt out)
+      } else {
+        _optedOut.remove(a.name); // turn on
+      }
+    });
+    await MatrixService.instance.saveListToRoom(
+        _roomId!,
+        'io.tokens2.opted_out_capabilities',
+        _optedOut.map((e) => {'name': e}).toList());
+    // Live chat session + composer reload now (drops ดูดวง this turn, not 30s).
+    capabilitiesRevision.value++;
+    if (!mounted) return;
+    PinToast.show(
+        context,
+        currentlyOn
+            ? 'ปิด "${a.label}" แล้ว — $botNameจะไม่เรียกใช้'
+            : 'เปิดใช้ "${a.label}" แล้ว');
   }
 }
