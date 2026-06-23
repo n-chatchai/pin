@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -124,6 +125,10 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // Load the catalog in the background — it doesn't block the chat render, and
     // send() refreshes a stale catalog before the first turn anyway.
     unawaited(_session!.loadCatalog());
+    // Warm the settings-only plugins (cold platform channels) while idle, so the
+    // first ⋯→ตั้งค่า tap doesn't jank on first use.
+    unawaited(PackageInfo.fromPlatform());
+    unawaited(MatrixService.instance.e2eeStatus());
   }
 
   /// Pull the "ตอนนี้" data (reminders/tasks/events/files/memory) from the ปิ่น

@@ -9,6 +9,7 @@ import 'device_brain.dart';
 import 'now_tools.dart';
 import 'proxy_client.dart';
 import 'abilities.dart';
+import 'agent_store.dart';
 import 'remote_tools.dart';
 import 'subagent.dart';
 import 'tools.dart';
@@ -30,6 +31,7 @@ class AgentSession {
   DateTime? _catalogAt; // last successful/attempted catalog load
   int _catalogRev = -1; // capabilitiesRevision seen at the last catalog load
   Set<String> _optedOut = const {}; // capabilities the user turned off
+  List<String> _facts = const []; // remembered facts, injected into the prompt
 
   /// Model-context transcript, held in memory only — the encrypted DM room is the
   /// source of truth. Seeded from the DM at boot ([seedTurns]) and appended each
@@ -59,6 +61,13 @@ class AgentSession {
       optedOut.addAll(rawList.map((e) => '${e['name']}'));
     }
     _optedOut = optedOut;
+    // Remembered facts → injected into the system prompt so ปิ่น actually uses
+    // what the user told it to remember (facts have no recall tool).
+    if (room.startsWith('!')) {
+      try {
+        _facts = await AgentStore().loadFacts(room);
+      } catch (_) {/* keep last */}
+    }
     final r = await CatalogClient(proxy).fetch(optedOut: optedOut);
     // Only overwrite when we actually got something (or it's the first load) —
     // a transient network failure shouldn't wipe a good catalog.
@@ -109,6 +118,12 @@ class AgentSession {
         '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
         '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
         'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
+    // Remembered facts about the user — always in context so ปิ่น uses them
+    // (e.g. ชื่อ/สิ่งที่ชอบ) without being asked to recall.
+    if (_facts.isNotEmpty) {
+      s += '\n\nสิ่งที่ผู้ใช้เคยบอกให้จำ (ใช้ประกอบการตอบเมื่อเกี่ยวข้อง '
+          'โดยไม่ต้องถามซ้ำ):\n${_facts.map((f) => '- $f').join('\n')}';
+    }
     // Catalog skill instructions. Capabilities the user opted out of are already
     // filtered upstream (CatalogClient.fetch), so _catalogSkills holds only the
     // ones in effect for this user.

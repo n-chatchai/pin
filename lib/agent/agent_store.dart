@@ -78,6 +78,20 @@ class AgentStore {
     _refreshMemoryController();
   }
 
+  /// Light load of just the memory blob → the remembered facts for [room] (no
+  /// reminder/controller side effects). Used to inject facts into the prompt so
+  /// ปิ่น actually uses what it was told to remember.
+  Future<List<String>> loadFacts(String room) async {
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid == null) return const [];
+    try {
+      final blob = await MatrixService.instance
+          .loadEncryptedBlob(rid, 'io.tokens2.memory');
+      if (blob != null) _restoreMemory(blob);
+    } catch (_) {/* leave empty */}
+    return facts(room);
+  }
+
   /// Repopulate per-room [_facts]/[_knowledge] from the flat memory blob.
   void _restoreMemory(Map<String, dynamic> blob) {
     final facts = blob['facts'];

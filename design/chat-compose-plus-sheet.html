@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ปิ่น — แชต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3f1ea; --surface:#ffffff; --txt:#1c1b18; --txt-2:#a3a097; --txt-3:#c4c1b8;
+    --accent:#2f5446; --accent-soft:#eef1ee; --line:#e9e7df; --frame:#d7d4cb;
+    --sh-sm:0 1px 2px rgba(54,46,32,.06), 0 2px 6px rgba(54,46,32,.05);
+    --sh-md:0 2px 6px rgba(54,46,32,.07), 0 10px 26px rgba(54,46,32,.06);
+    --sh-up:0 -8px 30px rgba(54,46,32,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Anuphan',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--frame);display:flex;justify-content:center;min-height:100vh;color:var(--txt);font-weight:400;}
+  .phone{width:100%;max-width:430px;background:var(--bg);display:flex;flex-direction:column;height:100vh;}
+
+  .status{display:flex;align-items:center;justify-content:space-between;padding:15px 26px 6px;font-size:16px;font-weight:500;flex:0 0 auto;}
+  .status .right{display:flex;align-items:center;gap:8px;}
+  .battery .cell{width:24px;height:12px;border:1.4px solid var(--txt);border-radius:3px;position:relative;display:flex;padding:1.5px;opacity:.85;}
+  .battery .cell::after{content:"";position:absolute;right:-3px;top:3.5px;width:2px;height:5px;background:var(--txt);border-radius:0 2px 2px 0;opacity:.85;}
+  .battery .fill{height:100%;width:95%;background:var(--txt);border-radius:1px;}
+
+  .header{display:flex;align-items:center;justify-content:space-between;padding:10px 22px 14px;flex:0 0 auto;}
+  .hbtn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;}
+  .hbtn svg{width:22px;height:22px;stroke:#3a3833;stroke-width:1.6;}
+  .htitle{text-align:center;}
+  .htitle .nm{font-size:16px;font-weight:500;letter-spacing:.2px;}
+  .htitle .st{font-size:12px;color:var(--txt-2);margin-top:1px;letter-spacing:.3px;}
+
+  .feed{flex:1;overflow-y:auto;padding:6px 22px 16px;}
+  .row{margin-bottom:22px;}
+  .row.user{display:flex;flex-direction:column;align-items:flex-end;}
+  .bubble{background:var(--accent);color:#f3f5f2;padding:13px 18px;border-radius:20px;font-size:17px;font-weight:400;max-width:78%;line-height:1.45;letter-spacing:.1px;box-shadow:0 2px 10px rgba(47,84,70,.18);}
+  .time{font-size:12px;color:var(--txt-3);margin-top:7px;letter-spacing:.4px;}
+  .time.r{align-self:flex-end;}
+  .asst{font-size:17px;line-height:1.62;max-width:90%;color:#33312b;font-weight:400;}
+
+  .imgcard{border-radius:20px;overflow:hidden;max-width:82%;box-shadow:var(--sh-md);}
+  .imgph{height:240px;background:
+      radial-gradient(150px 110px at 72% 26%, #ecdcc4 0%, rgba(236,220,196,0) 70%),
+      radial-gradient(160px 140px at 26% 76%, #d7e0e6 0%, rgba(215,224,230,0) 72%),
+      linear-gradient(150deg,#e7e3ee,#e4ebe6 60%,#e9e6dd);
+      display:flex;align-items:center;justify-content:center;}
+  .imgph svg{width:34px;height:34px;stroke:#fff;stroke-width:1.3;opacity:.75;}
+  .tooltag{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:13px;color:var(--txt-2);margin-top:9px;letter-spacing:.2px;}
+  .tooltag svg{width:14px;height:14px;stroke:var(--txt-2);stroke-width:1.5;}
+
+  /* ===== minimal tools sheet ===== */
+  .sheet{background:var(--surface);border-radius:30px 30px 0 0;box-shadow:var(--sh-up);padding:0 26px 22px;flex:0 0 auto;}
+  .sheet.hidden{display:none;}
+  .grab{width:34px;height:4px;border-radius:2px;background:#e6e3da;margin:11px auto 20px;}
+  .sec{padding:2px 0;}
+  .seclabel{font-size:11px;letter-spacing:1.2px;color:var(--txt-2);margin:0 0 18px 0;font-weight:500;text-transform:uppercase;}
+  .divider{height:1px;background:var(--line);margin:18px 0;}
+  .capgrid{display:flex;gap:11px;overflow-x:auto;padding:0 2px 2px;-webkit-overflow-scrolling:touch;}
+  .capgrid::-webkit-scrollbar{display:none;}
+  .cap{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;background:#fffefb;border:none;border-radius:19px;padding:11px 17px;font-family:inherit;font-size:15px;font-weight:500;color:var(--txt);cursor:pointer;box-shadow:var(--sh-sm);transition:transform .1s,box-shadow .12s;}
+  .cap:active{transform:translateY(1px) scale(.99);box-shadow:0 1px 2px rgba(54,46,32,.06);}
+  .cap svg{width:19px;height:19px;stroke:#5b5950;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .cap span{font-size:15px;color:var(--txt);letter-spacing:.1px;}
+
+  /* input */
+  .inputbar{padding:10px 18px 20px;flex:0 0 auto;}
+  .iwrap{background:var(--surface);border-radius:28px;padding:7px 9px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh-md);}
+  .ibtn{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;flex:0 0 auto;}
+  .ibtn svg{width:22px;height:22px;stroke:#6f6d66;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .ibtn.plus{background:var(--accent);box-shadow:0 2px 8px rgba(47,84,70,.28);} .ibtn.plus svg{stroke:#fff;transition:transform .22s ease;}
+  .ibtn.plus.open svg{transform:rotate(45deg);}
+  .field{flex:1;font-size:17px;color:var(--txt-2);padding-left:4px;letter-spacing:.2px;}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="status">
+    <span>21:46</span>
+    <span class="right">
+      <svg width="17" height="13" viewBox="0 0 18 14" fill="#1c1b18"><rect x="0" y="9" width="3" height="5" rx="1"/><rect x="5" y="6" width="3" height="8" rx="1"/><rect x="10" y="3" width="3" height="11" rx="1"/><rect x="15" y="0" width="3" height="14" rx="1" opacity=".3"/></svg>
+      <svg width="17" height="13" viewBox="0 0 18 14" fill="none" stroke="#1c1b18" stroke-width="1.5"><path d="M1 5a11 11 0 0 1 16 0"/><path d="M4 8a7 7 0 0 1 10 0"/><circle cx="9" cy="11.5" r="1.2" fill="#1c1b18" stroke="none"/></svg>
+      <span class="battery"><span class="cell"><span class="fill"></span></span></span>
+    </span>
+  </div>
+
+  <div class="header">
+    <button class="hbtn" aria-label="เมนู"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="14" y2="16"/></svg></button>
+    <div class="htitle"><div class="nm">น้องปิ่น</div><div class="st">ออนไลน์</div></div>
+    <button class="hbtn" aria-label="เพิ่มเติม"><svg viewBox="0 0 24 24" fill="#3a3833" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
+  </div>
+
+  <div class="feed" id="feed">
+
+    <div class="row">
+      <div class="imgcard"><div class="imgph"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M3 16l5-4 4 3 3-2 6 5"/></svg></div></div>
+      <div class="tooltag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.5L19 10l-5.2 1.1L12 17l-1.8-5.5L5 10l5.2-1.1z"/></svg>วาดรูป</div>
+    </div>
+
+    <div class="row user">
+      <div class="bubble">ช่วยย่อลิงก์นี้ให้หน่อย</div>
+      <div class="time r">18:24</div>
+    </div>
+
+    <div class="row">
+      <div class="asst">ขอโทษนะคะพี่บอล ตอนนี้น้องปิ่นยังย่อลิงก์ให้ไม่ได้ แต่บันทึกคำขอส่งให้ทีมพัฒนาแล้ว น่าจะมีให้ใช้เร็ว ๆ นี้ค่ะ</div>
+      <div class="time">18:24</div>
+    </div>
+
+    <div class="row user">
+      <div class="bubble">ช่วยวาดรูปให้หน่อย</div>
+      <div class="time r">18:25</div>
+    </div>
+
+    <div class="row">
+      <div class="asst">ได้เลยค่ะพี่บอล อยากได้รูปแนวไหน บอกรายละเอียดมาได้เลยนะคะ</div>
+      <div class="time">18:25</div>
+    </div>
+
+  </div>
+
+  <div class="sheet" id="sheet">
+    <div class="grab"></div>
+    <div class="sec">
+      <div class="seclabel">ความสามารถ</div>
+      <div class="capgrid">
+        <button class="cap"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.7L18 9l-4.5 1.3L12 15l-1.5-4.7L6 9l4.5-1.3z"/><circle cx="18" cy="17" r=".8"/><circle cx="6" cy="16" r=".8"/></svg><span>ดูดวง</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 0-1 1v12a2 2 0 0 0 2 2h13"/><path d="M4 5h13v14a1 1 0 0 0 1 1 2 2 0 0 0 2-2V8h-3"/><line x1="7" y1="9" x2="13" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg><span>ข่าว</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><circle cx="8" cy="8.5" r="3"/><path d="M8 1.8v1.4M8 13.8v1.4M1.8 8.5h1.4M12.8 8.5h1.4M3.7 4.2l1 1M11.3 4.2l-1 1"/><path d="M11 18.5a3.3 3.3 0 0 0 0-6.6 4.3 4.3 0 0 0-8.3 1.1A2.9 2.9 0 0 0 3 18.5z"/></svg><span>อากาศ</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>ค้นเว็บ</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M3 16l5-4 4 3 3-2 6 5"/></svg><span>วาดรูป</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><path d="M14 3v5h5"/><path d="M19 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span>สรุปไฟล์</span></button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="sec">
+      <div class="seclabel">เครื่องมือ</div>
+      <div class="capgrid">
+        <button class="cap"><svg viewBox="0 0 24 24"><path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.3 3.3 0 0 1 4.7 4.7l-9 9a1.6 1.6 0 0 1-2.3-2.3l8.2-8.2"/></svg><span>แนบไฟล์</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg><span>กล้อง</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5 8 12 8 12s8-7 8-12a8 8 0 0 0-8-8z"/></svg><span>โลเคชั่น</span></button>
+        <button class="cap"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><line x1="4" y1="12" x2="20" y2="12"/></svg><span>สแกน</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="inputbar">
+    <div class="iwrap">
+      <button class="ibtn plus open" id="plus" aria-label="เครื่องมือ"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <span class="field">พิมพ์ข้อความ…</span>
+      <button class="ibtn" aria-label="พูด"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/></svg></button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var plus=document.getElementById('plus'), sheet=document.getElementById('sheet');
+  plus.addEventListener('click',function(){
+    var hidden=sheet.classList.toggle('hidden');
+    plus.classList.toggle('open',!hidden);
+  });
+  document.querySelectorAll('.cap').forEach(function(b){b.addEventListener('click',function(){sheet.classList.add('hidden');plus.classList.remove('open');});});
+})();
+</script>
+</body>
+</html>

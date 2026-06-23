@@ -251,7 +251,13 @@ class _SecurityStatusState extends State<_SecurityStatus> {
   @override
   void initState() {
     super.initState();
-    _future = MatrixService.instance.e2eeStatus();
+    // Defer the FFI call to after the first frame so the push transition into
+    // settings doesn't stutter.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _future = MatrixService.instance.e2eeStatus());
+      }
+    });
   }
 
   @override
@@ -439,7 +445,10 @@ class _E2eeDebugState extends State<_E2eeDebug> {
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    // Defer PackageInfo + FFI off the transition frame (avoids the jank).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _future = _load());
+    });
   }
 
   Future<_DebugData> _load() async {
