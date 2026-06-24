@@ -426,7 +426,8 @@ async def store_save(name: str, request: Request, admin: str = Depends(owner)):
     f = await request.form()
     store.set_store_meta(name, category=f.get("category"), status=f.get("status"),
                          tier=f.get("tier"), amount=f.get("amount"),
-                         period=f.get("period", "month"))
+                         period=f.get("period", "month"), render=f.get("render"),
+                         ask_params=f.get("ask_params"))
     return tab_store(request, admin)
 
 

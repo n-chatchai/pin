@@ -109,6 +109,12 @@ class CatalogClient {
 
   AgentTool _fromManifest(Map<String, dynamic> m) {
     final name = '${m['name']}';
+    // Admin-set preferred rendering of the result: auto | card | text.
+    final render = '${m['render'] ?? 'auto'}';
+    // Params the user must choose before the tool runs (e.g. an enum like
+    // ดูดวง system=thai/bazi) — the model asks instead of guessing.
+    final askParams =
+        (m['askParams'] as List?)?.map((e) => '$e').toList() ?? const <String>[];
     // news_reporter runs on-device (RSS fetch + summarise); the manifest only
     // carries its config (admin-set feeds). Build the local tool, not a remote
     // proxy call. Its dead 8091 endpoint in the catalog is ignored.
@@ -123,6 +129,18 @@ class CatalogClient {
       },
     };
     return AgentTool(decl, kind: '${m['kind'] ?? 'remote'}', (args) async {
+      // Force-ask: if a configured param is missing, ปิ่น asks the user first
+      // (don't run the tool with a guessed enum).
+      for (final p in askParams) {
+        final v = args[p];
+        if (v == null || '$v'.trim().isEmpty) {
+          final opts = _enumOptions(decl, p);
+          return ToolResult.feedback(
+              'ก่อนใช้ "${abilityLabel(name)}" ต้องให้ผู้ใช้เลือก "$p" ก่อน'
+              '${opts.isEmpty ? "" : " (ตัวเลือก: ${opts.join(" / ")})"} — '
+              'ถามผู้ใช้ก่อน อย่าเดาเอง แล้วค่อยเรียกเครื่องมือนี้อีกครั้ง');
+        }
+      }
       final r = await http
           .post(
             Uri.parse('${proxy.baseUrl}/tool/$name'),
@@ -143,7 +161,62 @@ class CatalogClient {
         return ToolResult.terminal(
             AgentReply(flex: (d['flex'] as Map).cast<String, dynamic>()));
       }
-      return ToolResult.feedback('${d['text'] ?? d['result'] ?? ''}');
+      // Pull a clean human string out of whatever the tool returned (handles
+      // {text}, {result}, {reading}, nested, or a JSON-string) — never let raw
+      // JSON reach the model, which would echo it (e.g. ดูดวง's {"reading":…}).
+      final text = _resultText(d);
+      if (text.isEmpty) return ToolResult.feedback('ทำให้เรียบร้อยแล้ว');
+      // Admin preference wins: card = always a card, text = always fed back for
+      // ปิ่น to phrase, auto = card for a substantial answer (a reading) and
+      // feed-back for short bits. Either way the model never sees raw JSON.
+      final asCard =
+          render == 'card' || (render != 'text' && text.length > 120);
+      if (asCard) {
+        return ToolResult.terminal(AgentReply(flex: {
+          'header': {'icon': 'sparkles', 'title': abilityLabel(name)},
+          'body': [
+            {'type': 'text', 'text': text}
+          ],
+        }));
+      }
+      return ToolResult.feedback(text);
     });
+  }
+
+  /// Extract the readable text from a tool result of unknown shape — common text
+  /// keys, nested maps, or a JSON-encoded string. Empty if nothing textual.
+  static String _resultText(dynamic v) {
+    if (v is String) {
+      final t = v.trim();
+      if ((t.startsWith('{') || t.startsWith('[')) && t.length > 1) {
+        try {
+          return _resultText(jsonDecode(t));
+        } catch (_) {/* not JSON — use as-is */}
+      }
+      return t;
+    }
+    if (v is Map) {
+      for (final k in const [
+        'text', 'reading', 'result', 'answer', 'content', 'message', 'summary',
+        'output', 'response'
+      ]) {
+        if (v.containsKey(k)) {
+          final s = _resultText(v[k]);
+          if (s.isNotEmpty) return s;
+        }
+      }
+    }
+    return '';
+  }
+
+  /// Declared enum options for param [p] (for the "ask first" prompt). Empty if
+  /// the param has no enum.
+  static List<String> _enumOptions(Map<String, dynamic> decl, String p) {
+    final props = decl['function']?['parameters']?['properties'];
+    if (props is Map && props[p] is Map) {
+      final e = (props[p] as Map)['enum'];
+      if (e is List) return e.map((x) => '$x').toList();
+    }
+    return const [];
   }
 }

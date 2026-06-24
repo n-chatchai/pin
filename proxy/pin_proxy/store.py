@@ -86,12 +86,12 @@ def init() -> None:
         # Migrate older DBs: add commerce/display columns if missing.
         _migrate = {
             "tools": ("label", "blurb", "category", "provider", "pricing_json",
-                      "endpoint", "status", "config_json"),
+                      "endpoint", "status", "config_json", "render", "ask_params"),
             "skills": ("label", "provider", "pricing_json", "category", "status"),
             "subagents": ("label", "provider", "pricing_json", "category",
                           "status"),
             "mcp_tools": ("label", "category", "provider", "pricing_json",
-                          "defaults_json", "status"),
+                          "defaults_json", "status", "render", "ask_params"),
         }
         for tbl, cols in _migrate.items():
             for col in cols:
@@ -182,8 +182,20 @@ def _tool_dict(r) -> dict:
         # Admin-set tool config (e.g. news_reporter RSS feeds) — ships in the
         # catalog manifest so the on-device tool reads it like its params.
         "config": json.loads(cfg) if cfg else None,
+        # Preferred rendering of the result on the device: auto | card | text.
+        "render": r["render"] if "render" in cols else None,
+        # Params the model must get from the user before calling (e.g. an enum
+        # like ดูดวง system=thai/bazi) — stored comma-separated, shipped as a list.
+        "askParams": _split_csv(r["ask_params"]) if "ask_params" in cols else None,
     }
     return {k: v for k, v in out.items() if v is not None}
+
+
+def _split_csv(s) -> list | None:
+    if not s:
+        return None
+    parts = [p.strip() for p in str(s).split(",") if p.strip()]
+    return parts or None
 
 
 def get_tool_config(name: str) -> dict:
@@ -238,9 +250,13 @@ def update_tool_meta(name: str, label: str, blurb: str, category: str,
 def _extra(r) -> dict:
     """Optional display/commerce fields if the column has a value."""
     out = {}
-    for k in ("label", "provider", "category", "status"):
+    for k in ("label", "provider", "category", "status", "render"):
         if k in r.keys() and r[k]:
             out[k] = r[k]
+    if "ask_params" in r.keys() and r["ask_params"]:
+        ap = _split_csv(r["ask_params"])
+        if ap:
+            out["askParams"] = ap
     if "pricing_json" in r.keys() and r["pricing_json"]:
         out["pricing"] = json.loads(r["pricing_json"])
     return out
@@ -279,9 +295,11 @@ def toggle_capability(name: str) -> None:
 
 def set_store_meta(name: str, category: str | None = None,
                    status: str | None = None, tier: str | None = None,
-                   amount: str | None = None, period: str = "month") -> None:
-    """Set the store-facing fields (category / status / pricing) for a capability,
-    whichever catalog table it lives in."""
+                   amount: str | None = None, period: str = "month",
+                   render: str | None = None,
+                   ask_params: str | None = None) -> None:
+    """Set the store-facing fields (category / status / pricing / render) for a
+    capability, whichever catalog table it lives in."""
     with conn() as c:
         for tbl in ("tools", "skills", "subagents", "mcp_tools"):
             if not c.execute(f"SELECT 1 FROM {tbl} WHERE name=? LIMIT 1",
@@ -292,6 +310,11 @@ def set_store_meta(name: str, category: str | None = None,
                 sets.append("category=?"); vals.append(category)
             if status is not None:
                 sets.append("status=?"); vals.append(status)
+            # render / ask_params only exist on tools/mcp_tools; skip elsewhere.
+            if render is not None and tbl in ("tools", "mcp_tools"):
+                sets.append("render=?"); vals.append(render or None)
+            if ask_params is not None and tbl in ("tools", "mcp_tools"):
+                sets.append("ask_params=?"); vals.append(ask_params or None)
             if tier is not None:
                 pricing = {"tier": tier or "free", "currency": "THB"}
                 if tier in ("onetime", "subscription") and amount:

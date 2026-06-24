@@ -64,6 +64,16 @@
     <select name="period" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
       {% for pp in ['month','year'] %}<option value="{{ pp }}" {{ 'selected' if pr.get('period','month')==pp }}>{{ pp }}</option>{% endfor %}
     </select>
+    {% if m.kind in ['tool','mcp'] %}
+    {% set rv = m.get('render','auto') %}
+    <select name="render" title="การแสดงผลลัพธ์" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+      {% for rid, rlbl in [('auto','ผลลัพธ์: อัตโนมัติ'),('card','ผลลัพธ์: การ์ด'),('text','ผลลัพธ์: ข้อความ')] %}
+        <option value="{{ rid }}" {{ 'selected' if rv==rid }}>{{ rlbl }}</option>{% endfor %}
+    </select>
+    <input name="ask_params" value="{{ (m.get('askParams') or [])|join(', ') }}"
+        placeholder="ถามก่อน: system, area" title="พารามิเตอร์ที่ต้องถามผู้ใช้ก่อนเรียก (คั่นด้วย ,)"
+        style="width:150px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    {% endif %}
     <button class="btn p sm" type="submit" style="margin-left:auto">บันทึก</button>
   </form>
 </div>
