@@ -3,12 +3,13 @@ name = "rust_lib_pin"
 version = "0.1.0"
 edition = "2021"
 
-# Android loads the bridge as a shared lib (cdylib → librust_lib_pin.so), iOS
-# links the staticlib into the app. cargo builds both for every target; the
-# cdylib only links cleanly because NOTHING static-links ORT now (ort is
-# load-dynamic on every platform — see the ort target blocks below).
+# Android loads the bridge as a shared lib (cdylib → librust_lib_pin.so); iOS
+# links the staticlib. Order matters: cargokit's build_pod.sh rewrites exactly
+# `["cdylib", "staticlib"]` → `["staticlib"]` for the iOS build, so iOS builds
+# staticlib-ONLY (no cdylib link, so iOS can static-link ORT without the cdylib
+# failing). Android's gradle build keeps the cdylib. Don't reorder these.
 [lib]
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 flutter_rust_bridge = "=2.12.0"
@@ -32,17 +33,16 @@ tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
 #   • Android — WORKS: ship libonnxruntime.so in jniLibs/<abi>/; ort finds it by
 #     soname (the app's native lib dir is on the loader path). Build arm64 only
 #     (`--target-platform android-arm64`); ort has no armv7 path here.
-#   • iOS — embeddings OFF for now: ort is load-dynamic here TOO (not static).
-#     Static-linking ORT would pull it into the cdylib that cargo builds for
-#     every target, and that link fails → it would force a staticlib-only crate
-#     (which then leaves Android with no .so). load-dynamic links nothing at
-#     build, so the cdylib is clean on both platforms; at runtime iOS has no
-#     libonnxruntime to dlopen, so embed_init fails → recency fallback (no crash).
+#   • iOS — embeddings WORK via STATIC linking. The `onnxruntime-c` pod (see the
+#     iOS podspec) statically links ORT 1.22 into the app, and iOS builds the
+#     crate staticlib-only (build_pod.sh strips the cdylib), so static-linking
+#     ORT here doesn't break any cdylib. ort resolves the symbols at link time —
+#     no dlopen, no libonnxruntime file needed.
 [target.'cfg(not(target_os = "ios"))'.dependencies]
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["load-dynamic", "std"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-ort = { version = "=2.0.0-rc.10", default-features = false, features = ["load-dynamic", "std"] }
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

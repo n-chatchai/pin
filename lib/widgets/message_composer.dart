@@ -11,6 +11,7 @@ import '../agent/agent_config.dart';
 import '../agent/abilities.dart';
 import '../agent/catalog_client.dart';
 import '../theme/pin_theme.dart';
+import '../theme/theme_controller.dart';
 import '../services/matrix_service.dart';
 import 'pin_toast.dart';
 
@@ -439,10 +440,11 @@ class _MessageComposerState extends State<MessageComposer> {
         children: tiles,
       );
 
-  static const _badgeBg = Color(0xFF23231F);
   Widget _tile(IconData icon, String label, VoidCallback onTap,
-          {bool isTool = false}) =>
-      InkWell(
+      {bool isTool = false}) {
+    // Capability badges take the theme accent; tools stay white with a hairline.
+    final accent = ThemeController.instance.value.accent;
+    return InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Column(
@@ -452,7 +454,7 @@ class _MessageComposerState extends State<MessageComposer> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: isTool ? Colors.white : _badgeBg,
+                color: isTool ? Colors.white : accent,
                 borderRadius: BorderRadius.circular(16),
                 border: isTool ? Border.all(color: PinPalette.line) : null,
               ),
@@ -470,6 +472,7 @@ class _MessageComposerState extends State<MessageComposer> {
           ],
         ),
       );
+  }
 
 
   /// Soft pale-grey circle with a dark glyph (Claude-style) — visible but quiet.

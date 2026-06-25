@@ -34,23 +34,35 @@ pub fn embed_init(model: Vec<u8>, tokenizer_json: String) -> Result<()> {
     if EMBEDDER.get().is_some() {
         return Ok(());
     }
-    ort::init().commit().ok(); // initialize statically linked ORT
-    let tokenizer = Tokenizer::from_bytes(tokenizer_json.as_bytes())
-        .map_err(|e| anyhow!("tokenizer load: {e}"))?;
-    let session = Session::builder()
-        .context("ort session builder")?
-        .commit_from_memory(&model)
-        .context("ort load model")?;
+    // ORT init/session-build PANICS (not just Err) when the runtime library
+    // can't be loaded — e.g. iOS ships no libonnxruntime to dlopen. Contain it
+    // with catch_unwind so embeddings degrade to the recency fallback instead of
+    // surfacing a panic backtrace to the user. The model bytes + tokenizer text
+    // are plain owned data, so AssertUnwindSafe is fine here.
+    let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ort::init().commit().ok(); // initialize ORT (dlopen on Android)
+        let tokenizer = Tokenizer::from_bytes(tokenizer_json.as_bytes())
+            .map_err(|e| anyhow!("tokenizer load: {e}"))?;
+        let session = Session::builder()
+            .context("ort session builder")?
+            .commit_from_memory(&model)
+            .context("ort load model")?;
+        Ok::<(Session, Tokenizer), anyhow::Error>((session, tokenizer))
+    }))
+    .map_err(|_| anyhow!("ORT runtime unavailable — embeddings off (recency fallback)"))??;
     EMBEDDER
-        .set(Mutex::new(Embedder { session, tokenizer }))
+        .set(Mutex::new(Embedder {
+            session: built.0,
+            tokenizer: built.1,
+        }))
         .map_err(|_| anyhow!("embedder already initialized"))?;
     Ok(())
 }
 
-/// ONNX Runtime is reached differently per platform but neither needs an
-/// explicit path here: Android `load-dynamic` dlopens `libonnxruntime.so` by
-/// soname (jniLibs is on the loader path); iOS links the static framework, so
-/// the symbols are present at startup. embed_init just builds the session.
+/// ONNX Runtime is load-dynamic on both platforms: Android dlopens
+/// `libonnxruntime.so` by soname (jniLibs is on the loader path) and embeddings
+/// work; iOS ships no runtime, so the dlopen fails — embed_init catches that and
+/// Dart falls back to recency. No explicit path needed here.
 ///
 /// True once a model is loaded — lets Dart skip embedding (recency fallback)
 /// until the model is provisioned.
