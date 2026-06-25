@@ -3,11 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ปิ่น — ผู้ช่วย AI ส่วนตัว ที่เป็นส่วนตัวจริง ๆ</title>
-<meta name="description" content="ปิ่น คือผู้ช่วย AI ภาษาไทยที่ทำงานบนเครื่องคุณ เข้ารหัสแบบ end-to-end เซิร์ฟเวอร์มองไม่เห็นข้อมูลส่วนตัว — เตือน จัดการงาน ตอบคำถาม ดูดวง และต่อยอดความสามารถได้เรื่อย ๆ">
+<title>ปิ่น — ผู้ช่วยเอไอ ส่วนตัว ที่เป็นส่วนตัวจริง ๆ</title>
+<meta name="description" content="ปิ่น คือผู้ช่วยเอไอ ภาษาไทยที่ทำงานบนเครื่องคุณ เข้ารหัสลับ เปิดอ่านได้แค่คุณ เซิร์ฟเวอร์มองไม่เห็นข้อมูลส่วนตัว — เตือน จัดการงาน ตอบคำถาม ดูดวง และต่อยอดความสามารถได้เรื่อย ๆ">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Phosphor icons (same family as the app) -->
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <style>
   :root{
     --cream:#FAF8F2; --white:#fff;
@@ -55,9 +58,9 @@
   .nav.scrolled{border-color:var(--line);box-shadow:0 1px 0 rgba(40,40,34,.03)}
   .nav .row{display:flex;align-items:center;gap:24px;height:66px}
   .logo{display:flex;align-items:center;gap:10px;font-family:var(--nira);font-weight:700;font-size:19px}
-  .mark{width:34px;height:34px;border-radius:10px;background:var(--green-d);display:grid;place-items:center;
-        color:#fff;font-weight:700;font-size:17px;box-shadow:0 2px 8px rgba(28,122,72,.3);position:relative}
-  .mark b{color:var(--yellow)}
+  .mark{width:34px;height:34px;border-radius:9px;overflow:hidden;flex:0 0 auto;
+        box-shadow:0 2px 8px rgba(28,122,72,.28)}
+  .mark img{width:100%;height:100%;display:block}
   .nav nav{display:flex;gap:26px;margin-left:14px}
   .nav nav a{font-size:14.5px;color:var(--ink2);font-weight:500}
   .nav nav a:hover{color:var(--green-d)}
@@ -97,7 +100,10 @@
   .bub.pin{align-self:flex-start;background:#fff;color:var(--ink);box-shadow:var(--cardsh);border-bottom-left-radius:5px}
   .pcard{align-self:flex-start;max-width:86%;background:#fff;border-radius:14px;box-shadow:var(--cardsh);
          padding:11px 13px;font-size:12.5px}
-  .pcard .ph{display:flex;align-items:center;gap:7px;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:12.5px;margin-bottom:5px}
+  .pcard .phd{display:flex;align-items:center;gap:7px;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:12.5px;margin-bottom:5px}
+  .pcard .phd i{font-size:15px}
+  .cc .h i{font-size:15px}
+  .frow .fi i,.fcard .ic i,.pill .i i,.uc-tab .e i,.uc-kicker i,.uc-out .c i{display:block}
   .pcard .pr{display:flex;justify-content:space-between;color:var(--ink2);padding:2px 0}
   .pcomp{margin:auto 10px 12px;height:42px;border-radius:22px;background:#fff;box-shadow:var(--cardsh);
          display:flex;align-items:center;gap:9px;padding:0 8px 0 15px;color:var(--ink3);font-size:13px}
@@ -161,15 +167,22 @@
   .uc-chat .fd>*:nth-child(4){animation-delay:.21s}
   .uc-chat .fd>*:nth-child(5){animation-delay:.28s}
 
-  /* ---- feature grid ---- */
-  .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:40px}
-  .fcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:var(--cardsh);
-         transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s}
-  .fcard:hover{transform:translateY(-4px);box-shadow:var(--liftsh)}
-  .fcard .ic{width:46px;height:46px;border-radius:13px;background:var(--green-card);color:var(--green-d);
-             display:grid;place-items:center;font-size:22px;margin-bottom:15px}
-  .fcard h3{font-size:18px;font-weight:600;margin-bottom:7px}
-  .fcard p{color:var(--ink2);font-size:14.5px;text-wrap:pretty}
+  /* ---- feature pillars (3 themes, scannable lists) ---- */
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:42px}
+  @media(max-width:820px){.pgrid{grid-template-columns:1fr}}
+  .pillar{background:#fff;border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:var(--cardsh);
+          transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s}
+  .pillar:hover{transform:translateY(-4px);box-shadow:var(--liftsh)}
+  .pillar .pic{width:48px;height:48px;border-radius:14px;background:var(--green-card);color:var(--green-d);
+               display:grid;place-items:center;font-size:24px;margin-bottom:16px}
+  .pillar .pic i{display:block}
+  .pillar h3{font-size:21px;font-weight:600}
+  .pillar .lead{color:var(--ink2);font-size:14px;margin:5px 0 12px;text-wrap:pretty}
+  .pillar ul{list-style:none}
+  .pillar li{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line);
+             font-size:14.5px;color:var(--ink);line-height:1.45}
+  .pillar li:first-child{border-top:none}
+  .pillar li i{color:var(--green-d);flex:0 0 auto;margin-top:3px;font-size:15px;display:block}
 
   /* ---- privacy split ---- */
   .priv{background:var(--green-d);color:#fff;border-radius:28px;padding:clamp(30px,5vw,56px);
@@ -225,7 +238,7 @@
 <!-- NAV -->
 <header class="nav" id="nav">
   <div class="wrap row">
-    <a class="logo" href="#top"><span class="mark">ปิ<b>่</b></span> ปิ่น</a>
+    <a class="logo" href="#top"><span class="mark"><img src="assets/pin-icon.png" alt="ปิ่น"></span> ปิ่น</a>
     <nav>
       <a href="#uses">การใช้งาน</a>
       <a href="#features">จุดเด่น</a>
@@ -241,17 +254,17 @@
 <section class="hero" id="top">
   <div class="wrap grid">
     <div class="rv in">
-      <div class="eyebrow">ผู้ช่วย AI ภาษาไทย · ทำงานบนเครื่องคุณ</div>
+      <div class="eyebrow">ผู้ช่วยเอไอ ภาษาไทย · ทำงานบนเครื่องคุณ</div>
       <h1 class="h1">ผู้ช่วยส่วนตัว<br>ที่เป็น<span class="hl">ส่วนตัวจริง ๆ</span></h1>
       <p class="lede">ปิ่น ช่วยเตือน จัดการงาน ตอบคำถาม และต่อยอดความสามารถได้เรื่อย ๆ —
-        ทุกบทสนทนาเข้ารหัสแบบ end-to-end และสมองทำงานบนเครื่องคุณ
+        ทุกบทสนทนาเข้ารหัสลับ เปิดอ่านได้แค่คุณ และสมองทำงานบนเครื่องคุณ
         เซิร์ฟเวอร์ของเรา <b>มองไม่เห็น</b> ข้อมูลส่วนตัวของคุณเลย</p>
       <div class="hero-cta">
         <a class="btn btn-p" href="#download">เริ่มใช้ฟรี <span class="ar">→</span></a>
         <a class="btn btn-g" href="#uses">▶ ดูการใช้งานจริง</a>
       </div>
       <div class="hero-trust">
-        <span><i class="dot"></i> เข้ารหัส E2EE</span>
+        <span><i class="dot"></i> เปิดอ่านได้แค่คุณ</span>
         <span><i class="dot"></i> สมองบนเครื่อง</span>
         <span><i class="dot"></i> ไม่มีโฆษณา ไม่ขายข้อมูล</span>
       </div>
@@ -272,7 +285,7 @@
             <div class="bub pin">ตั้งให้แล้วค่ะ — เตือนทุกวันที่ 25 เวลา 9 โมงเช้านะคะ 🗓️</div>
             <div class="bub me">พรุ่งนี้อากาศเป็นไง</div>
             <div class="pcard">
-              <div class="ph">☀️ พยากรณ์อากาศ · กรุงเทพฯ</div>
+              <div class="phd"><i class="ph ph-cloud-sun"></i> พยากรณ์อากาศ · กรุงเทพฯ</div>
               <div class="pr"><span>พรุ่งนี้</span><b>32° · ฝนช่วงบ่าย</b></div>
               <div class="pr"><span>ความชื้น</span><span>74%</span></div>
             </div>
@@ -288,11 +301,11 @@
 <!-- TRUST BAND -->
 <div class="band">
   <div class="wrap row">
-    <span class="pill"><span class="i">🔒</span> เข้ารหัสต้นทาง–ปลายทาง</span>
-    <span class="pill"><span class="i">📱</span> สมอง AI รันบนเครื่อง</span>
-    <span class="pill"><span class="i">🇹🇭</span> เข้าใจภาษาไทย</span>
-    <span class="pill"><span class="i">🧩</span> เพิ่มความสามารถได้</span>
-    <span class="pill"><span class="i">⏰</span> เตือน &amp; จัดการงาน</span>
+    <span class="pill"><span class="i"><i class="ph ph-lock-key"></i></span> เข้ารหัส เปิดอ่านได้แค่คุณ</span>
+    <span class="pill"><span class="i"><i class="ph ph-device-mobile"></i></span> สมองเอไอ รันบนเครื่อง</span>
+    <span class="pill"><span class="i"><i class="ph ph-translate"></i></span> เข้าใจภาษาไทย</span>
+    <span class="pill"><span class="i"><i class="ph ph-puzzle-piece"></i></span> เพิ่มความสามารถได้</span>
+    <span class="pill"><span class="i"><i class="ph ph-bell"></i></span> เตือน &amp; จัดการงาน</span>
   </div>
 </div>
 
@@ -305,75 +318,69 @@
     </div>
 
     <div class="uc-tabs rv" id="ucTabs">
-      <button class="uc-tab on" data-uc="work"><span class="e">💼</span> คนทำงาน</button>
-      <button class="uc-tab" data-uc="student"><span class="e">🎓</span> นักเรียน–นักศึกษา</button>
-      <button class="uc-tab" data-uc="family"><span class="e">🏠</span> ครอบครัว</button>
-      <button class="uc-tab" data-uc="freelance"><span class="e">✏️</span> ฟรีแลนซ์</button>
-      <button class="uc-tab" data-uc="owner"><span class="e">🛍️</span> เจ้าของร้าน</button>
+      <button class="uc-tab on" data-uc="work"><span class="e"><i class="ph ph-briefcase"></i></span> คนทำงาน</button>
+      <button class="uc-tab" data-uc="student"><span class="e"><i class="ph ph-graduation-cap"></i></span> นักเรียน–นักศึกษา</button>
+      <button class="uc-tab" data-uc="family"><span class="e"><i class="ph ph-house"></i></span> ครอบครัว</button>
+      <button class="uc-tab" data-uc="freelance"><span class="e"><i class="ph ph-pencil-simple"></i></span> ฟรีแลนซ์</button>
+      <button class="uc-tab" data-uc="owner"><span class="e"><i class="ph ph-storefront"></i></span> เจ้าของร้าน</button>
     </div>
 
     <div class="uc-stage rv">
-      <!-- WORK -->
       <div class="uc-panel on" data-uc="work">
-        <div class="uc-kicker"><span>💼</span> คนทำงานออฟฟิศ</div>
-        <h3 class="uc-h">ให้ปิ่นคอยกันลืม จัดคิวงาน และสรุปให้</h3>
-        <p class="uc-p">นัดประชุม เตือนเดดไลน์ สรุปไฟล์ยาว ๆ ให้สั้นลง — สั่งงานเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว</p>
+        <div class="uc-kicker"><span><i class="ph ph-briefcase"></i></span> คนทำงานออฟฟิศ</div>
+        <h3 class="uc-h">คอยกันลืม จัดคิวงาน และสรุปให้</h3>
+        <p class="uc-p">นัดประชุม เตือนเดดไลน์ สรุปไฟล์ยาว ๆ ให้สั้นลง — สั่งเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว</p>
         <div class="uc-out">
-          <div class="o"><span class="c">✓</span> ตั้งเตือนซ้ำ &amp; นัดล่วงหน้าได้เอง</div>
-          <div class="o"><span class="c">✓</span> สรุป PDF / เอกสารเป็นหัวข้อสั้น</div>
-          <div class="o"><span class="c">✓</span> รายการงานค้าง รวมไว้ที่เดียว</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ตั้งเตือนซ้ำ &amp; นัดล่วงหน้าได้เอง</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> สรุป PDF / เอกสารเป็นหัวข้อสั้น</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> รายการงานค้าง รวมไว้ที่เดียว</div>
         </div>
       </div>
-      <!-- STUDENT -->
       <div class="uc-panel" data-uc="student">
-        <div class="uc-kicker"><span>🎓</span> นักเรียน–นักศึกษา</div>
-        <h3 class="uc-h">ติวให้เข้าใจ เตือนส่งงาน และช่วยจดโน้ต</h3>
+        <div class="uc-kicker"><span><i class="ph ph-graduation-cap"></i></span> นักเรียน–นักศึกษา</div>
+        <h3 class="uc-h">ติวให้เข้าใจ เตือนส่งงาน จดความรู้</h3>
         <p class="uc-p">ถามการบ้านได้ทีละขั้น เตือนวันส่งงาน เก็บความรู้ไว้ถามซ้ำได้ — ทั้งหมดอยู่บนเครื่องคุณ ไม่หลุดไปไหน</p>
         <div class="uc-out">
-          <div class="o"><span class="c">✓</span> อธิบายทีละสเต็ป ไม่ลอกให้เฉย ๆ</div>
-          <div class="o"><span class="c">✓</span> เตือนเดดไลน์ส่งงาน</div>
-          <div class="o"><span class="c">✓</span> บันทึกความรู้ ค้นกลับมาได้</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> อธิบายทีละสเต็ป ไม่ลอกให้เฉย ๆ</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนเดดไลน์ส่งงาน</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> บันทึกความรู้ ค้นกลับมาได้</div>
         </div>
       </div>
-      <!-- FAMILY -->
       <div class="uc-panel" data-uc="family">
-        <div class="uc-kicker"><span>🏠</span> ครอบครัว</div>
-        <h3 class="uc-h">ผู้ช่วยอุ่นใจ ที่ดูแลเรื่องเล็ก ๆ ทุกวัน</h3>
-        <p class="uc-p">เตือนกินยา จดรายการของที่ต้องซื้อ เช็กอากาศก่อนออกจากบ้าน — คุยเป็นกันเองเหมือนคนในบ้าน</p>
+        <div class="uc-kicker"><span><i class="ph ph-house"></i></span> ครอบครัว</div>
+        <h3 class="uc-h">ผู้ช่วยอุ่นใจ ดูแลเรื่องเล็ก ๆ ทุกวัน</h3>
+        <p class="uc-p">เตือนกินยา จดของที่ต้องซื้อ เช็กอากาศก่อนออกจากบ้าน — คุยเป็นกันเองเหมือนคนในบ้าน</p>
         <div class="uc-out">
-          <div class="o"><span class="c">✓</span> เตือนกินยา / นัดหมอ</div>
-          <div class="o"><span class="c">✓</span> ลิสต์ของซื้อ &amp; สิ่งที่ต้องทำ</div>
-          <div class="o"><span class="c">✓</span> ปรับคำเรียก–บุคลิกให้ถูกใจ</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนกินยา / นัดหมอ</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ลิสต์ของซื้อ &amp; สิ่งที่ต้องทำ</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ปรับคำเรียก–บุคลิกให้ถูกใจ</div>
         </div>
       </div>
-      <!-- FREELANCE -->
       <div class="uc-panel" data-uc="freelance">
-        <div class="uc-kicker"><span>✏️</span> ฟรีแลนซ์ / ครีเอเตอร์</div>
-        <h3 class="uc-h">ช่วยร่างงาน หาไอเดีย และคุมเดดไลน์ลูกค้า</h3>
+        <div class="uc-kicker"><span><i class="ph ph-pencil-simple"></i></span> ฟรีแลนซ์ / ครีเอเตอร์</div>
+        <h3 class="uc-h">ร่างงาน หาไอเดีย คุมเดดไลน์ลูกค้า</h3>
         <p class="uc-p">ช่วยร่างข้อความ คิดหัวข้อ วาดภาพประกอบ และเตือนส่งงานแต่ละเจ้า — ข้อมูลลูกค้าอยู่บนเครื่องคุณเท่านั้น</p>
         <div class="uc-out">
-          <div class="o"><span class="c">✓</span> ร่าง/ขัดเกลาข้อความ &amp; แคปชัน</div>
-          <div class="o"><span class="c">✓</span> วาดรูปประกอบจากคำบรรยาย</div>
-          <div class="o"><span class="c">✓</span> เตือนเดดไลน์รายลูกค้า</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ร่าง/ขัดเกลาข้อความ &amp; แคปชัน</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> วาดรูปประกอบจากคำบรรยาย</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนเดดไลน์รายลูกค้า</div>
         </div>
       </div>
-      <!-- OWNER -->
       <div class="uc-panel" data-uc="owner">
-        <div class="uc-kicker"><span>🛍️</span> เจ้าของร้าน / SME</div>
-        <h3 class="uc-h">ผู้ช่วยที่ต่อยอด “ความสามารถ” ได้ตามธุรกิจ</h3>
-        <p class="uc-p">เพิ่มความสามารถเฉพาะทาง (เช่น ดูดวง เช็กค่าเงิน) ผ่านสโตร์ความสามารถ — พาร์ตเนอร์เสริมของใหม่ได้โดยไม่ต้องอัปเดตแอป</p>
+        <div class="uc-kicker"><span><i class="ph ph-storefront"></i></span> เจ้าของร้าน / SME</div>
+        <h3 class="uc-h">สรุปยอด เช็กต้นทุน ตอบลูกค้า</h3>
+        <p class="uc-p">สรุปยอดขาย เช็กค่าเงินก่อนสั่งของ ร่างโปรโมชั่นและตอบแชตลูกค้า — เพิ่มความสามารถเฉพาะธุรกิจผ่านสโตร์ได้</p>
         <div class="uc-out">
-          <div class="o"><span class="c">✓</span> สโตร์ “ความสามารถ” เปิด/ปิดเองได้</div>
-          <div class="o"><span class="c">✓</span> เช็กค่าเงิน–ข่าว–อากาศแบบเรียลไทม์</div>
-          <div class="o"><span class="c">✓</span> ต่อยอดด้วยพาร์ตเนอร์ (MCP)</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> สรุปยอดขาย / อ่านบิล–ใบเสร็จ</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เช็กค่าเงิน–ราคาวัตถุดิบ ก่อนสั่งของ</div>
+          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ร่างโปรโมชั่น &amp; ตอบลูกค้า</div>
         </div>
       </div>
 
-      <!-- chat mock (right) — a framed ปิ่น thread; swaps per tab -->
       <div class="uc-chat">
         <div class="hd">
           <span class="av">ปิ่</span>
-          <div><div class="nm">ปิ่น</div><div class="st"><i></i> กำลังช่วยอยู่</div></div>
+          <div><div class="nm">ปิ่น</div><div class="st"><i></i> <span id="featLabel">กำลังช่วยอยู่</span></div></div>
         </div>
         <div class="fd" id="ucChat"></div>
       </div>
@@ -387,19 +394,37 @@
     <div class="center rv">
       <h2 class="sec-title">ฉลาด อุ่นใจ และเป็นของคุณคนเดียว</h2>
     </div>
-    <div class="fgrid">
-      <div class="fcard rv"><div class="ic">🔒</div><h3>เข้ารหัส E2EE</h3>
-        <p>ทุกข้อความเข้ารหัสต้นทาง–ปลายทาง กุญแจอยู่ที่คุณคนเดียว แม้แต่เราก็เปิดอ่านไม่ได้</p></div>
-      <div class="fcard rv"><div class="ic">📱</div><h3>สมองบนเครื่อง</h3>
-        <p>ตรรกะของผู้ช่วยรันบนมือถือคุณ บทสนทนาและความจำไม่ถูกเก็บไว้บนเซิร์ฟเวอร์</p></div>
-      <div class="fcard rv"><div class="ic">🧩</div><h3>สโตร์ความสามารถ</h3>
-        <p>เพิ่ม–ปิดความสามารถได้เอง ตั้งแต่ดูดวง ค่าเงิน ข่าว ไปจนถึงของที่พาร์ตเนอร์สร้าง</p></div>
-      <div class="fcard rv"><div class="ic">⏰</div><h3>เตือน &amp; จัดการงาน</h3>
-        <p>ตั้งเตือนซ้ำ นัดล่วงหน้า เก็บงานค้าง — รวมไว้ใน “ตอนนี้” ที่เดียว</p></div>
-      <div class="fcard rv"><div class="ic">🪪</div><h3>บุคลิกปรับได้</h3>
-        <p>เลือกคำเรียก น้ำเสียง และบุคลิกของปิ่น ให้เป็นผู้ช่วยที่ถูกใจคุณ</p></div>
-      <div class="fcard rv"><div class="ic">🔑</div><h3>กู้คืนข้ามเครื่อง</h3>
-        <p>กุญแจกู้คืนหนึ่งชุด ย้ายเครื่องใหม่ก็คุยต่อได้ พร้อมประวัติที่เข้ารหัสไว้</p></div>
+    <div class="pgrid">
+      <div class="pillar rv">
+        <div class="pic"><i class="ph ph-lightning"></i></div>
+        <h3>ฉลาด</h3>
+        <div class="lead">ช่วยงานได้จริง สั่งเป็นภาษาพูด</div>
+        <ul>
+          <li><i class="ph ph-check"></i> เตือน นัด และเก็บงานค้างไว้ที่เดียว</li>
+          <li><i class="ph ph-check"></i> สโตร์ความสามารถ: ดูดวง ค่าเงิน ข่าว วาดรูป</li>
+          <li><i class="ph ph-check"></i> สรุปไฟล์ยาว ๆ และจำความรู้ไว้ถามซ้ำ</li>
+        </ul>
+      </div>
+      <div class="pillar rv">
+        <div class="pic"><i class="ph ph-shield-check"></i></div>
+        <h3>อุ่นใจ</h3>
+        <div class="lead">เป็นส่วนตัวจริง ตั้งแต่ออกแบบ</div>
+        <ul>
+          <li><i class="ph ph-check"></i> เข้ารหัสลับ กุญแจอยู่ที่คุณคนเดียว</li>
+          <li><i class="ph ph-check"></i> สมองเอไอรันบนเครื่อง ไม่เก็บบนเซิร์ฟเวอร์</li>
+          <li><i class="ph ph-check"></i> พร็อกซีตาบอด เซิร์ฟเวอร์มองไม่เห็นข้อมูล</li>
+        </ul>
+      </div>
+      <div class="pillar rv">
+        <div class="pic"><i class="ph ph-user-circle"></i></div>
+        <h3>เป็นของคุณ</h3>
+        <div class="lead">ปรับได้ พกไปได้ ไม่มีใครแทรก</div>
+        <ul>
+          <li><i class="ph ph-check"></i> ปรับชื่อ บุคลิก และน้ำเสียงของปิ่น</li>
+          <li><i class="ph ph-check"></i> กู้คืนข้ามเครื่องด้วยกุญแจชุดเดียว</li>
+          <li><i class="ph ph-check"></i> ไม่มีโฆษณา ไม่ขายข้อมูล</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
@@ -411,15 +436,15 @@
       <div>
         <div class="eyebrow" style="color:rgba(255,255,255,.85)">ออกแบบมาให้ตาบอด</div>
         <h2>เซิร์ฟเวอร์ของเรา<br>มองไม่เห็นข้อมูลคุณ</h2>
-        <p>ปิ่นคุยกับโมเดล AI ผ่าน “พร็อกซีตาบอด” ที่ส่งต่อเฉพาะสิ่งที่จำเป็น
+        <p>ปิ่นคุยกับโมเดลเอไอ ผ่าน “พร็อกซีตาบอด” ที่ส่งต่อเฉพาะสิ่งที่จำเป็น
           ไม่มีตัวตน ไม่มีบทสนทนา — ความเป็นส่วนตัวคือค่าเริ่มต้น ไม่ใช่ออปชัน</p>
       </div>
       <div class="flowcard">
-        <div class="frow a"><span class="fi">📱</span><div><div class="ft">เครื่องคุณ</div><div class="fd">สมอง + ห้องแชต E2EE</div></div></div>
+        <div class="frow a"><span class="fi"><i class="ph ph-device-mobile"></i></span><div><div class="ft">เครื่องคุณ</div><div class="fd">สมอง + ห้องแชตเข้ารหัส</div></div></div>
         <div class="farr">▾</div>
-        <div class="frow b"><span class="fi">🛡️</span><div><div class="ft">พร็อกซีตาบอด</div><div class="fd">เห็นแค่คำค้นที่จำเป็น</div></div></div>
+        <div class="frow b"><span class="fi"><i class="ph-fill ph-shield-check"></i></span><div><div class="ft">พร็อกซีตาบอด</div><div class="fd">เห็นแค่คำค้นที่จำเป็น</div></div></div>
         <div class="farr">▾</div>
-        <div class="frow c"><span class="fi">🤖</span><div><div class="ft">โมเดล AI / เครื่องมือ</div><div class="fd">ไม่รู้ว่าคุณเป็นใคร</div></div></div>
+        <div class="frow c"><span class="fi"><i class="ph ph-robot"></i></span><div><div class="ft">โมเดลเอไอ / เครื่องมือ</div><div class="fd">ไม่รู้ว่าคุณเป็นใคร</div></div></div>
       </div>
     </div>
   </div>
@@ -458,7 +483,7 @@
 
 <footer>
   <div class="wrap frow2">
-    <a class="logo" href="#top"><span class="mark">ปิ<b>่</b></span> ปิ่น</a>
+    <a class="logo" href="#top"><span class="mark"><img src="assets/pin-icon.png" alt="ปิ่น"></span> ปิ่น</a>
     <nav class="fnav">
       <a href="#uses">การใช้งาน</a>
       <a href="#features">จุดเด่น</a>
@@ -477,25 +502,28 @@
   // ---- use-case chat mocks ----
   // item shapes: ['me'|'pin', text]  ·  ['card', {i:icon, t:title, r:[[label,value]...]}]
   const CHATS={
-    work:[['me','นัดตามงานทีมดีไซน์ ศุกร์ 10 โมง พร้อมเตือนด้วย'],
-          ['pin','จัดให้แล้วค่ะ 🗓️'],
-          ['card',{i:'🗓️',t:'นัดในปฏิทิน',r:[['ทีมดีไซน์','ศุกร์ 10:00'],['เตือนล่วงหน้า','30 นาที']]}],
-          ['pin','ถึงเวลาจะเตือนก่อนนะคะ จะได้ไม่พลาด']],
-    student:[['me','เตือนส่งรายงานพรุ่งนี้ 5 โมงเย็น'],
-          ['pin','ตั้งเตือนให้แล้วค่ะ ✏️'],
-          ['card',{i:'⏰',t:'การเตือน',r:[['ส่งรายงาน','พรุ่งนี้ 17:00'],['เตือนซ้ำ','ก่อน 1 ชม.']]}],
-          ['pin','เดี๋ยวเตือนก่อนถึงเวลานะคะ สู้ ๆ ค่ะ']],
+    work:[['me','สรุปไฟล์ประชุมเมื่อเช้า แล้วนัดตามงานทีมดีไซน์ ศุกร์ 10 โมง'],
+          ['pin','สรุปให้แล้วค่ะ: อนุมัติงบ Q3 · เลื่อนเปิดตัวเป็นเดือนหน้า · มอบงานทีมดีไซน์'],
+          ['card',{i:'<i class="ph ph-calendar-dots"></i>',t:'ลงนัด + เตือนแล้ว',r:[['ตามงานทีมดีไซน์','ศุกร์ 10:00'],['เตือนล่วงหน้า','30 นาที']]}],
+          ['pin','ถึงเวลาจะเตือนก่อนนะคะ ไม่ต้องกลัวลืม']],
+    student:[['me','อธิบายกฎข้อ 2 ของนิวตันแบบสั้น ๆ หน่อย'],
+          ['pin','F = ma ค่ะ — แรงลัพธ์ = มวล × ความเร่ง ยิ่งออกแรงมาก ของยิ่งเร่งเร็ว'],
+          ['me','เตือนส่งรายงานพรุ่งนี้ 5 โมงเย็นด้วย'],
+          ['card',{i:'<i class="ph ph-alarm"></i>',t:'ตั้งเตือนแล้ว',r:[['ส่งรายงาน','พรุ่งนี้ 17:00'],['เตือนซ้ำ','ก่อน 1 ชม.']]}],
+          ['pin','อยากให้ติวเพิ่มหรือช่วยจดโน้ตก็บอกได้นะคะ สู้ ๆ ค่ะ']],
     family:[['me','เตือนแม่กินยาความดันทุกเช้า 8 โมง'],
           ['pin','ตั้งให้แล้วค่ะ 💊'],
-          ['card',{i:'💊',t:'เตือนกินยา',r:[['ยาความดัน','ทุกวัน 08:00'],['สถานะ','เปิดอยู่']]}],
-          ['pin','ทุกเช้าจะคอยเตือนให้นะคะ']],
-    freelance:[['me','วาดโลโก้ถ้วยกาแฟมินิมอลให้หน่อย'],
-          ['pin','วาดให้แล้วค่ะ 🎨'],
-          ['card',{i:'🖼️',t:'ภาพร่างโลโก้',r:[['สไตล์','มินิมอล · เส้นโปร่ง'],['ไฟล์','พร้อมใช้งาน']]}],
-          ['pin','อยากปรับสีหรือสไตล์เพิ่ม บอกได้เลยนะคะ']],
-    owner:[['me','ค่าเงินเยนตอนนี้เท่าไหร่'],
-          ['card',{i:'💱',t:'อัตราแลกเปลี่ยน',r:[['100 เยน','≈ 23.6 บาท'],['อัปเดต','2 นาทีก่อน']]}],
-          ['pin','ช่วงนี้เยนอ่อนค่ะ ถ้าจะสั่งของญี่ปุ่น กำลังน่าซื้อนะคะ']]
+          ['card',{i:'<i class="ph ph-pill"></i>',t:'เตือนกินยา',r:[['ยาความดัน','ทุกวัน 08:00'],['สถานะ','เปิดอยู่']]}],
+          ['me','ของต้องซื้อ: นม ไข่ ผงซักฟอก'],
+          ['pin','จดลิสต์ให้แล้วค่ะ เดี๋ยวเตือนตอนผ่านร้านนะคะ 🛒']],
+    freelance:[['me','คิดแคปชันเปิดร้าน แล้ววาดโลโก้ถ้วยกาแฟมินิมอลให้หน่อย'],
+          ['pin','แคปชัน: “เปิดแล้ว! แวะมาชิมความตั้งใจในแก้วเดียว ✨”'],
+          ['card',{i:'<i class="ph ph-image"></i>',t:'ภาพร่างโลโก้',r:[['สไตล์','มินิมอล · เส้นโปร่ง'],['ไฟล์','พร้อมใช้งาน']]}],
+          ['pin','อยากปรับโทนสีหรือลองอีกแบบ บอกได้เลยนะคะ']],
+    owner:[['me','สรุปยอดขายวันนี้ แล้วเช็กค่าเงินเยน จะสั่งของญี่ปุ่นเข้าร้าน'],
+          ['pin','ยอดวันนี้ 12,450 บาท · 38 ออเดอร์ — โตจากเมื่อวาน 8% ค่ะ'],
+          ['card',{i:'<i class="ph ph-currency-circle-dollar"></i>',t:'อัตราแลกเปลี่ยน',r:[['100 เยน','≈ 23.6 บาท'],['อัปเดต','2 นาทีก่อน']]}],
+          ['pin','ช่วงนี้เยนอ่อน สั่งของกำลังคุ้มค่ะ จะให้ร่างโปรโมชั่นต่อไหมคะ']]
   };
   const chatEl=document.getElementById('ucChat');
   function renderChat(key){
@@ -508,12 +536,20 @@
       return `<div class="bub ${it[0]==='me'?'me':'pin'}">${it[1]}</div>`;
     }).join('');
   }
-  renderChat('work');
+  // per-persona demo: tab switches the panel + the ปิ่น thread
+  const STATUS={work:'จัดคิวงานให้',student:'ติว & เตือนส่งงาน',family:'ดูแลเรื่องในบ้าน',
+                freelance:'ช่วยงานครีเอทีฟ',owner:'ต่อยอดให้ธุรกิจ'};
+  const labelEl=document.getElementById('featLabel');
+  function selectUC(k){
+    renderChat(k);
+    if(labelEl) labelEl.textContent=STATUS[k]||'กำลังช่วยอยู่';
+  }
+  selectUC('work');
   document.querySelectorAll('.uc-tab').forEach(b=>b.addEventListener('click',()=>{
     const k=b.dataset.uc;
     document.querySelectorAll('.uc-tab').forEach(x=>x.classList.toggle('on',x===b));
     document.querySelectorAll('.uc-panel').forEach(p=>p.classList.toggle('on',p.dataset.uc===k));
-    renderChat(k);
+    selectUC(k);
   }));
 
   // ---- reveal on scroll ----
