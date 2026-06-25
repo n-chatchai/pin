@@ -297,6 +297,11 @@ class _RecoveryStepState extends State<_RecoveryStep> {
   @override
   void initState() {
     super.initState();
+    // Re-evaluate the "กู้คืน" enabled state as the key field fills (typed or
+    // loaded from a QR image).
+    _restoreCtl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _init();
   }
 
@@ -346,7 +351,18 @@ class _RecoveryStepState extends State<_RecoveryStep> {
         // Full bootstrap (cross-signing + backup + recovery) with the signup
         // password, then the combined QR (email + user key + ปิ่น key). Plain
         // backup-only would leave cross-signing "not ready" / recovery incomplete.
+        // This is ALSO where the SSO companion is born (the ปิ่น pw is derived
+        // from the recovery key here) — so verify it actually came up before
+        // letting the user through, or they land in a local-only chat with no
+        // ปิ่น account. bootstrap can miss silently (ensurePinSession swallows
+        // its own errors), so check + retry rather than trust the return.
         final payload = await MatrixService.instance.bootstrapE2eeQr();
+        if (!MatrixService.instance.companionReady) {
+          await MatrixService.instance.ensurePinSession();
+        }
+        if (!MatrixService.instance.companionReady) {
+          throw 'เชื่อมต่อบัญชี ปิ่น ไม่สำเร็จ — แตะ "ลองอีกครั้ง"';
+        }
         final m = jsonDecode(payload) as Map<String, dynamic>;
         if (mounted) {
           setState(() {
@@ -369,7 +385,12 @@ class _RecoveryStepState extends State<_RecoveryStep> {
         return;
       }
       if (mounted) setState(() => _error = '$e');
-      widget.onSaved?.call(); // don't trap the user if key setup failed
+      // Only let them past once ปิ่น is actually up. For password users the
+      // companion comes up from their password independently, so an E2EE-key
+      // hiccup shouldn't trap them. For SSO users the companion IS this step —
+      // advancing without it strands them in a local-only chat with no ปิ่น
+      // account, so keep them here to retry instead.
+      if (MatrixService.instance.companionReady) widget.onSaved?.call();
     }
   }
 
@@ -443,7 +464,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
         } catch (_) {
           setState(() => _restoreCtl.text = combined);
         }
-        // Automatically start restoring so the user sees immediate feedback
+        // Auto-fire the restore when a QR code is successfully loaded.
         _restore();
       } else if (mounted) {
         setState(() => _error = 'อ่าน QR ไม่เจอในรูปนี้');
@@ -543,6 +564,18 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                   onPressed: _restoring ? null : _loadQr,
                   icon: const Icon(PhosphorIconsRegular.qrCode, size: 18),
                   label: const Text('โหลดจากรูป QR'),
+                  // Secondary action: faint green tonal fill + green border/text
+                  // so it reads as a real button on cream (a hairline outline
+                  // blended in), without competing with the solid green "กู้คืน".
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    foregroundColor: scheme.primary,
+                    backgroundColor: scheme.primary.withValues(alpha: 0.08),
+                    side: BorderSide(
+                        color: scheme.primary.withValues(alpha: 0.40)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
                 ),
                 if (_error != null)
                   Padding(
@@ -551,11 +584,17 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                   ),
                 const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: _restoring ? null : _restore,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Text(_restoring ? 'กำลังกู้คืน…' : 'กู้คืน'),
+                  // Same size as "โหลดจากรูป QR"; disabled until a key is present
+                  // (typed or QR-loaded) so it can't be tapped with empty input.
+                  onPressed: (_restoring || _restoreCtl.text.trim().isEmpty)
+                      ? null
+                      : _restore,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
+                  child: Text(_restoring ? 'กำลังกู้คืน…' : 'กู้คืน'),
                 ),
                 TextButton(
                   onPressed: _restoring
@@ -588,8 +627,24 @@ class _RecoveryStepState extends State<_RecoveryStep> {
               ],
             )
           else if (_error != null)
-            Text('ตั้งกุญแจไม่สำเร็จ: $_error',
-                style: TextStyle(color: scheme.error))
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('ตั้งกุญแจไม่สำเร็จ: $_error',
+                    style: TextStyle(color: scheme.error)),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: () {
+                    setState(() => _error = null);
+                    _init();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Text('ลองอีกครั้ง'),
+                  ),
+                ),
+              ],
+            )
           else if (_key == null)
             const _Spinner('กำลังสร้างกุญแจ…')
           else
@@ -637,8 +692,8 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _saveQr,
-                        icon: const Icon(PhosphorIconsRegular.downloadSimple, size: 17),
-                        label: const Text('ดาวน์โหลด'),
+                        icon: const Icon(PhosphorIconsRegular.image, size: 17),
+                        label: const Text('บันทึกรูป'),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),
                           foregroundColor: PinPalette.ink,
