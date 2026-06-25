@@ -95,11 +95,23 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // local transcript so nothing breaks. The status pill shows each step.
     try {
       await MatrixService.instance.ensurePinSession();
+      // A miss here means a local-only chat with NO ปิ่น account — one retry
+      // before we accept that (catches a transient bring-up failure).
+      if (!MatrixService.instance.companionReady) {
+        await MatrixService.instance.ensurePinSession();
+      }
       if (mounted) setState(() => _loading = 'กำลังเชื่อมห้องแชต…');
       _roomId = await MatrixService.instance.getOrCreatePinDm();
     } catch (e) {
       _roomId = null;
       debugPrint('pin DM bring-up failed (local fallback): $e');
+    }
+    // Don't silently pass off a local-only chat as the real thing: if the
+    // companion never came up, say so instead of degrading invisibly. Recovering
+    // the key (Settings → กุญแจกู้คืน) brings ปิ่น back.
+    if (_roomId == null && mounted) {
+      PinToast.show(context,
+          'ยังเชื่อมต่อบัญชี ปิ่น ไม่ได้ — ลองเปิดแอปใหม่ หรือกู้คืนกุญแจในการตั้งค่า');
     }
     if (_roomId != null) {
       _session = AgentSession(room: _roomId!, proxy: devProxy());
@@ -291,6 +303,23 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// A new live DM event arrived (from this or another device) → render it.
   Future<void> _onLiveDmEvent(rust.ChatMessage m) async {
     if (m.eventId.isEmpty || _seenEvents.contains(m.eventId)) return;
+    // Reconcile our own optimistic echo. The live echo of a message we just
+    // sent can beat _mirrorToRoom recording its id (FRB stream vs future race),
+    // so id-only dedup misses it → the bubble renders twice. If a still-
+    // optimistic bubble (temp id, not a real "$" Matrix id) with the same side
+    // + body already exists, this IS that message: mark the real id seen and
+    // drop the echo instead of appending a duplicate.
+    final fromUser = m.sender == MatrixService.instance.userId;
+    final fromPin = m.sender == MatrixService.instance.pinUserId;
+    if ((fromUser || fromPin) &&
+        m.body.isNotEmpty &&
+        _messages.any((x) =>
+            !x.eventId.startsWith(r'$') &&
+            x.isMe == fromUser &&
+            x.body == m.body)) {
+      _seenEvents.add(m.eventId);
+      return;
+    }
     _seenEvents.add(m.eventId);
     final view = await _dmToView(m);
     if (view != null && mounted) {

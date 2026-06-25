@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
@@ -49,6 +50,17 @@ class MatrixService {
   /// so any device the user signs into can bring up the pin session without
   /// recovering a separate secret. Null after a token-restore (relaunch).
   String? _userPassword;
+
+  /// Companion login password for SSO (Google) users, who have NO account
+  /// password to reuse. Derived from the user's recovery key (see
+  /// [_deriveCompanionPw]); set in the recovery create/restore paths, both of
+  /// which hold that key. [ensurePinSession] uses it when [_userPassword] is null.
+  String? _companionPw;
+
+  /// True once the ปิ่น companion session is up — i.e. the real 2-account E2EE
+  /// DM can exist. While false, any "chat" is a local-only fallback with NO ปิ่น
+  /// account, which SSO users must never be silently left in.
+  bool get companionReady => pinUserId != null;
 
   /// The user's email, held in memory between a fresh login and pin setup. Used
   /// to set the Matrix profile displayname (the localpart stays hashed) so
@@ -280,6 +292,10 @@ class MatrixService {
   /// the combined QR JSON. Used by Settings (which gets the user key from a full
   /// cross-signing reset) so the user key isn't rotated twice.
   Future<String> packRecoveryQr(String userKey) async {
+    // SSO user (no account password): derive the companion password from the
+    // user recovery key we just obtained, so ensurePinSession can bring up the
+    // ปิ่น account. No-op for password users (_userPassword wins).
+    if (_userPassword == null) _companionPw ??= _deriveCompanionPw(userKey);
     await ensurePinSession();
     String? pinKey;
     if (pinUserId != null) {
@@ -317,6 +333,7 @@ class MatrixService {
       if (lines.isEmpty) return null;
       await rust.recoverWithKeyFor(role: 'user', recoveryKey: lines[0]);
       if (lines.length > 1) {
+        if (_userPassword == null) _companionPw ??= _deriveCompanionPw(lines[0]);
         await ensurePinSession();
         if (pinUserId != null) {
           try {
@@ -328,6 +345,7 @@ class MatrixService {
     }
     await rust.recoverWithKeyFor(role: 'user', recoveryKey: '${j['u']}');
     if (j['p'] != null) {
+      if (_userPassword == null) _companionPw ??= _deriveCompanionPw('${j['u']}');
       await ensurePinSession();
       if (pinUserId != null) {
         try {
@@ -397,6 +415,29 @@ class MatrixService {
 
   static const _pinCredsPrefix = 'pin_companion_creds_'; // + user id
 
+  /// Companion login password for an SSO user, derived from the USER's recovery
+  /// key. Properties that make this the secure choice:
+  ///  - never stored anywhere — recomputed on demand from the key;
+  ///  - server-blind — the homeserver never sees the recovery key, only the
+  ///    resulting matrix password *hash*, so an admin can't read or reuse it;
+  ///  - cross-device — the recovery key rides along in the recovery QR, so every
+  ///    device derives the SAME companion password.
+  /// HMAC-SHA256 acts as the PRF; base64url makes it an ASCII-safe password.
+  ///
+  /// ponytail: ceiling — if the user RESETS their recovery key the derived
+  /// password changes, so a brand-new device couldn't log the companion in
+  /// (devices already holding the cached token keep working). Rare; an admin can
+  /// reset the `_pin` account. Upgrade path: on recovery reset, also change the
+  /// companion's password to the newly-derived one.
+  String? _deriveCompanionPw(String userRecoveryKey) {
+    final uid = userId;
+    if (uid == null || userRecoveryKey.isEmpty) return null;
+    final pinUser = '${uid.substring(1).split(':').first}_pin';
+    final mac = Hmac(sha256, utf8.encode(userRecoveryKey))
+        .convert(utf8.encode('pin-companion:$pinUser'));
+    return base64Url.encode(mac.bytes);
+  }
+
   /// Bring up the companion ปิ่น session, starting its sync. Idempotent.
   ///
   /// The ปิ่น account is `<user-localpart>_pin` and reuses the USER's password,
@@ -413,7 +454,9 @@ class MatrixService {
     final pinPath = await _dbPathFor('pin_$uid');
     final userLocal = uid.substring(1).split(':').first; // @local:server → local
     final pinUser = '${userLocal}_pin';
-    final pw = _userPassword;
+    // Password users reuse their own password; SSO users have none, so fall back
+    // to the password derived from their recovery key.
+    final pw = _userPassword ?? _companionPw;
     if (pw != null) {
       try {
         // Same password as the user → no separate secret to recover cross-device.

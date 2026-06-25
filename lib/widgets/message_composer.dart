@@ -375,110 +375,102 @@ class _MessageComposerState extends State<MessageComposer> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 34,
-                height: 4,
-                margin: const EdgeInsets.fromLTRB(0, 11, 0, 20),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFE6E3DA),
-                    borderRadius: BorderRadius.circular(2)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: PinPalette.line,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
               ),
-            ),
-            _sheetLabel('ความสามารถ'),
-            _capScroll([
-              for (final (_, icon, label, prompt) in _visibleCaps)
-                _pill(icon, label, () {
-                  Navigator.pop(context);
-                  _runCap(prompt);
-                }),
-            ]),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(26, 18, 26, 18),
-              child: Divider(height: 1, color: PinPalette.line),
-            ),
-            _sheetLabel('เครื่องมือ'),
-            _capScroll([
-              for (final (id, icon, label) in _toolSpecs)
-                _pill(icon, label, () {
-                  Navigator.pop(context);
-                  _runTool(id);
-                }),
-            ]),
-            const SizedBox(height: 22),
-          ],
+              const SizedBox(height: 16),
+              _sheetLabel('ความสามารถ'),
+              _grid([
+                for (final (_, icon, label, prompt) in _visibleCaps)
+                  _tile(icon, label, () {
+                    Navigator.pop(context);
+                    _runCap(prompt);
+                  }),
+              ]),
+              const SizedBox(height: 18),
+              _sheetLabel('เครื่องมือ'),
+              _grid([
+                for (final (id, icon, label) in _toolSpecs)
+                  _tile(icon, label, () {
+                    Navigator.pop(context);
+                    _runTool(id);
+                  }, isTool: true),
+              ]),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _sheetLabel(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(26, 0, 26, 14),
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
         child: Text(t,
             style: const TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
                 color: PinPalette.ink3)),
       );
 
-  // Horizontal scroll row of pills (design .capgrid). Clip.none so the soft
-  // shadow under each pill isn't clipped at the row edge.
-  Widget _capScroll(List<Widget> pills) => SizedBox(
-        height: 46,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          itemCount: pills.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 11),
-          itemBuilder: (_, i) => pills[i],
+  Widget _grid(List<Widget> tiles) => GridView.count(
+        crossAxisCount: 4,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.82,
+        children: tiles,
+      );
+
+  static const _badgeBg = Color(0xFF23231F);
+  Widget _tile(IconData icon, String label, VoidCallback onTap,
+          {bool isTool = false}) =>
+      InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: isTool ? Colors.white : _badgeBg,
+                borderRadius: BorderRadius.circular(16),
+                border: isTool ? Border.all(color: PinPalette.line) : null,
+              ),
+              child: Icon(icon,
+                  size: 24, color: isTool ? PinPalette.ink : Colors.white),
+            ),
+            const SizedBox(height: 6),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: PinPalette.ink)),
+          ],
         ),
       );
 
-  /// Design `.cap` pill — soft pale fill + hairline border so it reads as a
-  /// distinct chip on the white sheet (pure white blended in), icon + label.
-  Widget _pill(IconData icon, String label, VoidCallback onTap) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F5EF), // faint warm fill, pops on white
-          borderRadius: BorderRadius.circular(19),
-          border: Border.all(color: PinPalette.line),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x14362E20), blurRadius: 8, offset: Offset(0, 3)),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(19),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 11),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 19, color: const Color(0xFF5B5950)),
-                  const SizedBox(width: 9),
-                  Text(label,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: PinPalette.ink)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
 
   /// Soft pale-grey circle with a dark glyph (Claude-style) — visible but quiet.
   /// [active] fills it with the brand colour + a 45° turn (used by the "+" when

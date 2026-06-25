@@ -86,9 +86,15 @@ class DeviceBrain {
         trace.add(used.isEmpty
             ? '💬 ตอบข้อความ (ไม่เรียกเครื่องมือ)'
             : '💬 สรุปเป็นข้อความ');
+        // Global JSON guard: the model sometimes narrates a tool call as a raw
+        // {"summary":…} / {"reading":…} blob (or a ```fenced``` block) in its own
+        // text instead of calling the tool. Strip it so the bubble never shows
+        // raw JSON — covers every tool, not just generate_image.
+        var shown = _stripJson(content);
+        if (shown.isEmpty && pendingFlex == null) shown = content;
         // Caption (if any) + the card from the terminal tool.
         return AgentReply(
-            text: content,
+            text: shown,
             flex: pendingFlex,
             usedTools: used,
             trace: trace);
@@ -157,11 +163,17 @@ class DeviceBrain {
     return raw.replaceAll(r'\"', '"').replaceAll(r'\\', r'\');
   }
 
-  /// Drop a leaked JSON blob (object or ```fenced``` block) from the caption so
-  /// the bubble shows only ปิ่น's sentence, not the raw prompt.
+  /// Drop any leaked JSON the model narrated instead of calling a tool — a
+  /// ```fenced``` block or a standalone `{…}` object carrying a quoted key
+  /// (e.g. the {"summary":…,"content":…} it prints in place of save_knowledge,
+  /// or {"prompt":…} for generate_image). ปิ่น never shows raw JSON to the user,
+  /// whatever tool leaked it. Leaves normal Thai prose untouched.
   static String _stripJson(String text) {
-    var t = text.replaceAll(RegExp(r'```[a-zA-Z]*'), '');
-    t = t.replaceAll(RegExp(r'\{[^{}]*"prompt"[^{}]*\}', dotAll: true), '');
+    var t = text.replaceAll(RegExp(r'```[\s\S]*?```'), ''); // whole fenced block
+    // Flat JSON object with at least one "key": — string values may span lines
+    // (dotAll). Two passes clear adjacent blobs.
+    final obj = RegExp(r'\{[^{}]*"[^"]+"\s*:[^{}]*\}', dotAll: true);
+    t = t.replaceAll(obj, '').replaceAll(obj, '');
     return t.replaceAll('```', '').trim();
   }
 

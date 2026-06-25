@@ -273,7 +273,11 @@ class AgentSession {
       await loadCatalog();
     }
     final brain = DeviceBrain(
-      proxy: proxy,
+      // Fresh each turn so the user's OpenRouter on/off + model take effect
+      // immediately (no relaunch). Only inference uses this; catalog/tools keep
+      // using `proxy` (our gateway) via its baseUrl — infer() is the only call
+      // that branches direct→OpenRouter.
+      proxy: devProxy(),
       tools: _registry(),
       system: _system(),
     );

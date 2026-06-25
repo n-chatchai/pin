@@ -4,15 +4,25 @@ import 'package:http/http.dart' as http;
 
 import '../services/api_log.dart';
 
-/// Client for ปิ่น's blind LLM proxy. Speaks the OpenAI chat-completions schema;
-/// the proxy routes free→Gemini (our key) / paid→OpenRouter (the user's key).
-/// The provider key never lives in the app.
+/// Client for ปิ่น's LLM access. Speaks the OpenAI chat-completions schema.
+/// FREE tier → our blind proxy (Gemini, our key). PAID tier (the user's own
+/// OpenRouter key) → the device calls OpenRouter **directly**, never through our
+/// proxy, so we stay fully out of the paid path (no transit, no key, no
+/// liability). The key lives only in on-device secure storage.
 class ProxyClient {
   final String baseUrl; // e.g. https://proxy.tokens2.io  (or http://IP:8088 dev)
   final String token; // bearer (per-user later; dev: shared)
   final String tier; // 'free' | 'paid'
   final String? openrouterKey; // paid tier only
   final String? model;
+
+  /// OpenRouter direct endpoint (OpenAI-compatible) — bypasses our proxy.
+  static const _openrouterUrl =
+      'https://openrouter.ai/api/v1/chat/completions';
+
+  /// Fallback model for a paid user who didn't pick one. Cheap + tool-capable;
+  /// the user overrides it in settings.
+  static const defaultOpenRouterModel = 'openai/gpt-4o-mini';
 
   const ProxyClient({
     required this.baseUrl,
@@ -28,36 +38,53 @@ class ProxyClient {
     required List<Map<String, dynamic>> messages,
     List<Map<String, dynamic>>? tools,
   }) async {
+    final direct = tier == 'paid' &&
+        openrouterKey != null &&
+        openrouterKey!.isNotEmpty;
     final body = <String, dynamic>{
       'messages': messages,
       if (tools != null && tools.isNotEmpty) ...{
         'tools': tools,
         'tool_choice': 'auto',
       },
-      if (model != null) 'model': model,
+      // OpenRouter (direct) requires a model; default one if unset. The free
+      // proxy fills its own model, so only send it when chosen.
+      if (model != null)
+        'model': model
+      else if (direct)
+        'model': defaultOpenRouterModel,
     };
-    final headers = <String, String>{
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-      'X-Pin-Tier': tier,
-      if (tier == 'paid' && openrouterKey != null)
-        'X-OpenRouter-Key': openrouterKey!,
-    };
+    // PAID → device calls OpenRouter directly (key on-device, never our proxy).
+    // FREE → our blind proxy with our Gemini key.
+    final url = direct ? _openrouterUrl : '$baseUrl/infer';
+    final headers = direct
+        ? <String, String>{
+            'Authorization': 'Bearer ${openrouterKey!}',
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://pin.tokens2.io',
+            'X-Title': 'Pin',
+          }
+        : <String, String>{
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+            'X-Pin-Tier': 'free',
+          };
     final sw = Stopwatch()..start();
     final reqJson = jsonEncode(body);
     final r = await http
-        .post(Uri.parse('$baseUrl/infer'), headers: headers, body: reqJson)
+        .post(Uri.parse(url), headers: headers, body: reqJson)
         .timeout(const Duration(seconds: 90));
     final respText = utf8.decode(r.bodyBytes);
     ApiLog.instance.addHttp(
         method: 'POST',
-        url: '$baseUrl/infer',
+        url: url,
         status: r.statusCode,
         ms: sw.elapsedMilliseconds,
         reqBody: reqJson,
         respBody: respText);
     if (r.statusCode != 200) {
-      throw Exception('proxy ${r.statusCode}: ${r.body}');
+      throw Exception(
+          '${direct ? "openrouter" : "proxy"} ${r.statusCode}: ${r.body}');
     }
     return jsonDecode(respText) as Map<String, dynamic>;
   }

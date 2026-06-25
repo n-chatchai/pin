@@ -1,3 +1,4 @@
+import '../services/ai_settings.dart';
 import '../services/matrix_service.dart';
 import 'proxy_client.dart';
 
@@ -158,8 +159,15 @@ final kPinSystem = kPinSystemFor();
 /// Matrix access token (cached by [MatrixService] after login/restore); the
 /// gateway validates it against the homeserver `whoami`. Empty if not logged in
 /// — every caller is behind auth, so that should not happen in practice.
-ProxyClient devProxy() => ProxyClient(
-      baseUrl: _kProxyBase,
-      token: MatrixService.instance.accessToken ?? '',
-      tier: 'free',
-    );
+/// When the user has supplied an OpenRouter key (paid), the client calls
+/// OpenRouter directly; otherwise it stays on the free blind proxy.
+ProxyClient devProxy() {
+  final ai = AiSettings.instance.value;
+  return ProxyClient(
+    baseUrl: _kProxyBase,
+    token: MatrixService.instance.accessToken ?? '',
+    tier: ai.enabled ? 'paid' : 'free',
+    openrouterKey: ai.enabled ? ai.key : null,
+    model: ai.enabled ? ai.model : null,
+  );
+}

@@ -7,6 +7,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'dart:io';
 
 import 'config.dart';
+import 'services/ai_settings.dart';
 import 'services/api_log.dart';
 import 'src/rust/api/matrix_trace.dart';
 import 'widgets/boot_loading.dart';
@@ -47,6 +48,7 @@ Future<void> main() async {
   if (kDebugBuild) _startMatrixTrace();
   await ThemeController.instance.load();
   await PrefsController.instance.load();
+  await AiSettings.instance.load();
   await NotificationService.instance.init();
   runApp(const PinApp());
 }
