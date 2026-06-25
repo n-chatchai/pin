@@ -21,6 +21,8 @@ import '../agent/agent_session.dart';
 import '../agent/embedder.dart';
 import '../widgets/flex_card_view.dart';
 import 'abilities_screen.dart';
+import 'openrouter_screen.dart';
+import '../services/ai_settings.dart';
 import 'device_data_screen.dart';
 import 'local_chat_screen.dart' show debugForcePersonaSetup;
 import 'personality_screen.dart';
@@ -127,6 +129,22 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ]),
+            _section('โมเดลเอไอ'),
+            _card([
+              ValueListenableBuilder<AiConfig>(
+                valueListenable: AiSettings.instance,
+                builder: (context, ai, _) => _navRow(
+                  context,
+                  PhosphorIconsRegular.cpu,
+                  'โมเดลเอไอ',
+                  ai.enabled
+                      ? ai.model.split('/').last.replaceFirst(':free', '')
+                      : 'ปิ่น (ฟรี)',
+                  () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => const OpenRouterScreen())),
+                ),
+              ),
+            ]),
             _section('สถานะความปลอดภัย'),
             _card([_SecurityStatus()]),
             _section('เครื่องมือนักพัฒนา'),
@@ -217,7 +235,17 @@ class SettingsScreen extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(value, style: const TextStyle(color: PinPalette.ink2)),
+            // Bound + ellipsize: a long value (e.g. an OpenRouter model id) must
+            // not steal the title's width and wrap it one char per line.
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.42),
+              child: Text(value,
+                  style: const TextStyle(color: PinPalette.ink2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right),
+            ),
             const SizedBox(width: 4),
             const Icon(PhosphorIconsRegular.caretRight, size: 18),
           ],
@@ -251,9 +279,9 @@ class _SecurityStatusState extends State<_SecurityStatus> {
   @override
   void initState() {
     super.initState();
-    // Defer the FFI call to after the first frame so the push transition into
-    // settings doesn't stutter.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Defer the FFI call to after the push transition (which takes ~300ms)
+    // so the transition into settings doesn't stutter.
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) {
         setState(() => _future = MatrixService.instance.e2eeStatus());
       }
@@ -445,8 +473,8 @@ class _E2eeDebugState extends State<_E2eeDebug> {
   @override
   void initState() {
     super.initState();
-    // Defer PackageInfo + FFI off the transition frame (avoids the jank).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Defer PackageInfo + FFI off the transition animation (avoids the jank).
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _future = _load());
     });
   }
