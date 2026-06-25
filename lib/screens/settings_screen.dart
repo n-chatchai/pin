@@ -268,6 +268,25 @@ class SettingsScreen extends StatelessWidget {
 /// Clean, user-facing E2EE status (not the debug dump): one row per protection
 /// with a green check when active — recovery, server key backup, cross-signing,
 /// device verification.
+/// Placeholder row matching [_SecurityStatusState._row]'s height, shown while
+/// the status loads so the card reserves its space (no layout shift).
+class _LoadingRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  const _LoadingRow(this.icon, this.title);
+  @override
+  Widget build(BuildContext context) => ListTile(
+        leading: Icon(icon, color: PinPalette.ink3),
+        title: Text(title),
+        subtitle: const Text('กำลังตรวจสอบ…',
+            style: TextStyle(color: PinPalette.ink3, fontSize: 12)),
+        trailing: const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+}
+
 class _SecurityStatus extends StatefulWidget {
   @override
   State<_SecurityStatus> createState() => _SecurityStatusState();
@@ -294,8 +313,15 @@ class _SecurityStatusState extends State<_SecurityStatus> {
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const ListTile(
-              dense: true, title: Text('กำลังอ่านสถานะ…'));
+          // Reserve the final 4-row height while loading (same rows, muted +
+          // spinner) so the card doesn't grow and shove the page down when the
+          // real status arrives.
+          return Column(children: const [
+            _LoadingRow(PhosphorIconsRegular.key, 'สำรองกุญแจกู้คืน'),
+            _LoadingRow(PhosphorIconsRegular.sealCheck, 'การลงนามข้ามอุปกรณ์'),
+            _LoadingRow(PhosphorIconsRegular.deviceMobile, 'อุปกรณ์นี้ยืนยันแล้ว'),
+            _LoadingRow(PhosphorIconsRegular.eyeSlash, 'ความเป็นส่วนตัวของเอไอ'),
+          ]);
         }
         if (!snap.hasData) {
           return ListTile(
