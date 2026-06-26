@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ปิ่น — ผู้ช่วยเอไอ ส่วนตัว ที่เป็นส่วนตัวจริง ๆ</title>
-<meta name="description" content="ปิ่น คือผู้ช่วยเอไอ ภาษาไทยที่ทำงานบนเครื่องคุณ เข้ารหัสลับ เปิดอ่านได้แค่คุณ เซิร์ฟเวอร์มองไม่เห็นข้อมูลส่วนตัว — เตือน จัดการงาน ตอบคำถาม ดูดวง และต่อยอดความสามารถได้เรื่อย ๆ">
+<title>ปิ่น ผู้ช่วยเอไอ ส่วนตัว ที่เป็นส่วนตัวจริง ๆ</title>
+<meta name="description" content="ปิ่น คือผู้ช่วยเอไอ ภาษาไทยที่ทำงานบนเครื่องคุณ เข้ารหัสลับ เปิดอ่านได้แค่คุณ เซิร์ฟเวอร์มองไม่เห็นข้อมูลส่วนตัว เตือน จัดการงาน ตอบคำถาม ดูดวง และต่อยอดความสามารถได้เรื่อย ๆ">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -65,14 +65,27 @@
   .nav nav a{font-size:14.5px;color:var(--ink2);font-weight:500}
   .nav nav a:hover{color:var(--green-d)}
   .nav .sp{margin-left:auto}
-  @media(max-width:760px){.nav nav{display:none}}
+  .burger{display:none;width:42px;height:42px;border-radius:11px;border:1px solid var(--line);
+          background:var(--white);color:var(--ink);place-items:center;font-size:22px;flex:0 0 auto;cursor:pointer}
+  .burger i{display:block}
+  .mnav{display:none}
+  .mnav a{display:block;padding:13px 2px;font-size:16px;color:var(--ink);border-top:1px solid var(--line)}
+  .mnav a.btn{margin-top:14px;border:none;justify-content:center;color:#fff}
+  @media(max-width:760px){
+    .nav nav{display:none}
+    .navdl{display:none}
+    .burger{display:grid}
+    .mnav.open{display:block;padding:6px 0 16px}
+  }
 
   /* ---- hero ---- */
   .hero{padding:clamp(40px,7vw,86px) 0 clamp(30px,5vw,60px);overflow:hidden}
   .hero .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
   @media(max-width:880px){.hero .grid{grid-template-columns:1fr;gap:34px}}
   .h1{font-size:clamp(34px,6vw,60px);font-weight:600;line-height:1.08;letter-spacing:-.02em;text-wrap:balance}
-  .h1 .hl{color:var(--green-d);position:relative;white-space:nowrap}
+  .h1 .hl{color:var(--green-d);position:relative;
+          background:linear-gradient(transparent 62%,rgba(242,184,41,.34) 0);
+          -webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .05em}
   .lede{font-size:clamp(16px,2vw,19px);color:var(--ink2);margin-top:20px;max-width:48ch;text-wrap:pretty}
   .hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
   .hero-trust{display:flex;gap:18px;margin-top:26px;flex-wrap:wrap;color:var(--ink2);font-size:13.5px}
@@ -98,7 +111,7 @@
   .brow.left{align-self:flex-start;align-items:flex-start}
   .bt{font-size:9.5px;color:var(--ink3);padding:0 4px}
   .bub{padding:9px 13px;font-size:13.5px;line-height:1.5;border-radius:17px}
-  .bub.me{background:var(--green-dd);color:#fff;border-bottom-right-radius:6px}
+  .bub.me{background:var(--green-d);color:#fff;border-bottom-right-radius:6px}
   .bub.pin{background:#fff;color:var(--ink);box-shadow:var(--cardsh);border-bottom-left-radius:6px}
   .pcard{background:#fff;border-radius:15px;box-shadow:var(--cardsh);padding:12px 13px;font-size:12.5px;min-width:200px}
   .pcard .phd{display:flex;align-items:center;justify-content:space-between;font-family:var(--nira);font-weight:600;color:var(--ink);font-size:13px;margin-bottom:9px}
@@ -116,7 +129,7 @@
   .pcomp .pci{width:30px;height:30px;display:grid;place-items:center;color:var(--green-d);font-size:19px;flex:0 0 auto}
   .pcomp .pci i{display:block}
   .pcomp .ptext{flex:1;color:var(--ink3)}
-  .pcomp .pmic{width:32px;height:32px;border-radius:50%;background:var(--green-dd);color:#fff;display:grid;place-items:center;font-size:17px;flex:0 0 auto}
+  .pcomp .pmic{width:32px;height:32px;border-radius:50%;background:var(--green-d);color:#fff;display:grid;place-items:center;font-size:17px;flex:0 0 auto}
   .pcomp .pmic i{display:block}
   /* floating depth cards */
   .float{position:absolute;z-index:2;display:flex;align-items:center;gap:10px;background:#fff;
@@ -172,7 +185,7 @@
   .uc-out .o{display:flex;align-items:flex-start;gap:11px;font-size:14.5px}
   .uc-out .o .c{width:23px;height:23px;border-radius:50%;background:var(--green-card);color:var(--green-d);
                 display:grid;place-items:center;flex:0 0 auto;margin-top:1px;font-size:13px;font-weight:700}
-  /* mini chat for use case — a real ปิ่น thread (header + bubbles + a produced result) */
+  /* mini chat for use case a real ปิ่น thread (header + bubbles + a produced result) */
   .uc-chat{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;
            box-shadow:var(--liftsh);align-self:stretch}
   .uc-chat .hd{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line)}
@@ -248,7 +261,7 @@
   .frow + .frow{margin-top:6px}
   .frow .fi{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;font-size:18px}
   .frow .ft{font-family:var(--nira);font-weight:600;font-size:14.5px}
-  .frow .fd{font-size:12.5px;color:rgba(255,255,255,.7)}
+  .frow .fd{font-size:12.5px;color:rgba(255,255,255,.85)}
   .frow.a{background:rgba(255,255,255,.10)} .frow.a .fi{background:var(--green);color:#fff}
   .frow.b .fi{background:rgba(242,184,41,.9);color:#3a2c00}
   .frow.c .fi{background:rgba(255,255,255,.16);color:#fff}
@@ -274,11 +287,11 @@
   .plan-badge{align-self:flex-start;font-family:var(--nira);font-size:12px;font-weight:600;
               padding:4px 12px;border-radius:20px;background:var(--green-card);color:var(--green-d);
               margin-bottom:14px}
-  .plan-badge.soon{background:#F0ECE1;color:var(--ink3)}
+  .plan-badge.soon{background:#F0ECE1;color:var(--ink2)}
   .plan-name{font-family:var(--nira);font-size:22px;font-weight:600;color:var(--ink)}
   .plan-price{font-family:var(--nira);font-size:34px;font-weight:700;color:var(--ink);margin:4px 0 2px}
   .plan-price span{font-size:15px;font-weight:500;color:var(--ink2)}
-  .plan-price.muted{font-size:22px;color:var(--ink3);font-weight:600}
+  .plan-price.muted{font-size:22px;color:var(--ink2);font-weight:600}
   .plan-sub{color:var(--ink2);font-size:14px;margin-bottom:20px}
   .plan-feat{list-style:none;display:flex;flex-direction:column;gap:11px;margin-bottom:24px}
   .plan-feat li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;color:var(--ink);line-height:1.4}
@@ -292,6 +305,13 @@
        text-align:center;box-shadow:var(--cardsh)}
   .cta h2{font-size:clamp(26px,4vw,40px);font-weight:600;line-height:1.18;text-wrap:balance}
   .cta p{color:var(--ink2);margin-top:14px;font-size:17px}
+  .waitlist{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+  .waitlist input{height:50px;padding:0 18px;border-radius:14px;border:1px solid var(--line);
+                  background:#fff;font:inherit;font-size:15px;min-width:min(280px,80vw);color:var(--ink)}
+  .waitlist input::placeholder{color:var(--ink2);opacity:1}
+  .waitlist input:focus{outline:none;border-color:var(--green-d);box-shadow:0 0 0 3px var(--green-card)}
+  .wl-ok{margin-top:24px;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:17px}
+  .wl-note{font-size:12.5px;color:var(--ink2);margin-top:14px}
 
   /* ---- footer ---- */
   footer{padding:46px 0 38px;border-top:1px solid var(--line);margin-top:30px;color:var(--ink2);font-size:14px}
@@ -324,7 +344,16 @@
       <a href="#how">เริ่มต้น</a>
     </nav>
     <span class="sp"></span>
-    <a class="btn btn-p" href="#download">ดาวน์โหลด <span class="ar">→</span></a>
+    <a class="btn btn-p navdl" href="#download">ดาวน์โหลด <span class="ar">→</span></a>
+    <button class="burger" id="burger" aria-label="เมนู" aria-expanded="false" aria-controls="mnav"><i class="ph ph-list"></i></button>
+  </div>
+  <div class="mnav wrap" id="mnav">
+    <a href="#uses">การใช้งาน</a>
+    <a href="#features">จุดเด่น</a>
+    <a href="#privacy">ความเป็นส่วนตัว</a>
+    <a href="#pricing">ราคา</a>
+    <a href="#how">เริ่มต้น</a>
+    <a class="btn btn-p" href="#download">รับแจ้งเตือนเปิดตัว</a>
   </div>
 </header>
 
@@ -334,12 +363,12 @@
     <div class="rv in">
       <div class="eyebrow">ผู้ช่วยเอไอ ภาษาไทย · ทำงานบนเครื่องคุณ</div>
       <h1 class="h1">ผู้ช่วยส่วนตัว<br>ที่เป็น<span class="hl">ส่วนตัวจริง ๆ</span></h1>
-      <p class="lede">ปิ่น ช่วยเตือน จัดการงาน ตอบคำถาม และต่อยอดความสามารถได้เรื่อย ๆ —
+      <p class="lede">ปิ่น ช่วยเตือน จัดการงาน ตอบคำถาม และต่อยอดความสามารถได้เรื่อย ๆ
         ทุกบทสนทนาเข้ารหัสลับ เปิดอ่านได้แค่คุณ และสมองทำงานบนเครื่องคุณ
         เซิร์ฟเวอร์ของเรา <b>มองไม่เห็น</b> ข้อมูลส่วนตัวของคุณเลย</p>
       <div class="hero-cta">
         <a class="btn btn-p" href="#download">เริ่มใช้ฟรี <span class="ar">→</span></a>
-        <a class="btn btn-g" href="#uses">▶ ดูการใช้งานจริง</a>
+        <a class="btn btn-g" href="#uses"><i class="ph ph-cursor-click"></i> ดูการใช้งานจริง</a>
       </div>
       <div class="hero-trust">
         <span><i class="dot"></i> เปิดอ่านได้แค่คุณ</span>
@@ -450,7 +479,7 @@
       <div class="uc-panel on" data-uc="work">
         <div class="uc-kicker"><span><i class="ph ph-briefcase"></i></span> คนทำงานออฟฟิศ</div>
         <h3 class="uc-h">คอยกันลืม จัดคิวงาน และสรุปให้</h3>
-        <p class="uc-p">นัดประชุม เตือนเดดไลน์ สรุปไฟล์ยาว ๆ ให้สั้นลง — สั่งเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว</p>
+        <p class="uc-p">นัดประชุม เตือนเดดไลน์ สรุปไฟล์ยาว ๆ ให้สั้นลง สั่งเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว</p>
         <div class="uc-out">
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> ตั้งเตือนซ้ำ &amp; นัดล่วงหน้าได้เอง</div>
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> สรุป PDF / เอกสารเป็นหัวข้อสั้น</div>
@@ -460,7 +489,7 @@
       <div class="uc-panel" data-uc="student">
         <div class="uc-kicker"><span><i class="ph ph-graduation-cap"></i></span> นักเรียน–นักศึกษา</div>
         <h3 class="uc-h">ติวให้เข้าใจ เตือนส่งงาน จดความรู้</h3>
-        <p class="uc-p">ถามการบ้านได้ทีละขั้น เตือนวันส่งงาน เก็บความรู้ไว้ถามซ้ำได้ — ทั้งหมดอยู่บนเครื่องคุณ ไม่หลุดไปไหน</p>
+        <p class="uc-p">ถามการบ้านได้ทีละขั้น เตือนวันส่งงาน เก็บความรู้ไว้ถามซ้ำได้ ทั้งหมดอยู่บนเครื่องคุณ ไม่หลุดไปไหน</p>
         <div class="uc-out">
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> อธิบายทีละสเต็ป ไม่ลอกให้เฉย ๆ</div>
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนเดดไลน์ส่งงาน</div>
@@ -470,7 +499,7 @@
       <div class="uc-panel" data-uc="family">
         <div class="uc-kicker"><span><i class="ph ph-house"></i></span> ครอบครัว</div>
         <h3 class="uc-h">ผู้ช่วยอุ่นใจ ดูแลเรื่องเล็ก ๆ ทุกวัน</h3>
-        <p class="uc-p">เตือนกินยา จดของที่ต้องซื้อ เช็กอากาศก่อนออกจากบ้าน — คุยเป็นกันเองเหมือนคนในบ้าน</p>
+        <p class="uc-p">เตือนกินยา จดของที่ต้องซื้อ เช็กอากาศก่อนออกจากบ้าน คุยเป็นกันเองเหมือนคนในบ้าน</p>
         <div class="uc-out">
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนกินยา / นัดหมอ</div>
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> ลิสต์ของซื้อ &amp; สิ่งที่ต้องทำ</div>
@@ -480,7 +509,7 @@
       <div class="uc-panel" data-uc="freelance">
         <div class="uc-kicker"><span><i class="ph ph-pencil-simple"></i></span> ฟรีแลนซ์ / ครีเอเตอร์</div>
         <h3 class="uc-h">ร่างงาน หาไอเดีย คุมเดดไลน์ลูกค้า</h3>
-        <p class="uc-p">ช่วยร่างข้อความ คิดหัวข้อ วาดภาพประกอบ และเตือนส่งงานแต่ละเจ้า — ข้อมูลลูกค้าอยู่บนเครื่องคุณเท่านั้น</p>
+        <p class="uc-p">ช่วยร่างข้อความ คิดหัวข้อ วาดภาพประกอบ และเตือนส่งงานแต่ละเจ้า ข้อมูลลูกค้าอยู่บนเครื่องคุณเท่านั้น</p>
         <div class="uc-out">
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> ร่าง/ขัดเกลาข้อความ &amp; แคปชัน</div>
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> วาดรูปประกอบจากคำบรรยาย</div>
@@ -490,7 +519,7 @@
       <div class="uc-panel" data-uc="owner">
         <div class="uc-kicker"><span><i class="ph ph-storefront"></i></span> เจ้าของร้าน / SME</div>
         <h3 class="uc-h">สรุปยอด เช็กต้นทุน ตอบลูกค้า</h3>
-        <p class="uc-p">สรุปยอดขาย เช็กค่าเงินก่อนสั่งของ ร่างโปรโมชั่นและตอบแชตลูกค้า — เพิ่มความสามารถเฉพาะธุรกิจผ่านสโตร์ได้</p>
+        <p class="uc-p">สรุปยอดขาย เช็กค่าเงินก่อนสั่งของ ร่างโปรโมชั่นและตอบแชตลูกค้า เพิ่มความสามารถเฉพาะธุรกิจผ่านสโตร์ได้</p>
         <div class="uc-out">
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> สรุปยอดขาย / อ่านบิล–ใบเสร็จ</div>
           <div class="o"><span class="c"><i class="ph ph-check"></i></span> เช็กค่าเงิน–ราคาวัตถุดิบ ก่อนสั่งของ</div>
@@ -579,17 +608,18 @@
   <div class="wrap">
     <div class="priv rv">
       <div>
-        <div class="eyebrow" style="color:rgba(255,255,255,.85)">ออกแบบมาให้ตาบอด</div>
-        <h2>เซิร์ฟเวอร์ของเรา<br>มองไม่เห็นข้อมูลคุณ</h2>
-        <p>ปิ่นคุยกับโมเดลเอไอ ผ่าน “พร็อกซีตาบอด” ที่ส่งต่อเฉพาะสิ่งที่จำเป็น
-          ไม่มีตัวตน ไม่มีบทสนทนา — ความเป็นส่วนตัวคือค่าเริ่มต้น ไม่ใช่ออปชัน</p>
+        <div class="eyebrow" style="color:rgba(255,255,255,.85)">เป็นส่วนตัวตั้งแต่ออกแบบ</div>
+        <h2>ไม่มีใคร<br>อ่านแชตคุณได้</h2>
+        <p>ทุกข้อความเข้ารหัสลับตั้งแต่ในเครื่องคุณ เปิดอ่านได้แค่คุณกับปิ่นเท่านั้น
+          แม้แต่เราก็มองไม่เห็น เวลาปิ่นถามเอไอ จะส่งไปแค่คำถามที่จำเป็น
+          ไม่ส่งว่าคุณเป็นใคร ไม่เก็บบทสนทนา ความเป็นส่วนตัวคือค่าเริ่มต้น ไม่ใช่ออปชัน</p>
       </div>
       <div class="flowcard">
-        <div class="frow a"><span class="fi"><i class="ph ph-device-mobile"></i></span><div><div class="ft">เครื่องคุณ</div><div class="fd">สมอง + ห้องแชตเข้ารหัส</div></div></div>
+        <div class="frow a"><span class="fi"><i class="ph ph-device-mobile"></i></span><div><div class="ft">เครื่องของคุณ</div><div class="fd">สมองปิ่น + แชตที่เข้ารหัส</div></div></div>
         <div class="farr">▾</div>
-        <div class="frow b"><span class="fi"><i class="ph-fill ph-shield-check"></i></span><div><div class="ft">พร็อกซีตาบอด</div><div class="fd">เห็นแค่คำค้นที่จำเป็น</div></div></div>
+        <div class="frow b"><span class="fi"><i class="ph-fill ph-shield-check"></i></span><div><div class="ft">ตัวกลางที่มองไม่เห็น</div><div class="fd">ส่งต่อแค่คำถาม ไม่เห็นว่าเป็นคุณ</div></div></div>
         <div class="farr">▾</div>
-        <div class="frow c"><span class="fi"><i class="ph ph-robot"></i></span><div><div class="ft">โมเดลเอไอ / เครื่องมือ</div><div class="fd">ไม่รู้ว่าคุณเป็นใคร</div></div></div>
+        <div class="frow c"><span class="fi"><i class="ph ph-robot"></i></span><div><div class="ft">เอไอที่ช่วยตอบ</div><div class="fd">ตอบโดยไม่รู้ว่าคุณเป็นใคร</div></div></div>
       </div>
     </div>
   </div>
@@ -605,9 +635,9 @@
       <div class="step rv"><div class="n">1</div><h3>ดาวน์โหลด &amp; สมัคร</h3>
         <p>เข้าด้วย Google หรือสร้างบัญชี ตั้งค่าความเป็นส่วนตัวให้เสร็จในไม่กี่นาที</p></div>
       <div class="step rv"><div class="n">2</div><h3>เก็บกุญแจกู้คืน</h3>
-        <p>บันทึกกุญแจไว้ในที่ปลอดภัย (เซฟลงรูปได้) — ไว้กู้คืนเมื่อย้ายเครื่อง</p></div>
+        <p>บันทึกกุญแจไว้ในที่ปลอดภัย (เซฟลงรูปได้) ไว้กู้คืนเมื่อย้ายเครื่อง</p></div>
       <div class="step rv"><div class="n">3</div><h3>คุยกับปิ่นได้เลย</h3>
-        <p>ตั้งชื่อ ปรับบุคลิก แล้วเริ่มสั่งงาน — เพิ่มความสามารถใหม่ได้ตลอด</p></div>
+        <p>ตั้งชื่อ ปรับบุคลิก แล้วเริ่มสั่งงาน เพิ่มความสามารถใหม่ได้ตลอด</p></div>
     </div>
   </div>
 </section>
@@ -616,7 +646,7 @@
 <section class="pad" id="pricing">
   <div class="wrap">
     <div class="center rv">
-      <h2 class="sec-title">เริ่มฟรี — พรีเมียมเร็ว ๆ นี้</h2>
+      <h2 class="sec-title">เริ่มฟรี พรีเมียมเร็ว ๆ นี้</h2>
       <p class="sec-sub" style="margin-inline:auto">ใช้ฟรีได้เต็มที่ทุกวัน ของขั้นสูงกำลังจะมา</p>
     </div>
     <div class="plans rv">
@@ -642,8 +672,8 @@
         <div class="plan-price muted">เร็ว ๆ นี้</div>
         <p class="plan-sub">เชื่อมปิ่นเข้ากับชีวิตคุณ</p>
         <ul class="plan-feat">
-          <li><i class="ph ph-check"></i> เชื่อม Gmail · LINE · ปฏิทิน (และคอนเนกเตอร์อื่น)</li>
-          <li><i class="ph ph-check"></i> เลือกโมเดลเอง (BYOK)</li>
+          <li><i class="ph ph-check"></i> เชื่อม Gmail · LINE · ปฏิทิน (และบริการอื่น ๆ)</li>
+          <li><i class="ph ph-check"></i> เลือกโมเดลเอไอเองได้</li>
           <li><i class="ph ph-check"></i> วาดรูปคุณภาพสูง &amp; สร้างวิดีโอ</li>
           <li><i class="ph ph-check"></i> ไฟล์ใหญ่ &amp; ค้นความรู้เชิงลึก</li>
           <li><i class="ph ph-check"></i> ค้นเว็บ &amp; ทุกอย่างแบบไม่จำกัด</li>
@@ -659,11 +689,13 @@
   <div class="wrap">
     <div class="cta rv">
       <h2>ให้ปิ่นช่วยดูแลเรื่องเล็ก ๆ<br>ในแบบที่เป็นส่วนตัวจริง ๆ</h2>
-      <p>ฟรี ไม่มีโฆษณา ไม่ขายข้อมูล</p>
-      <div class="hero-cta" style="justify-content:center;margin-top:26px">
-        <a class="btn btn-p" href="#" aria-label="ดาวน์โหลดบน iOS">ดาวน์โหลด · iOS <span class="ar">→</span></a>
-        <a class="btn btn-g" href="#" aria-label="ดาวน์โหลดบน Android">ดาวน์โหลด · Android</a>
-      </div>
+      <p>กำลังเปิดตัวเร็ว ๆ นี้ ลงอีเมลไว้ เราจะส่งลิงก์ดาวน์โหลดให้คุณก่อนใคร</p>
+      <form class="waitlist" id="waitlist" novalidate>
+        <input type="email" name="email" required placeholder="อีเมลของคุณ" aria-label="อีเมลของคุณ">
+        <button class="btn btn-p" type="submit">รับแจ้งเตือนเปิดตัว <span class="ar">→</span></button>
+      </form>
+      <div class="wl-ok" id="wlOk" hidden>ขอบคุณค่ะ! เราจะส่งลิงก์ให้ทางอีเมลตอนเปิดตัว 💌</div>
+      <p class="wl-note">ฟรี ไม่มีโฆษณา ไม่ขายข้อมูล · ใช้อีเมลเพื่อแจ้งวันเปิดตัวเท่านั้น</p>
     </div>
   </div>
 </section>
@@ -687,6 +719,36 @@
   const nav=document.getElementById('nav');
   addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>8),{passive:true});
 
+  // mobile menu
+  const burger=document.getElementById('burger'), mnav=document.getElementById('mnav');
+  burger&&burger.addEventListener('click',()=>{
+    const open=mnav.classList.toggle('open');
+    burger.setAttribute('aria-expanded',open);
+  });
+  mnav&&mnav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{
+    mnav.classList.remove('open'); burger.setAttribute('aria-expanded','false');
+  }));
+
+  // pre-launch waitlist. ponytail: no backend yet set WAITLIST_ENDPOINT to a
+  // Formspree/Tally URL to capture server-side; until then it falls back to a
+  // mailto so intent still reaches the inbox. Either way the user sees success.
+  const WAITLIST_ENDPOINT='';                 // ← paste form endpoint when ready
+  const WAITLIST_EMAIL='hello@tokens2.io';    // ← mailto fallback target
+  const wlForm=document.getElementById('waitlist'), wlOk=document.getElementById('wlOk');
+  wlForm&&wlForm.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const email=(wlForm.email.value||'').trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){wlForm.email.focus();return;}
+    try{
+      if(WAITLIST_ENDPOINT){
+        await fetch(WAITLIST_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+      }else{
+        location.href='mailto:'+WAITLIST_EMAIL+'?subject='+encodeURIComponent('ขอรับแจ้งเตือนเปิดตัวปิ่น')+'&body='+encodeURIComponent('อีเมล: '+email);
+      }
+    }catch(_){/* intent already captured client-side; still confirm */}
+    wlForm.hidden=true; wlOk.hidden=false;
+  });
+
   // ---- use-case chat mocks ----
   // item shapes: ['me'|'pin', text]  ·  ['card', {i:icon, t:title, r:[[label,value]...]}]
   const CHATS={
@@ -695,7 +757,7 @@
           ['card',{i:'<i class="ph ph-calendar-dots"></i>',t:'ลงนัด + เตือนแล้ว',r:[['ตามงานทีมดีไซน์','ศุกร์ 10:00'],['เตือนล่วงหน้า','30 นาที']]}],
           ['pin','ถึงเวลาจะเตือนก่อนนะคะ ไม่ต้องกลัวลืม']],
     student:[['me','อธิบายกฎข้อ 2 ของนิวตันแบบสั้น ๆ หน่อย'],
-          ['pin','F = ma ค่ะ — แรงลัพธ์ = มวล × ความเร่ง ยิ่งออกแรงมาก ของยิ่งเร่งเร็ว'],
+          ['pin','F = ma ค่ะ แรงลัพธ์ = มวล × ความเร่ง ยิ่งออกแรงมาก ของยิ่งเร่งเร็ว'],
           ['me','เตือนส่งรายงานพรุ่งนี้ 5 โมงเย็นด้วย'],
           ['card',{i:'<i class="ph ph-alarm"></i>',t:'ตั้งเตือนแล้ว',r:[['ส่งรายงาน','พรุ่งนี้ 17:00'],['เตือนซ้ำ','ก่อน 1 ชม.']]}],
           ['pin','อยากให้ติวเพิ่มหรือช่วยจดโน้ตก็บอกได้นะคะ สู้ ๆ ค่ะ']],
@@ -709,7 +771,7 @@
           ['card',{i:'<i class="ph ph-image"></i>',t:'ภาพร่างโลโก้',r:[['สไตล์','มินิมอล · เส้นโปร่ง'],['ไฟล์','พร้อมใช้งาน']]}],
           ['pin','อยากปรับโทนสีหรือลองอีกแบบ บอกได้เลยนะคะ']],
     owner:[['me','สรุปยอดขายวันนี้ แล้วเช็กค่าเงินเยน จะสั่งของญี่ปุ่นเข้าร้าน'],
-          ['pin','ยอดวันนี้ 12,450 บาท · 38 ออเดอร์ — โตจากเมื่อวาน 8% ค่ะ'],
+          ['pin','ยอดวันนี้ 12,450 บาท · 38 ออเดอร์ โตจากเมื่อวาน 8% ค่ะ'],
           ['card',{i:'<i class="ph ph-currency-circle-dollar"></i>',t:'อัตราแลกเปลี่ยน',r:[['100 เยน','≈ 23.6 บาท'],['อัปเดต','2 นาทีก่อน']]}],
           ['pin','ช่วงนี้เยนอ่อน สั่งของกำลังคุ้มค่ะ จะให้ร่างโปรโมชั่นต่อไหมคะ']]
   };
