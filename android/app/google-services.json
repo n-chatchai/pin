@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "143626975650",
+    "project_id": "pin-ai-b9d8a",
+    "storage_bucket": "pin-ai-b9d8a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:143626975650:android:863ee16026806526fe9afb",
+        "android_client_info": {
+          "package_name": "io.tokens2.pin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaymrBQRM3htkQocb_WU9FnEfCF5K7lDM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

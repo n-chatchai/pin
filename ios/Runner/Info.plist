@@ -10,6 +10,13 @@
 	<string>อัดข้อความเสียง</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>แชร์ตำแหน่งให้ปิ่นดูอากาศ/บริการแถวคุณ</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>แชร์ตำแหน่งให้ปิ่นดูอากาศ/บริการแถวคุณ</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>แชร์ตำแหน่งให้ปิ่นดูอากาศ/บริการแถวคุณ</string>
+
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

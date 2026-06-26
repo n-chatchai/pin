@@ -11,6 +11,9 @@ import VisionKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Dummy call to prevent Xcode from stripping Rust symbols in Release mode
+    _ = frb_get_rust_content_hash()
+    
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
     }

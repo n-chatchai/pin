@@ -1,0 +1,17 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build the Flutter APK and deploy to Firebase App Distribution"
+  lane :beta do
+    # 1. Build the Flutter APK
+    sh("cd ../.. && flutter build apk")
+
+    # 2. Upload to Firebase
+    firebase_app_distribution(
+      app: "1:143626975650:android:863ee16026806526fe9afb",
+      apk_path: "../build/app/outputs/flutter-apk/app-release.apk",
+      # groups: "testers", # Uncomment and change if you have a specific tester group in Firebase
+      release_notes: "New build from fastlane"
+    )
+  end
+end

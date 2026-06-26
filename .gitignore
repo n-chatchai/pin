@@ -73,3 +73,4 @@ admin.log
 # Google OAuth client secret (never commit)
 client_secret_*.json
 assets/models/*.onnx
+*.p8

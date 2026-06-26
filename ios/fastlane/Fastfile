@@ -1,0 +1,46 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build the Flutter IPA and deploy to TestFlight"
+  lane :beta do
+    
+    # 1. โหลดข้อมูล App Store Connect API Key
+    # (ต้องตั้งค่า Environment variables: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH ก่อนรัน)
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_FILEPATH"],
+      in_house: false
+    )
+
+    # 2. Build ไฟล์ IPA ผ่าน Flutter 
+    sh("cd ../.. && flutter build ipa --export-method app-store")
+
+    # 3. อัปโหลดขึ้น TestFlight
+    ipa_dir = File.expand_path("../../build/ios/ipa", __dir__)
+    ipa_path = Dir.glob("#{ipa_dir}/*.ipa").first
+    
+    upload_to_testflight(
+      ipa: ipa_path,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Upload existing IPA without rebuilding"
+  lane :deploy_only do
+    app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_FILEPATH"],
+      in_house: false
+    )
+
+    ipa_dir = File.expand_path("../../build/ios/ipa", __dir__)
+    ipa_path = Dir.glob("#{ipa_dir}/*.ipa").first
+    
+    upload_to_testflight(
+      ipa: ipa_path,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
