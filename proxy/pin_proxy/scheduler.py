@@ -102,20 +102,26 @@ async def _push(device: str, job_id: str) -> None:
     log.info("[sched] pushed job=%s status=%s", job_id, r.status_code)
 
 
+async def _fire_due(now: float) -> None:
+    """One scheduler pass: push every job due at [now], then roll daily jobs
+    forward 24h and drop fired one-shots. Pulled out of [poller]'s loop so the
+    due/roll/remove logic is unit-testable without the infinite loop or APNs."""
+    for jid, j in list(_jobs.items()):
+        if j["next_due"] <= now:
+            try:
+                await _push(j["device"], jid)
+            except Exception:  # noqa: BLE001
+                log.exception("[sched] push failed %s", jid)
+            if j["repeat"] == "daily":
+                j["next_due"] += 86400
+            else:
+                _jobs.pop(jid, None)
+            _save()
+
+
 async def poller() -> None:
     _load()
     log.info("[sched] poller started with %d job(s)", len(_jobs))
     while True:
-        now = time.time()
-        for jid, j in list(_jobs.items()):
-            if j["next_due"] <= now:
-                try:
-                    await _push(j["device"], jid)
-                except Exception:  # noqa: BLE001
-                    log.exception("[sched] push failed %s", jid)
-                if j["repeat"] == "daily":
-                    j["next_due"] += 86400
-                else:
-                    _jobs.pop(jid, None)
-                _save()
+        await _fire_due(time.time())
         await asyncio.sleep(30)

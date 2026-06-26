@@ -6,6 +6,9 @@ import VisionKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var docScanner: DocScanner?
+  /// Bridges APNs callbacks (which fire on the app delegate) to Dart's
+  /// PushService. Wired up in didInitializeImplicitFlutterEngine.
+  private var pushChannel: FlutterMethodChannel?
 
   override func application(
     _ application: UIApplication,
@@ -13,15 +16,64 @@ import VisionKit
   ) -> Bool {
     // Dummy call to prevent Xcode from stripping Rust symbols in Release mode
     _ = frb_get_rust_content_hash()
-    
+
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // MARK: APNs (closed-app agentic-job wakes)
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+    pushChannel?.invokeMethod("onToken", arguments: hex)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    NSLog("[push] APNs registration failed: \(error.localizedDescription)")
+  }
+
+  // Background (`content-available:1`) push → let Dart run any due jobs. iOS
+  // gives ~30s; we complete promptly (the job runs async on the Flutter side).
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    let jobId = userInfo["pin_job"] as? String ?? ""
+    pushChannel?.invokeMethod("onPush", arguments: jobId)
+    completionHandler(.newData)
+  }
+
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Push channel — Dart calls "registerForPush"; native calls back "onToken"
+    // / "onPush". Registering for remote notifications must run on the main
+    // thread.
+    if let messenger = engineBridge.pluginRegistry
+      .registrar(forPlugin: "PinPush")?.messenger() {
+      let push = FlutterMethodChannel(
+        name: "io.tokens2.pin/push", binaryMessenger: messenger)
+      push.setMethodCallHandler { call, result in
+        if call.method == "registerForPush" {
+          DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+          }
+          result(nil)
+        } else {
+          result(FlutterMethodNotImplemented)
+        }
+      }
+      pushChannel = push
+    }
 
     // Native camera channel — register here (rootViewController isn't ready in
     // didFinishLaunching with the implicit-engine pattern).

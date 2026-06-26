@@ -20,7 +20,9 @@ import 'screens/onboarding_screen.dart';
 import 'screens/plugins_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/matrix_service.dart';
+import 'services/android_job_alarm.dart';
 import 'services/notification_service.dart';
+import 'services/push_service.dart';
 import 'services/prefs.dart';
 import 'src/rust/frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -55,7 +57,11 @@ Future<void> main() async {
     // Defer notification initialization until AFTER the app is mounted
     // to prevent blocking the launch screen and causing a white screen.
     Future.microtask(() => NotificationService.instance.init());
-    
+    // APNs bridge for closed-app agentic-job wakes (iOS). No-op on Android.
+    Future.microtask(() => PushService.instance.init());
+    // Exact AlarmManager wakes for closed-app agentic jobs (Android). No-op iOS.
+    Future.microtask(() => AndroidJobAlarm.init());
+
     runApp(const PinApp());
   } catch (e, st) {
     // Failsafe UI if initialization fails (e.g., Rust symbol stripping on iOS Release)

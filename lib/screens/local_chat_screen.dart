@@ -16,6 +16,8 @@ import '../agent/agent_config.dart';
 import '../agent/agent_reply.dart';
 import '../agent/agent_session.dart';
 import '../agent/agent_store.dart';
+import '../agent/agentic_job_service.dart';
+import '../services/android_job_alarm.dart';
 import '../agent/abilities.dart';
 import '../models/chat_view_message.dart';
 import '../src/rust/api/matrix.dart' as rust;
@@ -156,9 +158,20 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         AgentStore().load(), // seeds memory→MemoryController + reminders→JobsController
       ]);
       await NotificationService.instance.rescheduleFromRoom();
+      await AndroidJobAlarm.armAll(rid); // re-arm closed-app agentic alarms (Android)
     } catch (e) {
       debugPrint('seed now-from-room failed: $e');
     }
+    await _runDueJobs(rid);
+  }
+
+  /// Run agentic jobs whose time has come (the app-is-open path). The closed-app
+  /// path is the APNs silent-push wake (PushService); both funnel through the
+  /// same guarded [runDueAgenticJobs].
+  Future<void> _runDueJobs(String rid) async {
+    final session = _session;
+    if (session == null) return;
+    await runDueAgenticJobs(rid, session);
   }
 
   @override

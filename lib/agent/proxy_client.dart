@@ -188,12 +188,17 @@ class ProxyClient {
   }
 
   /// Register a blind wake (metadata only — no content) for an agentic job, so a
-  /// future APNs push can wake the device. Best-effort.
+  /// future APNs push can wake the device. [device] is the hex APNs token; null/
+  /// empty (no token yet / Android) registers nothing — the job still runs on
+  /// next app open via the on-device runner. `nextDue` is epoch SECONDS (matches
+  /// the server poller's time.time()). Best-effort.
   Future<void> scheduleRegister({
     required String jobId,
     required double nextDue,
     required String repeat,
+    String? device,
   }) async {
+    if (device == null || device.isEmpty) return; // no push channel → on-open only
     try {
       await http
           .post(Uri.parse('$baseUrl/schedule/register'),
@@ -203,12 +208,27 @@ class ProxyClient {
               },
               body: jsonEncode({
                 'job_id': jobId,
-                'device': 'no-apns', // placeholder until APNs token wired
+                'device': device,
                 'next_due': nextDue,
                 'repeat': repeat,
               }))
           .timeout(const Duration(seconds: 10));
     } catch (_) {/* offline → still scheduled locally */}
+  }
+
+  /// Cancel a previously-registered wake (one-shot fired, or job removed).
+  /// Best-effort; a no-op server-side if the id was never registered.
+  Future<void> scheduleCancel(String jobId) async {
+    try {
+      await http
+          .post(Uri.parse('$baseUrl/schedule/cancel'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({'job_id': jobId}))
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {/* best-effort */}
   }
 
   /// Report a capability the user asked for that ปิ่น can't do yet, so it lands

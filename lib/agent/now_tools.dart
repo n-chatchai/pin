@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import '../services/android_job_alarm.dart';
 import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
+import '../services/push_service.dart';
 import '../services/tasks_controller.dart';
 import 'agent_config.dart';
 import 'agent_reply.dart';
@@ -100,9 +102,12 @@ Future<(bool, String)> _scheduleEntry(
     return (false, 'ตั้งเตือนยังไม่สำเร็จ (บันทึกลงห้องไม่ได้ตอนนี้) ลองอีกครั้งนะ');
   }
 
+  // Only plain reminders get an OS notification. Agentic jobs have no alert —
+  // ปิ่น runs the task on next app open/resume (see _runDueJobs) and posts the
+  // result; a bare notification with the raw prompt text would just confuse.
   // OS notification is best-effort — a phone permission/timezone hiccup must not
   // fail the whole thing: the reminder is already recorded and re-armed on open.
-  final nid = int.tryParse(id);
+  final nid = kind == 'agentic' ? null : int.tryParse(id);
   if (nid != null) {
     try {
       await NotificationService.instance.scheduleReminder(
@@ -112,6 +117,20 @@ Future<(bool, String)> _scheduleEntry(
         daily: daily,
       );
     } catch (_) {/* recorded already; the OS alarm re-arms on next app open */}
+  }
+
+  // Agentic jobs need to run when the app is closed. iOS: register a server APNs
+  // wake (no-op without a push token). Android: arm an exact on-device alarm.
+  // Both no-op on the other platform; both fall back to the on-open runner.
+  if (kind == 'agentic') {
+    await devProxy().scheduleRegister(
+      jobId: id,
+      nextDue: when.millisecondsSinceEpoch / 1000,
+      repeat: repeat,
+      device: PushService.instance.deviceToken,
+    );
+    final rid = await _room();
+    if (rid != null) await AndroidJobAlarm.armAll(rid);
   }
 
   final lead = kind == 'agentic' ? 'ตั้งงานอัตโนมัติ' : 'ตั้งเตือน';
@@ -215,6 +234,8 @@ List<AgentTool> nowTools() => [
           await store.removeReminder(id);
           final nid = int.tryParse(id);
           if (nid != null) await NotificationService.instance.cancel(nid);
+          await devProxy().scheduleCancel(id); // drop any server wake (no-op if none)
+          await AndroidJobAlarm.cancel(id); // drop any on-device alarm (Android)
           return 'ลบรายการ id $id แล้ว';
         },
       ),
