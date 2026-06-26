@@ -55,6 +55,15 @@
                 <data android:scheme="pinapp"/>
             </intent-filter>
         </activity>
+        <!-- flutter_web_auth_2 keep-alive: the custom tab binds this service via
+             the KEEP_ALIVE extra so Android won't kill our process while the OAuth
+             browser is foreground. Without it, an aggressive OEM (Samsung) evicts
+             the app during Google sign-in → the in-process callback map is lost →
+             the loginToken redirect arrives to a dead completer → SSO hangs. The
+             plugin ships this class but does NOT declare it; the host app must. -->
+        <service
+            android:name="com.linusu.flutter_web_auth_2.KeepAliveService"
+            android:exported="false"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
