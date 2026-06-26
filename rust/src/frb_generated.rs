@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -43470439;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 846023682;
 
 // Section: executor
 
@@ -1079,6 +1079,83 @@ fn wire__crate__api__matrix__room_messages_impl(
         },
     )
 }
+fn wire__crate__api__matrix__secret_get_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "secret_get",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_role = <String>::sse_decode(&mut deserializer);
+            let api_recovery_key = <String>::sse_decode(&mut deserializer);
+            let api_name = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok =
+                        crate::api::matrix::secret_get(api_role, api_recovery_key, api_name)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix__secret_put_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "secret_put",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_role = <String>::sse_decode(&mut deserializer);
+            let api_recovery_key = <String>::sse_decode(&mut deserializer);
+            let api_name = <String>::sse_decode(&mut deserializer);
+            let api_value = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::matrix::secret_put(
+                        api_role,
+                        api_recovery_key,
+                        api_name,
+                        api_value,
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix__send_attachment_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1727,20 +1804,22 @@ fn pde_ffi_dispatcher_primary_impl(
         28 => wire__crate__api__matrix__room_in_store_impl(port, ptr, rust_vec_len, data_len),
         29 => wire__crate__api__matrix__room_members_impl(port, ptr, rust_vec_len, data_len),
         30 => wire__crate__api__matrix__room_messages_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__matrix__send_attachment_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__matrix__send_custom_event_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__matrix__send_text_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__matrix__set_display_name_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__matrix__set_state_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__matrix__sso_login_url_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__matrix_trace__start_matrix_trace_impl(
+        31 => wire__crate__api__matrix__secret_get_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__matrix__secret_put_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__matrix__send_attachment_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__matrix__send_custom_event_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__matrix__send_text_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__matrix__set_display_name_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__matrix__set_state_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__matrix__sso_login_url_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__matrix_trace__start_matrix_trace_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        38 => wire__crate__api__matrix__start_sync_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__matrix__start_sync_role_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__matrix__start_sync_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__matrix__start_sync_role_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

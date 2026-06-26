@@ -20,6 +20,7 @@ import '../agent/agentic_job_service.dart';
 import '../services/android_job_alarm.dart';
 import '../agent/abilities.dart';
 import '../models/chat_view_message.dart';
+import 'settings_screen.dart' show E2eeResetScreen;
 import '../src/rust/api/matrix.dart' as rust;
 import '../services/files_store.dart';
 import '../services/matrix_service.dart';
@@ -65,6 +66,10 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   AgentSession? _session;
   ChatViewMessage? _replyTo;
   bool _botTyping = false;
+  /// True when the ปิ่น companion can't come up (e.g. recovery-key rotation
+  /// locked it out of its account) — surfaces a persistent "เริ่ม ปิ่น ใหม่" CTA
+  /// instead of silently degrading to a local-only chat.
+  bool _companionLocked = false;
   int _seq = 0;
   int _personaStep = -1; // -1 = not in the in-chat onboarding (>=0 = active)
 
@@ -109,11 +114,17 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       debugPrint('pin DM bring-up failed (local fallback): $e');
     }
     // Don't silently pass off a local-only chat as the real thing: if the
-    // companion never came up, say so instead of degrading invisibly. Recovering
-    // the key (Settings → กุญแจกู้คืน) brings ปิ่น back.
+    // companion never came up, say so instead of degrading invisibly. A locked
+    // companion (recovery-key rotated → its derived pw no longer matches) can't
+    // recover by relaunch — surface a persistent "เริ่ม ปิ่น ใหม่" CTA (banner in
+    // build) rather than a transient toast that scrolls away.
     if (_roomId == null && mounted) {
-      PinToast.show(context,
-          'ยังเชื่อมต่อบัญชี ปิ่น ไม่ได้ — ลองเปิดแอปใหม่ หรือกู้คืนกุญแจในการตั้งค่า');
+      final locked = MatrixService.instance.companionLocked;
+      setState(() => _companionLocked = locked);
+      if (!locked) {
+        PinToast.show(context,
+            'ยังเชื่อมต่อบัญชี ปิ่น ไม่ได้ — ลองเปิดแอปใหม่ หรือกู้คืนกุญแจในการตั้งค่า');
+      }
     }
     if (_roomId != null) {
       _session = AgentSession(room: _roomId!, proxy: devProxy());
@@ -1295,14 +1306,89 @@ class _LocalChatScreenState extends State<LocalChatScreen>
               ),
             ),
           ),
+        if (_companionLocked && _loading == null)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: _CompanionLockedBanner(onStartNew: _startNewPin),
+              ),
+            ),
+          ),
       ],
     );
+  }
+
+  /// The companion is locked out of its account (recovery key rotated). Route to
+  /// the recovery screen where "เริ่ม ปิ่น ใหม่" registers a fresh companion and
+  /// shows the new key to save; on return, re-boot to bring the new ปิ่น up.
+  Future<void> _startNewPin() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => const E2eeResetScreen(lockedCompanion: true)));
+    if (!mounted) return;
+    setState(() {
+      _companionLocked = false;
+      _loading = 'กำลังเตรียม$botName…';
+    });
+    await _boot();
   }
 
 }
 
 /// Small rounded status pill (spinner + text) shown at the top of the chat
 /// while the DM session is coming up ("กำลังโหลดข้อความ…").
+/// Persistent banner shown when the ปิ่น companion can't come up (locked out of
+/// its account by a recovery-key rotation). Offers the one recovery path that
+/// works: register a fresh companion.
+class _CompanionLockedBanner extends StatelessWidget {
+  const _CompanionLockedBanner({required this.onStartNew});
+  final VoidCallback onStartNew;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: scheme.errorContainer.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'เชื่อมต่อบัญชี ปิ่น เดิมไม่ได้ (กุญแจกู้คืนเปลี่ยนไป)',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onErrorContainer),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onStartNew,
+              child: const Text('เริ่ม ปิ่น ใหม่',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LoadingPill extends StatelessWidget {
   const _LoadingPill(this.text);
   final String text;

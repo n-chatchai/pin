@@ -306,6 +306,36 @@ Future<void> recoverWithKeyFor({
   recoveryKey: recoveryKey,
 );
 
+/// Read a secret from a role's E2EE secret storage (4S) — an account-data value
+/// encrypted under the recovery key. Returns None if the secret isn't stored.
+/// Used for the STABLE companion seed: storing it (vs deriving it from the
+/// recovery key) means a recovery-key rotation just re-encrypts the same value,
+/// so the companion password never changes. `recovery_key` is the user's
+/// recovery key (the 4S secret-storage key).
+Future<String?> secretGet({
+  required String role,
+  required String recoveryKey,
+  required String name,
+}) => RustLib.instance.api.crateApiMatrixSecretGet(
+  role: role,
+  recoveryKey: recoveryKey,
+  name: name,
+);
+
+/// Store a secret into a role's E2EE secret storage (encrypted under the
+/// recovery key). See [`secret_get`].
+Future<void> secretPut({
+  required String role,
+  required String recoveryKey,
+  required String name,
+  required String value,
+}) => RustLib.instance.api.crateApiMatrixSecretPut(
+  role: role,
+  recoveryKey: recoveryKey,
+  name: name,
+  value: value,
+);
+
 /// Log out a single role's session ("user" | "pin") and wipe its store. Dart
 /// calls this once per role on full logout.
 Future<void> logout({required String role, required String dbPath}) =>

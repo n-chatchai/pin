@@ -5,6 +5,7 @@ import '../main.dart';
 import '../services/matrix_service.dart';
 import '../theme/pin_theme.dart';
 import 'pin_route.dart';
+import 'pin_toast.dart';
 
 /// "เข้าสู่ระบบด้วย Google" — runs the Matrix SSO flow (loginWithGoogle) then
 /// goes to AfterAuth. Used on both the login and register screens. Shows the
@@ -21,15 +22,18 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
 
   Future<void> _go() async {
     setState(() => _busy = true);
+    debugPrint('[sso] button tapped → loginWithGoogle');
     try {
       await MatrixService.instance.loginWithGoogle();
+      debugPrint('[sso] loginWithGoogle returned → navigate AfterAuth');
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
           pinRoute(const AfterAuth()), (_) => false);
     } catch (e) {
+      debugPrint('[sso] loginWithGoogle threw: $e');
+      if (e.toString().contains('CANCELED')) return;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', ''))));
+        PinToast.show(context, e.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
       if (mounted) setState(() => _busy = false);

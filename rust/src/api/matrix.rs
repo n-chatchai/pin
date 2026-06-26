@@ -1222,13 +1222,28 @@ pub fn recover_with_key(recovery_key: String) -> Result<(), String> {
 /// re-runs / lost-key state), then enables. Role-aware sibling of
 /// [`reset_recovery_key`] — used to set up recovery on BOTH the user and ปิ่น
 /// accounts so one QR can carry both keys.
+///
+/// Also bootstraps CROSS-SIGNING (not just key backup) so the account has a
+/// COMPLETE E2EE identity — backup-only leaves recovery "Incomplete" and the
+/// account's keys won't reliably restore/share across devices (the SSO + ปิ่น
+/// "sync is broken" symptom). No password/UIA is needed on the FIRST upload:
+/// the homeserver (tuwunel) skips UIA when the account has no existing
+/// cross-signing keys (MSC3967). This is the passwordless path —
+/// `reset_recovery` covers password users via a UIA stage, which SSO/companion
+/// accounts can't satisfy.
 pub fn ensure_recovery_for(role: String) -> Result<String, String> {
     block(async move {
         use matrix_sdk::ruma::api::client::backup::{
             delete_backup_version, get_latest_backup_info,
         };
         let client = client_for(&role).await?;
-        
+
+        // Best-effort: succeeds with no UIA on first setup (MSC3967). On a re-run
+        // the keys already exist → the server demands UIA and this errors, which
+        // we ignore and fall through to backup-only (the prior behaviour). So it
+        // upgrades fresh accounts to full cross-signing without regressing reset.
+        let _ = client.encryption().bootstrap_cross_signing(None).await;
+
         let mut attempts = 0;
         let mut last_err = String::new();
         
@@ -1272,6 +1287,86 @@ pub fn recover_with_key_for(role: String, recovery_key: String) -> Result<(), St
         }
         
         Err(format!("Failed after 5 attempts: {}", last_err))
+    })
+}
+
+/// Read a secret from a role's E2EE secret storage (4S) — an account-data value
+/// encrypted under the recovery key. Returns None if the secret isn't stored.
+/// Used for the STABLE companion seed: storing it (vs deriving it from the
+/// recovery key) means a recovery-key rotation just re-encrypts the same value,
+/// so the companion password never changes. `recovery_key` is the user's
+/// recovery key (the 4S secret-storage key).
+pub fn secret_get(
+    role: String,
+    recovery_key: String,
+    name: String,
+) -> Result<Option<String>, String> {
+    block(async move {
+        use matrix_sdk::ruma::events::secret::request::SecretName;
+        let client = client_for(&role).await?;
+        
+        // Wait for the first sync so Account Data (secret storage) is loaded
+        // before attempting to read from it.
+        client
+            .sync_once(matrix_sdk::config::SyncSettings::default())
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let store = client
+            .encryption()
+            .secret_storage()
+            .open_secret_store(&recovery_key)
+            .await
+            .map_err(|e| e.to_string())?;
+        store
+            .get_secret(SecretName::from(name))
+            .await
+            .map_err(|e| e.to_string())
+    })
+}
+
+/// Store a secret into a role's E2EE secret storage (encrypted under the
+/// recovery key). See [`secret_get`].
+pub fn secret_put(
+    role: String,
+    recovery_key: String,
+    name: String,
+    value: String,
+) -> Result<(), String> {
+    block(async move {
+        use matrix_sdk::ruma::events::secret::request::SecretName;
+        let client = client_for(&role).await?;
+        
+        // Wait for the sync loop to fetch the newly created Account Data.
+        // Synapse workers might have a replication delay, so a single sync_once
+        // might not be enough. We retry up to 5 times.
+        let mut attempts = 0;
+        let store = loop {
+            client
+                .sync_once(matrix_sdk::config::SyncSettings::default())
+                .await
+                .map_err(|e| e.to_string())?;
+
+            match client
+                .encryption()
+                .secret_storage()
+                .open_secret_store(&recovery_key)
+                .await
+            {
+                Ok(s) => break s,
+                Err(e) => {
+                    attempts += 1;
+                    if attempts >= 5 {
+                        return Err(format!("Secret store not ready: {}", e));
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+                }
+            }
+        };
+        store
+            .put_secret(SecretName::from(name), &value)
+            .await
+            .map_err(|e| e.to_string())
     })
 }
 

@@ -400,7 +400,7 @@ class _SecurityStatusState extends State<_SecurityStatus> {
   /// full bootstrap screen here. Refresh the status card afterwards.
   Future<void> _setupRecovery(BuildContext context) async {
     await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const _E2eeResetScreen()));
+        MaterialPageRoute<void>(builder: (_) => const E2eeResetScreen()));
     if (mounted) {
       setState(() => _future = MatrixService.instance.e2eeStatus());
     }
@@ -655,7 +655,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
             'ตั้งการลงนามข้ามอุปกรณ์/กุญแจใหม่ (ต้องใช้รหัสผ่าน)',
             danger: true,
             nav: true,
-            onTap: () => push(const _E2eeResetScreen())
+            onTap: () => push(const E2eeResetScreen())
                 .then((_) => setState(() => _future = _load())),
           ),
         ]);
@@ -917,14 +917,23 @@ class _DiagnosticsScreen extends StatelessWidget {
 }
 
 /// Full-screen E2EE reset — password field → recovery key shown inline.
-class _E2eeResetScreen extends StatefulWidget {
-  const _E2eeResetScreen();
+/// E2EE recovery screen — full bootstrap/reset of the user key AND "เริ่ม ปิ่น
+/// ใหม่" (recreate a locked companion), both showing the new recovery QR to save.
+/// Public so the chat can route here when the companion can't come up
+/// ([MatrixService.companionLocked]).
+class E2eeResetScreen extends StatefulWidget {
+  /// When true (opened from the chat "companion locked" banner) the screen
+  /// auto-runs "เริ่ม ปิ่น ใหม่" on open — so the user doesn't have to find the
+  /// right button (the user-key "ตั้งค่าใหม่" would NOT fix a locked companion).
+  const E2eeResetScreen({super.key, this.lockedCompanion = false});
+
+  final bool lockedCompanion;
 
   @override
-  State<_E2eeResetScreen> createState() => _E2eeResetScreenState();
+  State<E2eeResetScreen> createState() => _E2eeResetScreenState();
 }
 
-class _E2eeResetScreenState extends State<_E2eeResetScreen> {
+class _E2eeResetScreenState extends State<E2eeResetScreen> {
   final _pw = TextEditingController();
   bool _running = false;
   String? _key;
@@ -932,20 +941,59 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.lockedCompanion) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _recreatePin());
+    }
+  }
+
+  @override
   void dispose() {
     _pw.dispose();
     super.dispose();
   }
 
-  Future<void> _reset() async {
-    if (_pw.text.isEmpty) return;
+  /// Start a brand-new ปิ่น when the old one can't be recovered: resets the
+  /// recovery key, registers a fresh companion, shows the new key to save.
+  Future<void> _recreatePin() async {
     setState(() {
       _running = true;
       _error = null;
       _key = null;
     });
     try {
-      final key = await MatrixService.instance.resetRecovery(_pw.text);
+      final key = await MatrixService.instance.resetAndRecreateCompanion();
+      final payload = await MatrixService.instance.packRecoveryQr(key);
+      final m = jsonDecode(payload) as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _key = m['p'] != null ? '${m['u']}\n${m['p']}' : '${m['u']}';
+          _qrData = payload;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  Future<void> _reset() async {
+    setState(() {
+      _running = true;
+      _error = null;
+      _key = null;
+    });
+    try {
+      // No account password (Google/SSO users have none) → reset just the
+      // recovery key + key backup, with no cross-signing UIA. With a password →
+      // full cross-signing bootstrap. Either way packRecoveryQr then derives the
+      // ปิ่น companion password from the new key so the companion can come up.
+      final pw = _pw.text;
+      final key = pw.isEmpty
+          ? await MatrixService.instance.resetRecoveryKey()
+          : await MatrixService.instance.resetRecovery(pw);
       // Package into the combined QR (adds ปิ่น key + email) without rotating
       // the just-issued user key.
       final payload = await MatrixService.instance.packRecoveryQr(key);
@@ -970,21 +1018,32 @@ class _E2eeResetScreenState extends State<_E2eeResetScreen> {
             20, 16, 20, 24 + MediaQuery.of(context).viewPadding.bottom),
         children: [
           const Text(
-              'ตั้งการลงนามข้ามอุปกรณ์ + สำรองกุญแจกู้คืน (ต้องใช้รหัสผ่านบัญชี). '
-              'จะได้กุญแจกู้คืน — เก็บไว้ในที่ปลอดภัย ถ้าหายเรากู้ให้ไม่ได้',
+              'สำรองกุญแจกู้คืน + ตั้งการลงนามข้ามอุปกรณ์. จะได้กุญแจกู้คืน — '
+              'เก็บไว้ในที่ปลอดภัย ถ้าหายเรากู้ให้ไม่ได้.',
               style: TextStyle(fontSize: 13, height: 1.45)),
           const SizedBox(height: 16),
-          TextField(
-            controller: _pw,
-            obscureText: true,
-            enabled: !_running && _key == null,
-            decoration: const InputDecoration(
-                labelText: 'รหัสผ่านบัญชี', border: OutlineInputBorder()),
-          ),
+          if (MatrixService.instance.hasUserPassword) ...[
+            TextField(
+              controller: _pw,
+              obscureText: true,
+              enabled: !_running && _key == null,
+              decoration: const InputDecoration(
+                  labelText: 'รหัสผ่านบัญชี',
+                  border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+          ],
           const SizedBox(height: 16),
-          if (_key == null)
+          if (_key == null) ...[
             PinButton('ตั้งค่าใหม่',
                 onTap: _running ? null : _reset, busy: _running),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _running ? null : _recreatePin,
+              child: const Text('กู้ ปิ่น เดิมไม่ได้? เริ่ม ปิ่น ใหม่ (แชตเดิมจะหาย)',
+                  style: TextStyle(fontSize: 13)),
+            ),
+          ],
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),

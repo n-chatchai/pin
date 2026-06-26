@@ -5,7 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
+
+import 'pin_toast.dart';
 
 /// Render the combined recovery payload as a PNG with ONE branded QR code (the
 /// whole `{v,e,u,p}` JSON, high EC, Pin logo in the centre) plus the account
@@ -104,29 +106,24 @@ Future<void> shareRecoveryQr(BuildContext context, String data,
     if (bytes == null) throw 'no image bytes';
 
     final png = bytes.buffer.asUint8List();
-    // Hand the PNG to the system share sheet → the user taps "Save Image"
-    // (Photos) the familiar way. No app-side Photos permission needed: the share
-    // sheet's own extension does the write. A recovery key in Photos may sync to
-    // iCloud/Google Photos — the share text reminds them to keep it private.
     final dir = await Directory.systemTemp.createTemp('pin_qr');
     final file = File('${dir.path}/pin-recovery-qr.png');
     await file.writeAsBytes(png, flush: true);
     if (!context.mounted) return;
-    final res = await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'image/png')],
-      subject: 'กุญแจกู้คืนบัญชีปิ่น',
-      text: 'รูปกุญแจกู้คืนบัญชีปิ่น — บันทึกลงรูปภาพไว้ให้ดี และอย่าให้คนอื่นเห็น',
-    );
+    
+    final hasAccess = await Gal.hasAccess(toAlbum: true);
+    if (!hasAccess) {
+      final requestAccess = await Gal.requestAccess(toAlbum: true);
+      if (!requestAccess) throw 'ไม่อนุญาตให้เข้าถึงรูปภาพ';
+    }
+    
+    await Gal.putImage(file.path, album: 'Pin');
+    
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res.status == ShareResultStatus.dismissed
-            ? 'ยังไม่ได้บันทึกกุญแจ — อย่าลืมบันทึกลงรูปภาพนะ'
-            : 'บันทึกกุญแจแล้ว — เก็บไว้ในที่ปลอดภัย'),
-        duration: const Duration(seconds: 4)));
-  } catch (_) {
+    PinToast.show(context, 'บันทึกกุญแจลงรูปภาพ (แกลเลอรี) แล้ว — เก็บไว้ในที่ปลอดภัย');
+  } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('บันทึก QR ไม่ได้')));
+      PinToast.show(context, 'บันทึก QR ไม่ได้: $e');
     }
   }
 }

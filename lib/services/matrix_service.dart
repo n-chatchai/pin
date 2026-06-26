@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
@@ -57,10 +59,17 @@ class MatrixService {
   /// which hold that key. [ensurePinSession] uses it when [_userPassword] is null.
   String? _companionPw;
 
+  /// Companion localpart. Normally `{user}_pin`, but [recreateCompanion] picks a
+  /// fresh suffixed name when the old account is locked (recovery key lost). The
+  /// chosen name rides the secret-storage blob so every device agrees. Null =
+  /// fall back to the default `{user}_pin`.
+  String? _companionUser;
+
   /// True once the ปิ่น companion session is up — i.e. the real 2-account E2EE
   /// DM can exist. While false, any "chat" is a local-only fallback with NO ปิ่น
   /// account, which SSO users must never be silently left in.
   bool get companionReady => pinUserId != null;
+  bool get hasUserPassword => _userPassword != null && _userPassword!.isNotEmpty;
 
   /// The user's email, held in memory between a fresh login and pin setup. Used
   /// to set the Matrix profile displayname (the localpart stays hashed) so
@@ -168,14 +177,18 @@ class MatrixService {
       redirectUrl: '$_ssoScheme://sso',
       idpId: null, // single provider (Google) → implicit default
     );
+    debugPrint('[sso] authenticate() → opening browser');
     final result = await FlutterWebAuth2.authenticate(
         url: url, callbackUrlScheme: _ssoScheme);
+    debugPrint('[sso] authenticate() RETURNED (callback received)');
     final token = Uri.parse(result).queryParameters['loginToken'];
     if (token == null || token.isEmpty) {
       throw 'การเข้าสู่ระบบ Google ไม่สำเร็จ (ไม่มี loginToken)';
     }
+    debugPrint('[sso] got loginToken → rust.loginToken exchange');
     final session = await rust.loginToken(
         role: 'user', homeserver: homeserver, dbPath: path, token: token);
+    debugPrint('[sso] loginToken exchange OK → user=${session.userId}');
     await _store.save(StoredSession(
       homeserver: session.homeserver,
       accessToken: session.accessToken,
@@ -292,10 +305,11 @@ class MatrixService {
   /// the combined QR JSON. Used by Settings (which gets the user key from a full
   /// cross-signing reset) so the user key isn't rotated twice.
   Future<String> packRecoveryQr(String userKey) async {
-    // SSO user (no account password): derive the companion password from the
-    // user recovery key we just obtained, so ensurePinSession can bring up the
-    // ปิ่น account. No-op for password users (_userPassword wins).
-    if (_userPassword == null) _companionPw ??= _deriveCompanionPw(userKey);
+    // SSO user (no account password): resolve the companion password from secret
+    // storage (rotation-safe), seeding it from the legacy derivation the first
+    // time, so ensurePinSession can bring up the ปิ่น account. No-op for password
+    // users (_userPassword wins).
+    await _resolveCompanionPw(userKey);
     await ensurePinSession();
     String? pinKey;
     if (pinUserId != null) {
@@ -332,26 +346,22 @@ class MatrixService {
       final lines = scanned.trim().split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       if (lines.isEmpty) return null;
       await rust.recoverWithKeyFor(role: 'user', recoveryKey: lines[0]);
-      if (lines.length > 1) {
-        if (_userPassword == null) _companionPw ??= _deriveCompanionPw(lines[0]);
-        await ensurePinSession();
-        if (pinUserId != null) {
-          try {
-            await rust.recoverWithKeyFor(role: 'pin', recoveryKey: lines[1]);
-          } catch (_) {/* pin restore best-effort */}
-        }
+      await _resolveCompanionPw(lines[0]);
+      await ensurePinSession();
+      if (lines.length > 1 && pinUserId != null) {
+        try {
+          await rust.recoverWithKeyFor(role: 'pin', recoveryKey: lines[1]);
+        } catch (_) {/* pin restore best-effort */}
       }
       return null;
     }
     await rust.recoverWithKeyFor(role: 'user', recoveryKey: '${j['u']}');
-    if (j['p'] != null) {
-      if (_userPassword == null) _companionPw ??= _deriveCompanionPw('${j['u']}');
-      await ensurePinSession();
-      if (pinUserId != null) {
-        try {
-          await rust.recoverWithKeyFor(role: 'pin', recoveryKey: '${j['p']}');
-        } catch (_) {/* pin restore best-effort */}
-      }
+    await _resolveCompanionPw('${j['u']}');
+    await ensurePinSession();
+    if (j['p'] != null && pinUserId != null) {
+      try {
+        await rust.recoverWithKeyFor(role: 'pin', recoveryKey: '${j['p']}');
+      } catch (_) {/* pin restore best-effort */}
     }
     return j['e'] as String?;
   }
@@ -424,11 +434,9 @@ class MatrixService {
   ///    device derives the SAME companion password.
   /// HMAC-SHA256 acts as the PRF; base64url makes it an ASCII-safe password.
   ///
-  /// ponytail: ceiling — if the user RESETS their recovery key the derived
-  /// password changes, so a brand-new device couldn't log the companion in
-  /// (devices already holding the cached token keep working). Rare; an admin can
-  /// reset the `_pin` account. Upgrade path: on recovery reset, also change the
-  /// companion's password to the newly-derived one.
+  /// The companion password is the LEGACY derivation, kept only to bootstrap
+  /// the stable secret on accounts created before [_resolveCompanionPw]. New
+  /// accounts read/write the seed in secret storage instead (rotation-safe).
   String? _deriveCompanionPw(String userRecoveryKey) {
     final uid = userId;
     if (uid == null || userRecoveryKey.isEmpty) return null;
@@ -437,6 +445,122 @@ class MatrixService {
         .convert(utf8.encode('pin-companion:$pinUser'));
     return base64Url.encode(mac.bytes);
   }
+
+  /// Secret-storage name (E2EE account-data) the stable companion password lives
+  /// under, so a recovery-key rotation re-encrypts it (not re-derives it).
+  static const _companionSecret = 'io.tokens2.pin.companion';
+
+  /// Resolve [_companionPw] from the user's E2EE secret storage — STABLE across
+  /// recovery-key rotation (the value is re-encrypted under the new key, not
+  /// recomputed). On an account that predates this, the secret isn't there yet,
+  /// so derive the legacy HMAC password (which still matches the existing `_pin`
+  /// account — provided this is the same recovery key it was made with) and
+  /// store it as the seed, migrating the account to the rotation-safe scheme.
+  /// [userRecoveryKey] is the 4S secret-storage key (must be unlocked/recovered).
+  Future<void> _resolveCompanionPw(String userRecoveryKey) async {
+    if (_userPassword != null || userRecoveryKey.isEmpty) return;
+    try {
+      final stored = await rust.secretGet(
+          role: 'user', recoveryKey: userRecoveryKey, name: _companionSecret);
+      if (stored != null && stored.isNotEmpty) {
+        // New format is a {u,p} blob (username + password). Old format was a bare
+        // password string — treat that as the password with the default name.
+        try {
+          final j = jsonDecode(stored) as Map<String, dynamic>;
+          _companionUser = '${j['u']}';
+          _companionPw = '${j['p']}';
+        } catch (_) {
+          _companionPw = stored;
+        }
+        return; // rotation-safe value wins
+      }
+    } catch (e) {
+      debugPrint('[sso] 4S fetch failed: $e');
+      /* secret storage not ready → fall through to legacy + migrate */
+    }
+    final derived = _deriveCompanionPw(userRecoveryKey);
+    if (derived == null) return;
+    _companionPw = derived; // _companionUser stays null → default {user}_pin
+    // Persist so the NEXT recovery-key rotation keeps this same password.
+    await _putCompanionSecret(userRecoveryKey);
+  }
+
+  /// Write the current companion identity ({username, password}) to the user's
+  /// E2EE secret storage, so every device brings up the SAME ปิ่น account.
+  Future<void> _putCompanionSecret(String userRecoveryKey) async {
+    final uid = userId;
+    final pw = _companionPw;
+    if (uid == null || pw == null || userRecoveryKey.isEmpty) return;
+    final u = _companionUser ?? '${uid.substring(1).split(':').first}_pin';
+    try {
+      await rust
+          .secretPut(
+              role: 'user',
+              recoveryKey: userRecoveryKey,
+              name: _companionSecret,
+              value: jsonEncode({'u': u, 'p': pw}))
+          .timeout(const Duration(seconds: 45));
+    } catch (e) {
+      // Best-effort: a slow/failed secret-storage open must not hang or abort
+      // the recreate — the companion still comes up from the in-memory pw; the
+      // secret just isn't rotation-persisted until the next successful write.
+      debugPrint('[sso] _putCompanionSecret failed: $e');
+    }
+  }
+
+  /// Start a FRESH ปิ่น companion. Used when the original `{user}_pin` is locked
+  /// (the recovery key it was made with is lost) and the user chose to start
+  /// over: register a brand-new companion under a unique localpart with a fresh
+  /// random password, record it in secret storage, and drop the old DM cache so
+  /// a new ปิ่น DM is created. The old ปิ่น chat is abandoned (its E2EE history
+  /// stays unreadable). [userRecoveryKey] must be a usable (just reset/recovered)
+  /// recovery key so the new identity can be saved to secret storage.
+  Future<void> recreateCompanion(String userRecoveryKey) async {
+    final uid = userId;
+    if (uid == null) throw Exception('ยังไม่ได้เข้าสู่ระบบ');
+    final userLocal = uid.substring(1).split(':').first;
+    final suffix = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    _companionUser = '${userLocal}_pin_$suffix';
+    final rnd = Random.secure();
+    _companionPw =
+        base64Url.encode(List<int>.generate(32, (_) => rnd.nextInt(256)));
+    debugPrint('[recreate] new companion=$_companionUser');
+    // Forget the half-up old companion + its DM so a fresh DM is created.
+    pinUserId = null;
+    const storage = FlutterSecureStorage();
+    await storage.delete(key: _pinRoomKey);
+    await storage.delete(key: '$_pinCredsPrefix$uid'); // stale token of old ปิ่น
+    debugPrint('[recreate] storing companion secret …');
+    await _putCompanionSecret(userRecoveryKey);
+    debugPrint('[recreate] secret stored → ensurePinSession');
+    await ensurePinSession();
+    debugPrint('[recreate] ensurePinSession returned companionReady=$companionReady');
+    if (!companionReady) {
+      throw 'สร้างบัญชี ปิ่น ใหม่ไม่สำเร็จ — ลองอีกครั้ง';
+    }
+  }
+
+  /// "เริ่ม ปิ่น ใหม่": reset the recovery key (fresh secret storage) and register
+  /// a brand-new companion under it. Returns the new recovery key to save. Use
+  /// when the old ปิ่น can't be recovered (lost its original key).
+  ///
+  /// Each network step is bounded so a stalled homeserver surfaces an error
+  /// instead of an infinite spinner (the recovery enable + secret-storage open
+  /// are the slow ones).
+  Future<String> resetAndRecreateCompanion() async {
+    debugPrint('[recreate] resetRecoveryKey …');
+    final key = await rust.resetRecoveryKey().timeout(
+        const Duration(seconds: 90),
+        onTimeout: () =>
+            throw 'รีเซ็ตกุญแจกู้คืนนานเกินไป — ตรวจสอบเน็ตแล้วลองใหม่');
+    debugPrint('[recreate] resetRecoveryKey OK → recreateCompanion');
+    await recreateCompanion(key);
+    return key;
+  }
+
+  /// Whether the ปิ่น companion failed to come up this session (so the UI can
+  /// offer "start a new ปิ่น"). True when we have a user but no companion.
+  bool get companionLocked => userId != null && pinUserId == null;
 
   /// Bring up the companion ปิ่น session, starting its sync. Idempotent.
   ///
@@ -447,23 +571,32 @@ class MatrixService {
   /// - relaunch (token-restore, no password): restore pin from the cached token.
   Future<void> ensurePinSession() async {
     final uid = userId;
-    if (uid == null || pinUserId != null) return; // not ready / already up
+    if (uid == null || pinUserId != null) {
+      debugPrint('[sso] ensurePinSession skip (uid=$uid pinUp=${pinUserId != null})');
+      return; // not ready / already up
+    }
     final homeserver = (await _store.read())?.homeserver;
-    if (homeserver == null) return;
+    if (homeserver == null) {
+      debugPrint('[sso] ensurePinSession: no homeserver');
+      return;
+    }
+    debugPrint('[sso] ensurePinSession start (pw=${_userPassword != null ? "user" : (_companionPw != null ? "companion" : "NONE")})');
     final storage = const FlutterSecureStorage();
     final pinPath = await _dbPathFor('pin_$uid');
     final userLocal = uid.substring(1).split(':').first; // @local:server → local
-    final pinUser = '${userLocal}_pin';
+    final pinUser = _companionUser ?? '${userLocal}_pin';
     // Password users reuse their own password; SSO users have none, so fall back
     // to the password derived from their recovery key.
     final pw = _userPassword ?? _companionPw;
     if (pw != null) {
       try {
         // Same password as the user → no separate secret to recover cross-device.
+        debugPrint('[sso] pin.register …');
         await timed(
             'pin.register',
             () => AuthService().registerCompanion(
                 homeserver: homeserver, username: pinUser, password: pw));
+        debugPrint('[sso] pin.register done → pin.login …');
         final session = await timed(
             'pin.login',
             () => rust.login(
@@ -474,6 +607,7 @@ class MatrixService {
                   password: pw,
                 ));
         pinUserId = session.userId;
+        debugPrint('[sso] pin.login OK → pin=${session.userId}');
         await storage.write(
           key: '$_pinCredsPrefix$uid',
           value: jsonEncode({
@@ -483,17 +617,27 @@ class MatrixService {
             'accessToken': session.accessToken,
           }),
         );
-      } catch (_) {
+      } catch (e) {
         // Password login failed (e.g. the user changed their password since the
         // ปิ่น account was made → they diverged). Fall back to the cached token
         // so the pin chat keeps working instead of bricking.
-        if (!await _restorePinFromCache(uid, pinPath, storage)) return;
+        debugPrint('[sso] pin register/login FAILED: $e → try cache');
+        if (!await _restorePinFromCache(uid, pinPath, storage)) {
+          debugPrint('[sso] no pin cache → companion NOT up');
+          return;
+        }
       }
     } else {
       // Relaunch with no password in memory → restore pin from its cached token.
-      if (!await _restorePinFromCache(uid, pinPath, storage)) return;
+      debugPrint('[sso] no pw → restore pin from cache');
+      if (!await _restorePinFromCache(uid, pinPath, storage)) {
+        debugPrint('[sso] no pin cache → companion NOT up');
+        return;
+      }
     }
+    debugPrint('[sso] pin.startSync …');
     await timed('pin.startSync', () => rust.startSyncRole(role: 'pin'));
+    debugPrint('[sso] ensurePinSession DONE → companion up');
     // Label the companion so the admin UI can pair it with its owner.
     final em = _userEmail;
     if (em != null && em.isNotEmpty) {
