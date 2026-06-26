@@ -501,23 +501,36 @@ class _E2eeDebugState extends State<_E2eeDebug> {
     super.initState();
     // Defer PackageInfo + FFI off the transition animation (avoids the jank).
     Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) setState(() => _future = _load());
+      if (mounted) {
+        setState(() {
+          _future = _load();
+        });
+      }
     });
   }
 
   Future<_DebugData> _load() async {
     final info = await PackageInfo.fromPlatform();
-    final status = await MatrixService.instance.e2eeStatus();
-    final roomId = await MatrixService.instance.pinRoomId();
-    final members = roomId == null
-        ? <String>[]
-        : await MatrixService.instance.roomMembers(roomId).catchError((_) => <String>[]);
+    rust.E2eeStatus? status;
+    String? roomId;
+    List<String> members = [];
+    
+    try {
+      status = await MatrixService.instance.e2eeStatus();
+      roomId = await MatrixService.instance.pinRoomId();
+      if (roomId != null) {
+        members = await MatrixService.instance.roomMembers(roomId).catchError((_) => <String>[]);
+      }
+    } catch (_) {
+      // Ignored: happens in mock/preview mode where Matrix isn't authenticated
+    }
+
     // Actually run an embed → proves the ONNX lib loaded + model infers on this
     // device (not just that the asset is bundled). Null = recency fallback.
     final embedReady = (await Embedder.instance.embedQuery('ทดสอบ')) != null;
     return (
       appVersion: '${info.version} (${info.buildNumber})',
-      status: status,
+      status: status ?? const rust.E2eeStatus(userId: '', deviceId: '', recovery: '', crossSigningReady: false, deviceVerified: false),
       roomId: roomId,
       members: members,
       embedReady: embedReady,

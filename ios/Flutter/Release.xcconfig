@@ -1,3 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
 OTHER_LDFLAGS = $(inherited) -all_load -Wl,-export_dynamic
+STRIP_STYLE = non-global
+DEAD_CODE_STRIPPING = NO

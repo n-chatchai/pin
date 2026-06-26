@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gist — Morning Brief (High Fidelity)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+:root{
+  --bg:#faf9f6; --card:#ffffff; --ink:#17191f; --ink2:#454a54; --muted:#878d99; --hint:#aeb3bd;
+  --line:#edebe4; --line2:#e4e2da;
+  /* single interactive accent */
+  --ac:#6357f2; --ac2:#7c70ff; --acSoft:#eeecfe; --acBorder:#ddd9fb;
+  /* warm morning decoration only */
+  --warmA:#ffe7cf; --warmB:#fff3e6;
+  /* category tints (equal saturation) */
+  --c-ai:#6357f2;   --c-ai-bg:#eeecfe;
+  --c-cr:#0f9d75;   --c-cr-bg:#e4f5ee;
+  --c-pr:#e8663a;   --c-pr-bg:#fdece4;
+  --c-ds:#2f7df6;   --c-ds-bg:#e8f1fe;
+  --c-hl:#e0457e;   --c-hl-bg:#fceaf1;
+  --ok:#0f9d75;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{font-family:"Inter","Noto Sans Thai",-apple-system,sans-serif; background:#0d0e12; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:28px; color:var(--ink);}
+i[data-lucide]{width:1em; height:1em; stroke-width:2;}
+
+.phone{width:392px; height:812px; background:var(--bg); border-radius:54px; border:12px solid #0a0b0e; position:relative; overflow:hidden; box-shadow:0 40px 100px rgba(0,0,0,.55), inset 0 0 0 2px #2a2c33;}
+.island{position:absolute; top:14px; left:50%; transform:translateX(-50%); width:118px; height:33px; background:#0a0b0e; border-radius:20px; z-index:60;}
+.status{position:absolute; top:0; left:0; right:0; height:54px; display:flex; align-items:center; justify-content:space-between; padding:20px 30px 0; font-size:14px; font-weight:600; z-index:55; color:var(--ink);}
+.status .r{display:flex; gap:7px; align-items:center; font-size:16px;}
+
+.screen{position:absolute; inset:0; display:flex; flex-direction:column; opacity:0; transform:translateX(12px); pointer-events:none; transition:opacity .3s ease, transform .3s ease;}
+.screen.active{opacity:1; transform:none; pointer-events:auto;}
+.scroll{flex:1; overflow-y:auto; padding-bottom:108px;}
+.scroll::-webkit-scrollbar{display:none;}
+
+/* consistent top band used on EVERY screen */
+.topband{background:linear-gradient(180deg,var(--warmB) 0%, rgba(250,249,246,0) 100%); padding-top:54px;}
+
+/* ---------- HERO (brief) ---------- */
+.hero{padding:14px 22px 20px;}
+.hero-top{display:flex; justify-content:space-between; align-items:center; margin-top:6px;}
+.date{font-size:12.5px; color:var(--c-pr); font-weight:600; letter-spacing:.3px; text-transform:uppercase;}
+.greet{font-size:29px; font-weight:800; letter-spacing:-.8px; margin-top:5px; line-height:1.12;}
+.avatar{width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,var(--ac),var(--ac2)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:15px; box-shadow:0 6px 16px rgba(99,87,242,.32);}
+.weather{display:inline-flex; align-items:center; gap:8px; margin-top:15px; background:#fff; border:1px solid var(--line2); padding:8px 14px; border-radius:30px; font-size:13px; font-weight:600;}
+.weather i{color:var(--c-pr); font-size:16px;}
+.weather small{color:var(--muted); font-weight:500;}
+
+/* ---------- AI SUMMARY ---------- */
+.ai-banner{margin:6px 22px 4px; background:linear-gradient(135deg,var(--ac),var(--ac2)); border-radius:24px; padding:18px 19px; color:#fff; box-shadow:0 14px 32px rgba(99,87,242,.3); position:relative; overflow:hidden;}
+.ai-banner::after{content:""; position:absolute; right:-26px; top:-26px; width:120px; height:120px; background:rgba(255,255,255,.13); border-radius:50%;}
+.ai-banner .k{font-size:11px; text-transform:uppercase; letter-spacing:1.3px; opacity:.9; font-weight:600; display:inline-flex; align-items:center; gap:6px;}
+.ai-banner .k i{font-size:14px;}
+.ai-banner h2{font-size:18px; font-weight:700; margin:8px 0 4px; letter-spacing:-.3px;}
+.ai-banner p{font-size:13px; opacity:.92; line-height:1.5;}
+.ai-banner .meta{margin-top:12px; font-size:12px; opacity:.88; display:inline-flex; gap:6px; align-items:center;}
+.ai-banner .meta i{font-size:13px;}
+
+.section-h{display:flex; justify-content:space-between; align-items:center; padding:22px 22px 12px;}
+.section-h h3{font-size:19px; font-weight:700; letter-spacing:-.4px;}
+.section-h a{font-size:13px; color:var(--ac); font-weight:600; display:inline-flex; align-items:center; gap:3px; text-decoration:none;}
+
+/* ---------- TOPIC CARD ---------- */
+.card{background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:0 22px 13px; cursor:pointer; transition:transform .14s ease; box-shadow:0 2px 12px rgba(20,22,28,.035);}
+.card:active{transform:scale(.98);}
+.card .head{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
+.cat-ic{width:40px; height:40px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;}
+.card .head .t{flex:1;}
+.card .head .t .name{font-size:15.5px; font-weight:700; letter-spacing:-.2px;}
+.card .head .t .sub{font-size:12px; color:var(--muted); margin-top:2px;}
+.pill{font-size:11px; font-weight:700; padding:5px 11px; border-radius:30px;}
+.card .body{display:flex; gap:13px;}
+.card .body p{flex:1; font-size:13.5px; line-height:1.55; color:var(--ink2);}
+.thumb{width:74px; height:74px; border-radius:15px; flex-shrink:0; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center;}
+.thumb .play{width:28px; height:28px; background:rgba(0,0,0,.5); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px;}
+.srcs{display:flex; align-items:center; gap:9px; margin-top:13px; padding-top:12px; border-top:1px solid var(--line);}
+.src-ava{display:flex;}
+.src-ava .d{width:25px; height:25px; border-radius:50%; border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; margin-left:-8px;}
+.src-ava .d:first-child{margin-left:0;}
+.srcs .lbl{font-size:12px; color:var(--muted); font-weight:500;}
+.srcs .ago{margin-left:auto; font-size:12px; color:var(--hint);}
+
+.add-topic{margin:2px 22px 0; padding:15px; border:1.5px dashed var(--line2); border-radius:20px; display:flex; align-items:center; justify-content:center; gap:8px; color:var(--muted); font-size:14px; font-weight:600; cursor:pointer;}
+.add-topic:active{background:#f3f1ea;}
+.add-topic i{font-size:17px;}
+
+/* ---------- TAB BAR ---------- */
+.tabbar{position:absolute; bottom:0; left:0; right:0; height:90px; background:rgba(250,249,246,.85); backdrop-filter:blur(20px); border-top:1px solid var(--line); display:flex; justify-content:space-around; align-items:flex-start; padding:13px 12px 0; z-index:40;}
+.tab{display:flex; flex-direction:column; align-items:center; gap:5px; font-size:10.5px; font-weight:600; color:var(--hint); cursor:pointer; flex:1;}
+.tab i{font-size:24px;}
+.tab.on{color:var(--ac);}
+
+/* ---------- NAV ---------- */
+.nav{display:flex; align-items:center; justify-content:space-between; padding:8px 16px 8px;}
+.nav .back{display:flex; align-items:center; gap:2px; color:var(--ac); font-size:15px; font-weight:600; cursor:pointer;}
+.nav .back i{font-size:20px;}
+.nav .actions{display:flex; gap:9px;}
+.nav .ico{width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink2); font-size:17px;}
+
+/* ---------- DETAIL ---------- */
+.detail-hero{padding:8px 22px 4px;}
+.detail-hero .cat-ic{width:50px;height:50px;border-radius:16px;font-size:25px;margin-bottom:13px;}
+.detail-hero h1{font-size:27px; font-weight:800; letter-spacing:-.6px;}
+.detail-hero .sub{font-size:13.5px; color:var(--muted); margin-top:6px;}
+.article{background:var(--card); border:1px solid var(--line); border-radius:22px; overflow:hidden; margin:14px 22px 0; box-shadow:0 2px 12px rgba(20,22,28,.035);}
+.article .img{height:130px; position:relative; display:flex; align-items:center; justify-content:center;}
+.article .img .badge{position:absolute; left:13px; top:13px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; font-weight:600; padding:5px 11px; border-radius:30px; display:inline-flex; align-items:center; gap:5px; backdrop-filter:blur(4px);}
+.article .img .badge i{font-size:13px;}
+.article .img .play{width:50px; height:50px; background:rgba(0,0,0,.45); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:22px;}
+.article .c{padding:15px 17px 17px;}
+.article .src-line{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); margin-bottom:9px;}
+.article .src-line .av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;}
+.article .src-line b{color:var(--ink); font-weight:600;}
+.article h3{font-size:16.5px; font-weight:700; letter-spacing:-.3px; line-height:1.35;}
+.ai-tag{display:inline-flex; align-items:center; gap:5px; background:var(--acSoft); color:var(--ac); font-size:11px; font-weight:700; padding:5px 10px; border-radius:8px; margin:11px 0 9px;}
+.ai-tag i{font-size:12px;}
+.article p{font-size:13.5px; line-height:1.6; color:var(--ink2);}
+.article .acts{display:flex; gap:9px; margin-top:15px;}
+.btn{flex:1; padding:12px; border-radius:13px; font-size:13.5px; font-weight:600; text-align:center; cursor:pointer; border:none; font-family:inherit; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
+.btn i{font-size:16px;}
+.btn.pri{background:var(--ac); color:#fff;}
+.btn.sec{background:var(--acSoft); color:var(--ac);}
+
+/* ---------- ASK AI ---------- */
+.ask-head{position:absolute; top:54px; left:0; right:0; z-index:30; background:rgba(250,249,246,.92); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); padding:11px 18px; display:flex; align-items:center; justify-content:space-between;}
+.ask-head .ttl{display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px;}
+.ask-head .ttl i{font-size:18px; color:var(--ac);}
+.ask-head .back{display:flex; align-items:center; color:var(--ac); font-size:15px; font-weight:600; cursor:pointer;}
+.ask-head .more{color:var(--ink2); font-size:19px; cursor:pointer;}
+.chat{flex:1; overflow-y:auto; padding:112px 18px 130px; display:flex; flex-direction:column; gap:14px;}
+.chat::-webkit-scrollbar{display:none;}
+.chat .day{text-align:center; font-size:12px; color:var(--hint); margin:4px 0;}
+.bub{max-width:80%; padding:13px 16px; border-radius:21px; font-size:14px; line-height:1.5;}
+.bub.me{align-self:flex-end; background:var(--ac); color:#fff; border-bottom-right-radius:6px;}
+.bub.ai{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:6px;}
+.bub.ai .src{margin-top:11px; padding-top:9px; border-top:1px solid var(--line); font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:6px;}
+.bub.ai .src i{font-size:13px; color:var(--ac);}
+.suggest{display:flex; gap:8px; flex-wrap:wrap; align-self:flex-start;}
+.suggest .s{background:#fff; border:1px solid var(--acBorder); color:var(--ac); font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:30px; cursor:pointer;}
+.composer{position:absolute; bottom:0; left:0; right:0; padding:14px 18px 30px; background:rgba(250,249,246,.92); backdrop-filter:blur(18px); border-top:1px solid var(--line); display:flex; gap:10px; align-items:center; z-index:30;}
+.composer .field{flex:1; height:48px; background:#fff; border:1px solid var(--line2); border-radius:24px; display:flex; align-items:center; padding:0 18px; font-size:14px; color:var(--hint);}
+.composer .send{width:48px; height:48px; border-radius:50%; background:var(--ac); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 6px 16px rgba(99,87,242,.32); color:#fff; font-size:20px;}
+
+/* ---------- SOURCES ---------- */
+.page-title{font-size:28px; font-weight:800; letter-spacing:-.6px; padding:6px 22px 3px;}
+.page-sub{font-size:14px; color:var(--muted); padding:0 22px 6px; line-height:1.5;}
+.label{font-size:12px; font-weight:700; color:var(--hint); text-transform:uppercase; letter-spacing:.8px; padding:20px 22px 9px;}
+.row{display:flex; align-items:center; gap:13px; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:13px 15px; margin:0 22px 10px;}
+.row .ic{width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0;}
+.row .tx{flex:1;}
+.row .tx .n{font-size:14.5px; font-weight:600;}
+.row .tx .d{font-size:12px; color:var(--muted); margin-top:2px;}
+.toggle{width:48px; height:29px; border-radius:16px; background:var(--ac); position:relative; transition:background .2s; flex-shrink:0; cursor:pointer;}
+.toggle::after{content:""; position:absolute; top:3px; right:3px; width:23px; height:23px; border-radius:50%; background:#fff; transition:.2s; box-shadow:0 2px 5px rgba(0,0,0,.18);}
+.toggle.off{background:#d8d6cf;}
+.toggle.off::after{right:auto; left:3px;}
+.connect{font-size:13px; font-weight:600; color:var(--ac); background:var(--acSoft); padding:8px 15px; border-radius:30px; cursor:pointer;}
+.done{font-size:12.5px; font-weight:600; color:var(--ok); display:inline-flex; align-items:center; gap:5px;}
+.done i{font-size:15px;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="island"></div>
+  <div class="status"><span>9:41</span><div class="r"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></div></div>
+
+  <!-- ===================== BRIEF ===================== -->
+  <div class="screen active" id="brief">
+    <div class="scroll">
+      <div class="topband">
+        <div class="hero">
+          <div class="hero-top">
+            <div>
+              <div class="date">วันจันทร์ · 8 มิถุนายน</div>
+              <div class="greet">สวัสดีตอนเช้า,<br>Chatchai</div>
+            </div>
+            <div class="avatar">CN</div>
+          </div>
+          <div class="weather"><i data-lucide="sun"></i> 31° กรุงเทพฯ <small>· แดดจัด</small></div>
+        </div>
+      </div>
+
+      <div class="ai-banner">
+        <div class="k"><i data-lucide="sparkles"></i> สรุปโดย AI</div>
+        <h2>5 อัปเดตจาก 3 หัวข้อที่คุณตาม</h2>
+        <p>คืนนี้มีความเคลื่อนไหวเด่นในวงการ AI และ token ฝั่ง AI agent — สรุปสั้นๆ ให้แล้ว อ่านจบใน 2 นาที</p>
+        <div class="meta"><i data-lucide="clock"></i> อัปเดต 06:45 · แตะการ์ดเพื่อดูรายละเอียด</div>
+      </div>
+
+      <div class="section-h"><h3>หัวข้อของคุณ</h3><a href="#" onclick="go('sources');return false;">จัดการ <i data-lucide="chevron-right"></i></a></div>
+
+      <!-- AI -->
+      <div class="card" onclick="go('detail')">
+        <div class="head">
+          <div class="cat-ic" style="background:var(--c-ai-bg); color:var(--c-ai);"><i data-lucide="cpu"></i></div>
+          <div class="t"><div class="name">AI &amp; LLMs</div><div class="sub">3 แหล่งที่ติดตาม</div></div>
+          <div class="pill" style="background:var(--c-ai-bg); color:var(--c-ai);">2 ใหม่</div>
+        </div>
+        <div class="body">
+          <p>โมเดลใหม่เปิดตัว 2 ตัวเมื่อคืน เน้น reasoning ที่เร็วและถูกลง รีวิวบอกว่าเหมาะกับงาน coding มาก</p>
+          <div class="thumb" style="background:linear-gradient(135deg,#6357f2,#a06bf0);"><div class="play"><i data-lucide="play"></i></div></div>
+        </div>
+        <div class="srcs">
+          <div class="src-ava">
+            <div class="d" style="background:#ff3b30;"><i data-lucide="youtube"></i></div>
+            <div class="d" style="background:#17191f;"><i data-lucide="twitter"></i></div>
+            <div class="d" style="background:var(--c-ai);"><i data-lucide="mail"></i></div>
+          </div>
+          <div class="lbl">YouTube, X +1</div>
+          <div class="ago">6 ชม.ที่แล้ว</div>
+        </div>
+      </div>
+
+      <!-- Crypto -->
+      <div class="card" onclick="go('detail')">
+        <div class="head">
+          <div class="cat-ic" style="background:var(--c-cr-bg); color:var(--c-cr);"><i data-lucide="trending-up"></i></div>
+          <div class="t"><div class="name">Crypto &amp; Tokens</div><div class="sub">2 แหล่งที่ติดตาม</div></div>
+          <div class="pill" style="background:var(--c-cr-bg); color:var(--c-cr);">2 ใหม่</div>
+        </div>
+        <div class="body">
+          <p>ตลาดทรงตัว มีการพูดถึง token ฝั่ง AI agent มากขึ้น มี 1 โปรเจกต์ที่ channel แนะนำให้จับตา</p>
+          <div class="thumb" style="background:linear-gradient(135deg,#0f9d75,#3fd0a0);"></div>
+        </div>
+        <div class="srcs">
+          <div class="src-ava">
+            <div class="d" style="background:var(--c-cr);"><i data-lucide="mail"></i></div>
+            <div class="d" style="background:#ff3b30;"><i data-lucide="youtube"></i></div>
+          </div>
+          <div class="lbl">Newsletter, YouTube</div>
+          <div class="ago">3 ชม.ที่แล้ว</div>
+        </div>
+      </div>
+
+      <!-- Product -->
+      <div class="card" onclick="go('detail')">
+        <div class="head">
+          <div class="cat-ic" style="background:var(--c-pr-bg); color:var(--c-pr);"><i data-lucide="rocket"></i></div>
+          <div class="t"><div class="name">Product &amp; Startup</div><div class="sub">2 แหล่งที่ติดตาม</div></div>
+          <div class="pill" style="background:var(--c-pr-bg); color:var(--c-pr);">1 ใหม่</div>
+        </div>
+        <div class="body">
+          <p>บทความเด่นเรื่อง onboarding ที่ช่วยลด churn — สรุปเหลือ 3 ข้อหลักที่เอาไปใช้กับ app ได้ทันที</p>
+          <div class="thumb" style="background:linear-gradient(135deg,#e8663a,#ffa86b);"></div>
+        </div>
+        <div class="srcs">
+          <div class="src-ava"><div class="d" style="background:var(--c-pr);"><i data-lucide="rss"></i></div></div>
+          <div class="lbl">Lenny's Newsletter</div>
+          <div class="ago">เมื่อวาน</div>
+        </div>
+      </div>
+
+      <div class="add-topic" onclick="go('sources')"><i data-lucide="plus"></i> เพิ่มหัวข้อที่สนใจ</div>
+    </div>
+
+    <div class="tabbar">
+      <div class="tab on"><i data-lucide="sunrise"></i>Brief</div>
+      <div class="tab" onclick="go('ask')"><i data-lucide="sparkles"></i>ถาม AI</div>
+      <div class="tab" onclick="go('sources')"><i data-lucide="rss"></i>แหล่งข่าว</div>
+      <div class="tab"><i data-lucide="settings"></i>ตั้งค่า</div>
+    </div>
+  </div>
+
+  <!-- ===================== DETAIL ===================== -->
+  <div class="screen" id="detail">
+    <div class="scroll">
+      <div class="topband">
+        <div class="nav">
+          <div class="back" onclick="go('brief')"><i data-lucide="chevron-left"></i> Brief</div>
+          <div class="actions">
+            <div class="ico"><i data-lucide="share-2"></i></div>
+            <div class="ico"><i data-lucide="bookmark"></i></div>
+          </div>
+        </div>
+        <div class="detail-hero">
+          <div class="cat-ic" style="background:var(--c-ai-bg); color:var(--c-ai);"><i data-lucide="cpu"></i></div>
+          <h1>AI &amp; LLMs</h1>
+          <div class="sub">2 อัปเดตใหม่ · จาก YouTube, X และ 1 newsletter</div>
+        </div>
+      </div>
+
+      <div class="article">
+        <div class="img" style="background:linear-gradient(135deg,#6357f2,#a06bf0);">
+          <div class="badge"><i data-lucide="youtube"></i> YouTube · 14:22</div>
+          <div class="play"><i data-lucide="play"></i></div>
+        </div>
+        <div class="c">
+          <div class="src-line"><span class="av" style="background:#ff3b30;"><i data-lucide="youtube"></i></span> <b>Two Minute Papers</b> · 6 ชม.ที่แล้ว</div>
+          <h3>โมเดลใหม่ตัวที่ 1 — เร็วขึ้น 2 เท่า ราคาถูกลงครึ่งนึง</h3>
+          <div class="ai-tag"><i data-lucide="sparkles"></i> AI สรุปให้</div>
+          <p>เน้น reasoning ความเร็วเพิ่มราว 2 เท่า ราคา API ลดลงครึ่งหนึ่ง ผู้รีวิวลองกับงาน coding แล้วประทับใจเรื่อง context window ที่ยาวขึ้นมาก เหมาะกับงาน refactor codebase ใหญ่ๆ</p>
+          <div class="acts"><button class="btn pri"><i data-lucide="play"></i> เปิดวิดีโอ</button><button class="btn sec" onclick="go('ask')"><i data-lucide="sparkles"></i> ถาม AI ต่อ</button></div>
+        </div>
+      </div>
+
+      <div class="article">
+        <div class="img" style="background:linear-gradient(135deg,#17191f,#3a3a44);">
+          <div class="badge"><i data-lucide="twitter"></i> บัญชีที่ตาม</div>
+        </div>
+        <div class="c">
+          <div class="src-line"><span class="av" style="background:#17191f;"><i data-lucide="twitter"></i></span> <b>@swyx</b> · 9 ชม.ที่แล้ว</div>
+          <h3>เธรดเทียบ 2 โมเดลใหม่ พร้อมตาราง benchmark</h3>
+          <div class="ai-tag"><i data-lucide="sparkles"></i> AI สรุปให้</div>
+          <p>ตัวที่ 2 เด่นเรื่องราคา ตัวแรกเด่นเรื่องคุณภาพ output — แนะนำเลือกตามประเภทงาน มีตารางเทียบ benchmark ละเอียดในเธรดต้นทาง</p>
+          <div class="acts"><button class="btn pri"><i data-lucide="external-link"></i> เปิดเธรด</button><button class="btn sec" onclick="go('ask')"><i data-lucide="sparkles"></i> ถาม AI ต่อ</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ASK AI ===================== -->
+  <div class="screen" id="ask">
+    <div class="ask-head">
+      <div class="back" onclick="go('brief')"><i data-lucide="chevron-left"></i></div>
+      <div class="ttl"><i data-lucide="sparkles"></i> ถาม AI</div>
+      <div class="more"><i data-lucide="more-horizontal"></i></div>
+    </div>
+    <div class="chat">
+      <div class="day">วันนี้ · เกี่ยวกับ brief ของคุณ</div>
+      <div class="bub me">โมเดลใหม่ 2 ตัวที่สรุปมา ตัวไหนคุ้มกว่าสำหรับงาน coding ส่วนตัว?</div>
+      <div class="bub ai">จากแหล่งที่คุณตามวันนี้ — ตัวแรกเหมาะกว่าถ้าเน้นคุณภาพและ context ยาว (งาน refactor ใหญ่) ส่วนตัวที่ 2 คุ้มกว่าถ้าเน้นราคาและงาน prototype เร็วๆ ครับ
+        <div class="src"><i data-lucide="sparkles"></i> อ้างอิงจาก 2 แหล่งใน brief วันนี้</div>
+      </div>
+      <div class="suggest">
+        <div class="s">ราคาต่างกันเท่าไหร่?</div>
+        <div class="s">สรุป crypto ให้หน่อย</div>
+      </div>
+    </div>
+    <div class="composer">
+      <div class="field">ถามเกี่ยวกับ brief วันนี้…</div>
+      <div class="send"><i data-lucide="arrow-up"></i></div>
+    </div>
+  </div>
+
+  <!-- ===================== SOURCES ===================== -->
+  <div class="screen" id="sources">
+    <div class="scroll">
+      <div class="topband">
+        <div class="nav"><div class="back" onclick="go('brief')"><i data-lucide="chevron-left"></i> Brief</div></div>
+        <div class="page-title">หัวข้อ &amp; แหล่งข่าว</div>
+        <div class="page-sub">เลือกเรื่องที่สนใจ แล้ว Gist จะคอยสรุป update ให้ทุกเช้า</div>
+      </div>
+
+      <div class="label">หัวข้อที่ติดตาม</div>
+      <div class="row"><div class="ic" style="background:var(--c-ai-bg); color:var(--c-ai);"><i data-lucide="cpu"></i></div><div class="tx"><div class="n">AI &amp; LLMs</div><div class="d">3 แหล่ง · 2 อัปเดตวันนี้</div></div><div class="toggle"></div></div>
+      <div class="row"><div class="ic" style="background:var(--c-cr-bg); color:var(--c-cr);"><i data-lucide="trending-up"></i></div><div class="tx"><div class="n">Crypto &amp; Tokens</div><div class="d">2 แหล่ง · 2 อัปเดตวันนี้</div></div><div class="toggle"></div></div>
+      <div class="row"><div class="ic" style="background:var(--c-pr-bg); color:var(--c-pr);"><i data-lucide="rocket"></i></div><div class="tx"><div class="n">Product &amp; Startup</div><div class="d">2 แหล่ง · 1 อัปเดตวันนี้</div></div><div class="toggle"></div></div>
+
+      <div class="label">แนะนำให้เพิ่ม</div>
+      <div class="row"><div class="ic" style="background:var(--c-ds-bg); color:var(--c-ds);"><i data-lucide="palette"></i></div><div class="tx"><div class="n">Design &amp; UX</div><div class="d">ยอดนิยมในกลุ่มผู้สร้าง product</div></div><div class="toggle off"></div></div>
+      <div class="row"><div class="ic" style="background:var(--c-hl-bg); color:var(--c-hl);"><i data-lucide="dumbbell"></i></div><div class="tx"><div class="n">สุขภาพ &amp; ออกกำลังกาย</div><div class="d">สรุปงานวิจัย + tips</div></div><div class="toggle off"></div></div>
+
+      <div class="label">เชื่อมต่อแหล่งข่าว</div>
+      <div class="row"><div class="ic" style="background:#ffeceb; color:#ff3b30;"><i data-lucide="youtube"></i></div><div class="tx"><div class="n">YouTube</div><div class="d">8 ช่อง</div></div><div class="done"><i data-lucide="check-circle"></i> เชื่อมแล้ว</div></div>
+      <div class="row"><div class="ic" style="background:#eef0f2; color:#17191f;"><i data-lucide="twitter"></i></div><div class="tx"><div class="n">X / Twitter</div><div class="d">12 บัญชี</div></div><div class="done"><i data-lucide="check-circle"></i> เชื่อมแล้ว</div></div>
+      <div class="row"><div class="ic" style="background:var(--c-pr-bg); color:var(--c-pr);"><i data-lucide="rss"></i></div><div class="tx"><div class="n">RSS / Newsletter</div><div class="d">เพิ่ม blog &amp; newsletter</div></div><div class="connect">เชื่อมต่อ</div></div>
+      <div class="row" style="margin-bottom:30px;"><div class="ic" style="background:var(--acSoft); color:var(--ac);"><i data-lucide="mic"></i></div><div class="tx"><div class="n">Podcast</div><div class="d">สรุป episode ใหม่</div></div><div class="connect">เชื่อมต่อ</div></div>
+    </div>
+    <div class="tabbar">
+      <div class="tab" onclick="go('brief')"><i data-lucide="sunrise"></i>Brief</div>
+      <div class="tab" onclick="go('ask')"><i data-lucide="sparkles"></i>ถาม AI</div>
+      <div class="tab on"><i data-lucide="rss"></i>แหล่งข่าว</div>
+      <div class="tab"><i data-lucide="settings"></i>ตั้งค่า</div>
+    </div>
+  </div>
+
+</div>
+<script>
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  var sc=document.querySelector('#'+id+' .scroll')||document.querySelector('#'+id+' .chat');
+  if(sc) sc.scrollTop=0;
+}
+document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',function(e){e.stopPropagation();t.classList.toggle('off');}));
+window.addEventListener('load',function(){ if(window.lucide) lucide.createIcons(); });
+lucide.createIcons();
+</script>
+</body>
+</html>

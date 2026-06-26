@@ -33,24 +33,46 @@ const _preview = String.fromEnvironment('PIN_PREVIEW');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Android: use the modern system Photo Picker (cancellable bottom sheet),
-  // not the legacy ACTION_GET_CONTENT that opens Google Photos with no exit.
-  final picker = ImagePickerPlatform.instance;
-  if (picker is ImagePickerAndroid) picker.useAndroidPhotoPicker = true;
-  await RustLib.init(
-    externalLibrary: Platform.isIOS
-        ? ExternalLibrary.process(iKnowHowToUseIt: true)
-        : null,
-  );
-  // Debug builds only: passively observe matrix-sdk's own HTTP tracing spans
-  // (method/url/status/ms — no headers, no bodies) into the API log. Read-only;
-  // it never touches the connection, so it can't affect login/sync.
-  if (kDebugBuild) _startMatrixTrace();
-  await ThemeController.instance.load();
-  await PrefsController.instance.load();
-  await AiSettings.instance.load();
-  await NotificationService.instance.init();
-  runApp(const PinApp());
+  
+  try {
+    // Android: use the modern system Photo Picker (cancellable bottom sheet),
+    // not the legacy ACTION_GET_CONTENT that opens Google Photos with no exit.
+    final picker = ImagePickerPlatform.instance;
+    if (picker is ImagePickerAndroid) picker.useAndroidPhotoPicker = true;
+    
+    await RustLib.init(
+      externalLibrary: Platform.isIOS
+          ? ExternalLibrary.process(iKnowHowToUseIt: true)
+          : null,
+    );
+    // Debug builds only: passively observe matrix-sdk's own HTTP tracing spans
+    if (kDebugBuild) _startMatrixTrace();
+    
+    await ThemeController.instance.load();
+    await PrefsController.instance.load();
+    await AiSettings.instance.load();
+    
+    // Defer notification initialization until AFTER the app is mounted
+    // to prevent blocking the launch screen and causing a white screen.
+    Future.microtask(() => NotificationService.instance.init());
+    
+    runApp(const PinApp());
+  } catch (e, st) {
+    // Failsafe UI if initialization fails (e.g., Rust symbol stripping on iOS Release)
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'FATAL ERROR ON LAUNCH:\n\n$e\n\n$st',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+        ),
+      ),
+    ));
+  }
 }
 
 /// Subscribe to the Rust Matrix HTTP tracer; each line is one Matrix call's

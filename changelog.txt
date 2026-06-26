@@ -1,0 +1,3 @@
+$versionString
+Description:
+${text.trim()}

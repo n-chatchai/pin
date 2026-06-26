@@ -15,6 +15,14 @@ perl -i -pe 's/^(version:\s+\d+\.\d+\.\d+\+)(\d+)$/$1 . ($2 + 1)/e' pubspec.yaml
 VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
 echo "✅ New version is: $VERSION"
 
+echo "📝 Generating release notes using LLM..."
+dart run tool/generate_changelog.dart
+export CHANGELOG=$(cat changelog.txt)
+echo "--- Release Notes ---"
+cat changelog.txt
+echo "---------------------"
+
+
 if [ "$PLATFORM" == "android" ] || [ "$PLATFORM" == "both" ]; then
   echo "🚀 Deploying Android..."
   cd android
