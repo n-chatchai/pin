@@ -108,6 +108,19 @@
   .pcomp{margin:auto 10px 12px;height:42px;border-radius:22px;background:#fff;box-shadow:var(--cardsh);
          display:flex;align-items:center;gap:9px;padding:0 8px 0 15px;color:var(--ink3);font-size:13px}
   .pplus{width:30px;height:30px;border-radius:50%;background:var(--green-d);color:#fff;display:grid;place-items:center;margin-left:auto;font-size:18px}
+  /* floating depth cards */
+  .float{position:absolute;z-index:2;display:flex;align-items:center;gap:10px;background:#fff;
+         border:1px solid var(--line);border-radius:15px;padding:10px 13px;box-shadow:var(--liftsh);
+         animation:bob 5s ease-in-out infinite}
+  .float .fi{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;font-size:18px}
+  .float .ft{font-family:var(--nira);font-weight:600;font-size:13px;color:var(--ink);line-height:1.25}
+  .float .fd{font-size:11px;color:var(--ink2);line-height:1.3}
+  .float.a{top:11%;right:-13%} .float.a .fi{background:var(--green-card);color:var(--green-d)}
+  .float.b{bottom:13%;left:-15%;animation-delay:-2.5s} .float.b .fi{background:#FCEFC7;color:#9A7400}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  @media (max-width:980px){.float.a{right:-4%} .float.b{left:-4%}}
+  @media (max-width:560px){.float{display:none}}
+  @media (prefers-reduced-motion:reduce){.float{animation:none}}
 
   /* ---- logos / trust band ---- */
   .band{padding:22px 0;border-block:1px solid var(--line);background:var(--white)}
@@ -183,6 +196,28 @@
              font-size:14.5px;color:var(--ink);line-height:1.45}
   .pillar li:first-child{border-top:none}
   .pillar li i{color:var(--green-d);flex:0 0 auto;margin-top:3px;font-size:15px;display:block}
+  /* pillar demo mini-screens */
+  .demo{border:1px solid var(--line);border-radius:15px;background:var(--cream);padding:14px;margin-bottom:18px}
+  .dlabel{display:flex;align-items:center;gap:7px;font-family:var(--nira);font-weight:600;font-size:12.5px;color:var(--green-d);margin-bottom:11px}
+  .dlabel i{font-size:15px;display:block}
+  .dchips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .dchip{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 10px;font-size:12px;color:var(--ink);font-weight:500}
+  .dchip i{font-size:15px;color:var(--green-d);display:block}
+  /* privacy demo */
+  .wire{background:#0e1411;border-radius:11px;padding:11px 12px;margin-bottom:11px}
+  .wlabel{display:flex;align-items:center;gap:6px;font-size:10.5px;color:#7d8a82;margin-bottom:6px}
+  .wlabel i{display:block;font-size:13px}
+  .cipher{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;color:#5fd089;letter-spacing:1.5px;word-break:break-all}
+  .lockrow{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--green-d)}
+  .lockrow i{font-size:16px;display:block}
+  /* persona demo */
+  .prow{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+  .pav{width:38px;height:38px;border-radius:50%;background:var(--green-av);color:var(--green-d);display:grid;place-items:center;font-family:var(--nira);font-weight:700;font-size:16px;flex:0 0 auto}
+  .pnm{font-family:var(--nira);font-weight:600;font-size:14px}
+  .psub{font-size:11.5px;color:var(--ink2)}
+  .tones{display:flex;flex-wrap:wrap;gap:7px}
+  .tones .dchip{padding:7px 12px}
+  .dchip.on{background:var(--green-d);color:#fff;border-color:var(--green-d)}
 
   /* ---- privacy split ---- */
   .priv{background:var(--green-d);color:#fff;border-radius:28px;padding:clamp(30px,5vw,56px);
@@ -319,6 +354,15 @@
           <div class="pcomp">พิมพ์ข้อความ… <span class="pplus">+</span></div>
         </div>
       </div>
+      <!-- floating cards for depth -->
+      <div class="float a">
+        <span class="fi"><i class="ph ph-bell"></i></span>
+        <div><div class="ft">ตั้งเตือนแล้ว</div><div class="fd">ทุกวันที่ 25 · 9 โมงเช้า</div></div>
+      </div>
+      <div class="float b">
+        <span class="fi"><i class="ph-fill ph-lock-key"></i></span>
+        <div><div class="ft">เปิดอ่านได้แค่คุณ</div><div class="fd">เข้ารหัสลับทั้งหมด</div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -421,7 +465,15 @@
     </div>
     <div class="pgrid">
       <div class="pillar rv">
-        <div class="pic"><i class="ph ph-lightning"></i></div>
+        <div class="demo">
+          <div class="dlabel"><i class="ph ph-squares-four"></i> สโตร์ความสามารถ</div>
+          <div class="dchips">
+            <span class="dchip"><i class="ph ph-moon-stars"></i> ดูดวง</span>
+            <span class="dchip"><i class="ph ph-currency-circle-dollar"></i> ค่าเงิน</span>
+            <span class="dchip"><i class="ph ph-newspaper"></i> ข่าว</span>
+            <span class="dchip"><i class="ph ph-paint-brush"></i> วาดรูป</span>
+          </div>
+        </div>
         <h3>ฉลาด</h3>
         <div class="lead">ช่วยงานได้จริง สั่งเป็นภาษาพูด</div>
         <ul>
@@ -431,7 +483,13 @@
         </ul>
       </div>
       <div class="pillar rv">
-        <div class="pic"><i class="ph ph-shield-check"></i></div>
+        <div class="demo">
+          <div class="wire">
+            <div class="wlabel"><i class="ph ph-arrows-left-right"></i> ข้อมูลบนเครือข่าย</div>
+            <div class="cipher">8f3a··b21e··9c47··d0a5</div>
+          </div>
+          <div class="lockrow"><i class="ph-fill ph-lock-key"></i> เปิดอ่านได้แค่คุณกับปิ่น</div>
+        </div>
         <h3>อุ่นใจ</h3>
         <div class="lead">เป็นส่วนตัวจริง ตั้งแต่ออกแบบ</div>
         <ul>
@@ -441,7 +499,17 @@
         </ul>
       </div>
       <div class="pillar rv">
-        <div class="pic"><i class="ph ph-user-circle"></i></div>
+        <div class="demo">
+          <div class="prow">
+            <span class="pav">ปิ่</span>
+            <div><div class="pnm">ปิ่น</div><div class="psub">น้ำเสียง · อ่อนโยน</div></div>
+          </div>
+          <div class="tones">
+            <span class="dchip on">อ่อนโยน</span>
+            <span class="dchip">สนุก</span>
+            <span class="dchip">เป็นทางการ</span>
+          </div>
+        </div>
         <h3>เป็นของคุณ</h3>
         <div class="lead">ปรับได้ พกไปได้ ไม่มีใครแทรก</div>
         <ul>
