@@ -3,333 +3,197 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ปิ่น ผู้ช่วยเอไอ ส่วนตัว ที่เป็นส่วนตัวจริง ๆ</title>
-<meta name="description" content="ปิ่น คือผู้ช่วยเอไอ ภาษาไทยที่ทำงานบนเครื่องคุณ เข้ารหัสลับ เปิดอ่านได้แค่คุณ เซิร์ฟเวอร์มองไม่เห็นข้อมูลส่วนตัว เตือน จัดการงาน ตอบคำถาม ดูดวง และต่อยอดความสามารถได้เรื่อย ๆ">
+<title>ปิ่น · ผู้ช่วยส่วนตัวที่รู้ใจคุณ</title>
+<meta name="description" content="ปิ่น ผู้ช่วยเอไอภาษาไทยที่รู้ใจคุณ คุยได้ทุกเรื่อง ช่วยจัดการชีวิต และจำคุณได้ — ทำงานบนเครื่องคุณ เปิดอ่านได้แค่คุณ เป็นส่วนตัวจริง">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- Phosphor icons (same family as the app) -->
+<link href="https://fonts.googleapis.com/css2?family=Trirong:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Phosphor icons — same family as the ปิ่น app -->
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <style>
   :root{
-    --cream:#FAF8F2; --white:#fff;
-    --green:#34B06A; --green-d:#1C7A48; --green-dd:#2C9D5C;
-    --green-pale:#E4EFDE; --green-card:#E9F1E6; --green-av:#DBEDD7;
+    --blush:#F7EEE3; --blush-2:#FBF6EE; --white:#fff;
+    --forest:#1B3A29;   /* deep serif green */
+    --green:#1C7A48;    /* ปิ่น brand green — CTA + accents */
+    --green-2:#34B06A;
     --yellow:#F2B829;
-    --ink:#2A2A26; --ink2:#6B6B62; --ink3:#A0A096; --line:#E6E1D5;
-    --cardsh:0 1px 2px rgba(40,40,34,.05),0 6px 20px rgba(40,40,34,.06);
-    --liftsh:0 2px 6px rgba(40,40,34,.06),0 18px 44px rgba(28,122,72,.10);
-    --nira:'IBM Plex Sans Thai','Sarabun',sans-serif;
+    --ink:#2E2A24; --ink2:#6E6457; --ink3:#9A8F7E; --line:#E7DCCB;
+    --cardsh:0 1px 2px rgba(60,40,15,.05),0 10px 30px rgba(60,40,15,.08);
+    --liftsh:0 2px 6px rgba(60,40,15,.07),0 22px 48px rgba(60,40,15,.12);
+    --serif:'Trirong',Georgia,serif;
     --sans:'Sarabun','Leelawadee UI','Tahoma',system-ui,sans-serif;
     --z-nav:100;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.62;
+  body{background:var(--blush);color:var(--ink);font-family:var(--sans);line-height:1.62;
        -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
-  h1,h2,h3,.nira{font-family:var(--nira)}
   a{color:inherit;text-decoration:none}
-  /* visible keyboard focus (AA) */
-  a:focus-visible,.btn:focus-visible,.uc-tab:focus-visible,button:focus-visible{
-    outline:2px solid var(--green-d);outline-offset:3px;border-radius:10px}
-  .wrap{width:min(1120px,92vw);margin-inline:auto}
+  a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:8px}
+  .wrap{width:min(1140px,92vw);margin-inline:auto}
   section{position:relative}
-  .eyebrow{font-family:var(--nira);font-size:13px;font-weight:600;color:var(--green-d);
-           letter-spacing:.02em;margin-bottom:10px}
-  .sec-title{font-size:clamp(26px,4.2vw,40px);font-weight:600;line-height:1.2;letter-spacing:-.01em;text-wrap:balance}
-  .sec-sub{font-size:clamp(15px,1.8vw,17px);color:var(--ink2);margin-top:12px;max-width:60ch;text-wrap:pretty}
+  .serif{font-family:var(--serif)}
+  .sec-title{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(28px,4.6vw,48px);line-height:1.24;letter-spacing:-.01em;text-wrap:balance}
+  .sec-sub{font-size:clamp(15px,1.9vw,18px);color:var(--ink2);margin-top:14px;max-width:54ch;text-wrap:pretty}
+  .center{text-align:center}.center .sec-sub{margin-inline:auto}
+  em{font-style:italic}
 
-  /* ---- buttons ---- */
-  .btn{display:inline-flex;align-items:center;gap:8px;height:50px;padding:0 24px;border-radius:13px;
-       font-family:var(--nira);font-weight:600;font-size:15.5px;cursor:pointer;border:1px solid transparent;
-       transition:transform .18s cubic-bezier(.2,.7,.3,1),box-shadow .18s,background .18s}
-  .btn:active{transform:scale(.98)}
-  .btn-p{background:var(--green-d);color:#fff;box-shadow:0 2px 10px rgba(28,122,72,.30)}
-  .btn-p:hover{background:#155E37;box-shadow:0 8px 22px rgba(28,122,72,.36)}
-  .btn-g{background:#fff;color:var(--ink);border-color:var(--line)}
-  .btn-g:hover{border-color:var(--green);color:var(--green-d)}
-  .btn .ar{transition:transform .18s}
-  .btn-p:hover .ar{transform:translateX(3px)}
+  /* buttons */
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--forest);color:#fff;
+        font-family:var(--sans);font-weight:600;font-size:15.5px;padding:12px 24px;border-radius:999px;cursor:pointer;border:none;
+        transition:transform .18s cubic-bezier(.2,.7,.3,1),background .18s}
+  .pill:hover{background:#12301F;transform:translateY(-1px)}
+  .pill.lg{font-size:17px;padding:15px 32px}
+  .pill .ar{transition:transform .18s}.pill:hover .ar{transform:translateX(3px)}
+  .ghost{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-weight:600;font-size:16px;
+         color:var(--forest);padding:14px 26px;border-radius:999px;border:1.5px solid var(--line);background:var(--blush-2);cursor:pointer}
+  .ghost:hover{border-color:var(--green)}
 
-  /* ---- nav ---- */
-  .nav{position:sticky;top:0;z-index:var(--z-nav);background:rgba(250,248,242,.82);
-       backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
-  .nav.scrolled{border-color:var(--line);box-shadow:0 1px 0 rgba(40,40,34,.03)}
-  .nav .row{display:flex;align-items:center;gap:24px;height:66px}
-  .logo{display:flex;align-items:center;gap:10px;font-family:var(--nira);font-weight:700;font-size:19px}
-  .mark{width:34px;height:34px;border-radius:9px;overflow:hidden;flex:0 0 auto;
-        box-shadow:0 2px 8px rgba(28,122,72,.28)}
-  .mark img{width:100%;height:100%;display:block}
-  .nav nav{display:flex;gap:26px;margin-left:14px}
-  .nav nav a{font-size:14.5px;color:var(--ink2);font-weight:500}
-  .nav nav a:hover{color:var(--green-d)}
+  /* nav */
+  .nav{position:sticky;top:0;z-index:var(--z-nav);background:color-mix(in srgb,var(--blush) 82%,transparent);
+       backdrop-filter:saturate(1.3) blur(10px);transition:box-shadow .2s,border-color .2s;border-bottom:1px solid transparent}
+  .nav.scrolled{border-color:var(--line)}
+  .nav .row{display:flex;align-items:center;gap:20px;height:74px}
+  .brand{font-family:var(--serif);font-weight:600;font-size:26px;color:var(--forest);display:flex;align-items:flex-start;gap:1px}
+  .brand .bloom{width:19px;height:25px;margin:-7px 0 0 -1px;flex:0 0 auto}
+  .nav nav{display:flex;gap:24px;margin-left:16px}
+  .nav nav a{font-size:15px;color:var(--ink2);font-weight:500}
+  .nav nav a:hover{color:var(--forest)}
   .nav .sp{margin-left:auto}
-  .burger{display:none;width:42px;height:42px;border-radius:11px;border:1px solid var(--line);
-          background:var(--white);color:var(--ink);place-items:center;font-size:22px;flex:0 0 auto;cursor:pointer}
-  .burger i{display:block}
+  .burger{display:none;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--blush-2);color:var(--forest);place-items:center;cursor:pointer}
+  .burger i{font-size:22px;display:block}
   .mnav{display:none}
-  .mnav a{display:block;padding:13px 2px;font-size:16px;color:var(--ink);border-top:1px solid var(--line)}
-  .mnav a.btn{margin-top:14px;border:none;justify-content:center;color:#fff}
+  .mnav a{display:block;padding:14px 2px;font-size:17px;color:var(--ink);border-top:1px solid var(--line);font-family:var(--serif)}
+  .mnav a.pill{font-family:var(--sans);justify-content:center;margin-top:14px;border-top:none}
   @media(max-width:760px){
-    .nav nav{display:none}
-    .navdl{display:none}
+    .nav nav,.navcta{display:none}
     .burger{display:grid}
-    .mnav.open{display:block;padding:6px 0 16px}
+    .mnav.open{display:block;padding:6px 0 18px}
   }
 
-  /* ---- hero ---- */
-  .hero{padding:clamp(40px,7vw,86px) 0 clamp(30px,5vw,60px);overflow:hidden}
-  .hero .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
-  @media(max-width:880px){.hero .grid{grid-template-columns:1fr;gap:34px}}
-  .h1{font-size:clamp(34px,6vw,60px);font-weight:600;line-height:1.08;letter-spacing:-.02em;text-wrap:balance}
-  /* baseline-hugging marker — Thai stacks vowels/tone marks high, so the band
-     must sit low (≈bottom quarter) or it crosses mid-glyph and reads as a box */
-  .hl{color:var(--green-d);position:relative;
-      background:linear-gradient(transparent 74%,rgba(242,184,41,.42) 74%,rgba(242,184,41,.42) 92%,transparent 92%);
-      -webkit-box-decoration-break:clone;box-decoration-break:clone}
-  .lede{font-size:clamp(16px,2vw,19px);color:var(--ink2);margin-top:20px;max-width:48ch;text-wrap:pretty}
-  .hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
-  .hero-trust{display:flex;gap:18px;margin-top:26px;flex-wrap:wrap;color:var(--ink2);font-size:13.5px}
-  .hero-trust span{display:inline-flex;align-items:center;gap:7px}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto}
+  /* hero */
+  .hero{text-align:center;padding:clamp(46px,8vw,96px) 0 clamp(28px,4vw,48px)}
+  .sig{width:clamp(58px,8vw,84px);height:auto;margin:0 auto 20px;display:block}
+  .h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(40px,8vw,82px);line-height:1.26;letter-spacing:-.012em;text-wrap:balance}
+  .h1 em{font-weight:400}
+  .lede{font-size:clamp(16px,2.1vw,20px);color:var(--ink2);max-width:38ch;margin:22px auto 0;text-wrap:pretty}
+  .hero-cta{margin-top:32px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .hero-note{margin-top:18px;font-size:13.5px;color:var(--ink3)}
 
-  /* ---- phone ---- */
-  .phone-wrap{justify-self:center;position:relative}
-  .glow{position:absolute;inset:-12% -8%;background:
-     radial-gradient(40% 38% at 70% 18%,rgba(52,176,106,.20),transparent 70%),
-     radial-gradient(46% 40% at 26% 84%,rgba(242,184,41,.16),transparent 72%);
-     filter:blur(8px);z-index:0}
-  .phone{position:relative;z-index:1;width:clamp(248px,30vw,300px);background:#0e1411;border-radius:42px;
-         padding:11px;box-shadow:0 20px 60px rgba(20,30,24,.30),0 4px 14px rgba(20,30,24,.2)}
-  .screen{background:var(--cream);border-radius:32px;overflow:hidden;aspect-ratio:9/19.3;display:flex;flex-direction:column}
-  .pbar{display:flex;align-items:center;justify-content:space-between;padding:11px 18px 6px;font-size:12px;font-weight:600;color:var(--ink)}
-  .pnav{display:flex;align-items:center;justify-content:space-between;padding:4px 18px 10px;border-bottom:1px solid var(--line);color:var(--ink2)}
-  .pnav i{font-size:21px;display:block}
-  .pnav .pday{font-family:var(--nira);font-weight:600;font-size:13px;color:var(--ink);background:var(--green-card);padding:3px 14px;border-radius:20px}
-  .pfeed{flex:1;padding:13px 13px 10px;display:flex;flex-direction:column;gap:10px;overflow:hidden;background:var(--cream)}
-  .brow{display:flex;flex-direction:column;gap:3px;max-width:86%}
-  .brow.right{align-self:flex-end;align-items:flex-end}
-  .brow.left{align-self:flex-start;align-items:flex-start}
-  .bt{font-size:9.5px;color:var(--ink3);padding:0 4px}
-  .bub{padding:9px 13px;font-size:13.5px;line-height:1.5;border-radius:17px}
-  .bub.me{background:var(--green-d);color:#fff;border-bottom-right-radius:6px}
-  .bub.pin{background:#fff;color:var(--ink);box-shadow:var(--cardsh);border-bottom-left-radius:6px}
-  .pcard{background:#fff;border-radius:15px;box-shadow:var(--cardsh);padding:12px 13px;font-size:12.5px;min-width:200px}
-  .pcard .phd{display:flex;align-items:center;justify-content:space-between;font-family:var(--nira);font-weight:600;color:var(--ink);font-size:13px;margin-bottom:9px}
-  .pcard .phd span:first-child{display:flex;align-items:center;gap:7px;color:var(--green-d)}
-  .pcard .phd i{font-size:16px;display:block}
-  .pcount{font-size:10.5px;font-weight:600;color:var(--green-d);background:var(--green-card);padding:2px 9px;border-radius:11px}
-  .ptask{margin-top:8px}
-  .ptl{font-size:11.5px;color:var(--ink2);margin-bottom:4px}
-  .pbar2{height:6px;border-radius:6px;background:var(--green-pale);overflow:hidden}
-  .pbar2 span{display:block;height:100%;border-radius:6px;background:var(--green)}
-  .cc .h i{font-size:15px}
-  .frow .fi i,.fcard .ic i,.pill .i i,.uc-tab .e i,.uc-kicker i,.uc-out .c i{display:block}
-  .pcomp{margin:0 10px 12px;height:44px;border-radius:24px;background:#fff;box-shadow:var(--cardsh);
-         display:flex;align-items:center;gap:8px;padding:0 6px 0 8px;color:var(--ink3);font-size:13px}
-  .pcomp .pci{width:30px;height:30px;display:grid;place-items:center;color:var(--green-d);font-size:19px;flex:0 0 auto}
-  .pcomp .pci i{display:block}
-  .pcomp .ptext{flex:1;color:var(--ink3)}
-  .pcomp .pmic{width:32px;height:32px;border-radius:50%;background:var(--green-d);color:#fff;display:grid;place-items:center;font-size:17px;flex:0 0 auto}
-  .pcomp .pmic i{display:block}
-  /* floating depth cards */
-  .float{position:absolute;z-index:2;display:flex;align-items:center;gap:10px;background:#fff;
-         border:1px solid var(--line);border-radius:15px;padding:10px 13px;box-shadow:var(--liftsh);
-         animation:bob 5s ease-in-out infinite}
-  .float .fi{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;font-size:18px}
-  .float .ft{font-family:var(--nira);font-weight:600;font-size:13px;color:var(--ink);line-height:1.25}
-  .float .fd{font-size:11px;color:var(--ink2);line-height:1.3}
-  .float.a{top:8%;right:-21%} .float.a .fi{background:var(--green-card);color:var(--green-d)}
-  .float.b{bottom:6%;left:-22%;animation-delay:-2.5s} .float.b .fi{background:#FCEFC7;color:#9A7400}
-  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
-  @media (max-width:980px){.float.a{right:-4%} .float.b{left:-4%}}
-  @media (max-width:560px){.float{display:none}}
-  @media (prefers-reduced-motion:reduce){.float{animation:none}}
+  /* cards */
+  .cards{padding:14px 0 76px}
+  .crow{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+  .card{position:relative;aspect-ratio:3/4;border-radius:22px;overflow:hidden;box-shadow:var(--cardsh);
+        transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s}
+  .card:hover{transform:translateY(-6px);box-shadow:var(--liftsh)}
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+  .chip{position:absolute;left:11px;bottom:11px;display:inline-flex;align-items:center;gap:7px;
+        background:rgba(27,58,41,.80);backdrop-filter:blur(4px);color:#fff;font-weight:600;font-size:13px;padding:7px 13px;border-radius:999px}
+  .chip i{font-size:15px;display:block}
 
-  /* ---- wow strip ---- */
-  .wow{padding:30px 0;border-block:1px solid var(--line);background:var(--white)}
-  .wow .row5{display:grid;grid-template-columns:repeat(5,1fr);gap:24px}
-  @media(max-width:900px){.wow .row5{grid-template-columns:repeat(2,1fr);gap:22px 24px}}
-  @media(max-width:520px){.wow .row5{grid-template-columns:1fr}}
-  .wow .it{display:flex;gap:12px;align-items:flex-start}
-  .wow .it .ic{width:40px;height:40px;border-radius:12px;background:var(--green-card);color:var(--green-d);display:grid;place-items:center;font-size:21px;flex:0 0 auto}
-  .wow .it .ic i{display:block}
-  .wow .it h4{font-family:var(--nira);font-weight:600;font-size:14.5px;color:var(--ink);line-height:1.3}
-  .wow .it p{font-size:12.5px;color:var(--ink2);margin-top:3px;line-height:1.4}
-  /* pills (used elsewhere) */
-  .pill{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);font-weight:500}
-  .pill .i{width:26px;height:26px;border-radius:8px;background:var(--green-card);display:grid;place-items:center;color:var(--green-d);font-size:14px}
-
-  /* ---- generic section pad ---- */
+  /* generic padded section */
   .pad{padding:clamp(54px,8vw,96px) 0}
-  .center{text-align:center;max-width:760px;margin-inline:auto}
+  .split{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(28px,5vw,64px);align-items:center}
+  .split.rev{grid-template-columns:.95fr 1.05fr}
+  .shot{border-radius:24px;overflow:hidden;box-shadow:var(--liftsh);aspect-ratio:4/3}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block}
 
-  /* ---- USE CASES ---- */
-  .uc-tabs{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin:30px 0 34px}
-  .uc-tab{display:inline-flex;align-items:center;gap:9px;padding:10px 17px;border-radius:30px;background:#fff;
-          border:1px solid var(--line);font-family:var(--nira);font-weight:600;font-size:14.5px;color:var(--ink2);
-          cursor:pointer;transition:all .18s}
-  .uc-tab .e{font-size:17px;line-height:1}
-  .uc-tab:hover{border-color:var(--green);color:var(--green-d)}
-  .uc-tab.on{background:var(--green-d);color:#fff;border-color:var(--green-d);box-shadow:0 4px 14px rgba(28,122,72,.26)}
-  .uc-stage{display:grid;grid-template-columns:1fr 360px;gap:40px;align-items:center;
-            background:var(--white);border:1px solid var(--line);border-radius:24px;
-            padding:clamp(22px,3.5vw,40px);box-shadow:var(--cardsh)}
-  @media(max-width:860px){.uc-stage{grid-template-columns:1fr;gap:26px}}
-  .uc-panel{display:none}
-  .uc-panel.on{display:block;animation:rise .4s cubic-bezier(.2,.7,.3,1)}
-  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-  .uc-kicker{font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:14px;display:flex;align-items:center;gap:9px}
-  .uc-h{font-family:var(--nira);font-size:clamp(20px,2.6vw,27px);font-weight:600;line-height:1.25;margin:10px 0 12px;text-wrap:balance}
-  .uc-p{color:var(--ink2);font-size:15.5px;text-wrap:pretty}
-  .uc-out{margin-top:18px;display:flex;flex-direction:column;gap:9px}
-  .uc-out .o{display:flex;align-items:flex-start;gap:11px;font-size:14.5px}
-  .uc-out .o .c{width:23px;height:23px;border-radius:50%;background:var(--green-card);color:var(--green-d);
-                display:grid;place-items:center;flex:0 0 auto;margin-top:1px;font-size:13px;font-weight:700}
-  /* mini chat for use case a real ปิ่น thread (header + bubbles + a produced result) */
-  .uc-chat{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;
-           box-shadow:var(--liftsh);align-self:stretch}
-  .uc-chat .hd{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line)}
-  .uc-chat .hd .av{width:32px;height:32px;border-radius:50%;background:var(--green-av);display:grid;place-items:center;
-                   font-family:var(--nira);font-weight:700;color:var(--green-d);font-size:15px;flex:0 0 auto}
-  .uc-chat .hd .nm{font-family:var(--nira);font-weight:600;font-size:14.5px;line-height:1.1}
-  .uc-chat .hd .st{font-size:11px;color:var(--green-d);display:flex;align-items:center;gap:5px}
-  .uc-chat .hd .st i{width:6px;height:6px;border-radius:50%;background:var(--green)}
-  .uc-chat .fd{padding:15px 13px;display:flex;flex-direction:column;gap:9px;background:var(--cream);min-height:240px}
-  .uc-chat .bub{max-width:86%;font-size:13.5px}
-  /* tool-result card produced by ปิ่น inside the thread */
-  .cc{align-self:flex-start;max-width:90%;background:#fff;border:1px solid var(--line);border-radius:13px;
-      padding:10px 12px;box-shadow:var(--cardsh)}
-  .cc .h{display:flex;align-items:center;gap:7px;font-family:var(--nira);font-weight:600;color:var(--green-d);
-         font-size:12.5px;margin-bottom:6px}
-  .cc .r{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--ink2);padding:2px 0}
-  .cc .r b{color:var(--ink);font-weight:600}
-  /* staggered entrance, replays on each tab swap */
-  @keyframes bubIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-  .uc-chat .fd>*{animation:bubIn .42s cubic-bezier(.2,.7,.3,1) both}
-  .uc-chat .fd>*:nth-child(2){animation-delay:.07s}
-  .uc-chat .fd>*:nth-child(3){animation-delay:.14s}
-  .uc-chat .fd>*:nth-child(4){animation-delay:.21s}
-  .uc-chat .fd>*:nth-child(5){animation-delay:.28s}
+  /* ask band — phone-in-hand image + a floating chat snippet */
+  .ask{padding:clamp(40px,6vw,72px) 0}
+  .askwrap{position:relative}
+  .chatcard{position:absolute;right:-6px;bottom:24px;width:min(300px,72%);background:var(--white);border-radius:18px;box-shadow:var(--liftsh);padding:14px}
+  .bub{font-size:13.5px;line-height:1.5;border-radius:15px;padding:9px 13px;margin:5px 0;max-width:88%}
+  .bub.me{background:var(--green);color:#fff;margin-left:auto;border-bottom-right-radius:5px}
+  .bub.pin{background:var(--blush);color:var(--ink);border-bottom-left-radius:5px}
+  @media(max-width:680px){.chatcard{position:static;width:auto;margin-top:-40px;margin-inline:14px}}
 
-  /* ---- feature pillars (3 themes, scannable lists) ---- */
-  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:42px}
-  @media(max-width:820px){.pgrid{grid-template-columns:1fr}}
-  .pillar{background:#fff;border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:var(--cardsh);
-          transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s}
-  .pillar:hover{transform:translateY(-4px);box-shadow:var(--liftsh)}
-  .pillar .pic{width:48px;height:48px;border-radius:14px;background:var(--green-card);color:var(--green-d);
-               display:grid;place-items:center;font-size:24px;margin-bottom:16px}
-  .pillar .pic i{display:block}
-  .pillar h3{font-size:21px;font-weight:600}
-  .pillar .lead{color:var(--ink2);font-size:14px;margin:5px 0 12px;text-wrap:pretty}
-  .pillar ul{list-style:none}
-  .pillar li{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line);
-             font-size:14.5px;color:var(--ink);line-height:1.45}
-  .pillar li:first-child{border-top:none}
-  .pillar li i{color:var(--green-d);flex:0 0 auto;margin-top:3px;font-size:15px;display:block}
-  /* pillar demo mini-screens */
-  .demo{border:1px solid var(--line);border-radius:15px;background:var(--cream);padding:14px;margin-bottom:18px}
-  .dlabel{display:flex;align-items:center;gap:7px;font-family:var(--nira);font-weight:600;font-size:12.5px;color:var(--green-d);margin-bottom:11px}
-  .dlabel i{font-size:15px;display:block}
-  .dchips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .dchip{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 10px;font-size:12px;color:var(--ink);font-weight:500}
-  .dchip i{font-size:15px;color:var(--green-d);display:block}
-  /* privacy demo */
-  .wire{background:#0e1411;border-radius:11px;padding:11px 12px;margin-bottom:11px}
-  .wlabel{display:flex;align-items:center;gap:6px;font-size:10.5px;color:#7d8a82;margin-bottom:6px}
-  .wlabel i{display:block;font-size:13px}
-  .cipher{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;color:#5fd089;letter-spacing:1.5px;word-break:break-all}
-  .lockrow{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--green-d)}
-  .lockrow i{font-size:16px;display:block}
-  /* persona demo */
-  .prow{display:flex;align-items:center;gap:11px;margin-bottom:12px}
-  .pav{width:38px;height:38px;border-radius:50%;background:var(--green-av);color:var(--green-d);display:grid;place-items:center;font-family:var(--nira);font-weight:700;font-size:16px;flex:0 0 auto}
-  .pnm{font-family:var(--nira);font-weight:600;font-size:14px}
-  .psub{font-size:11.5px;color:var(--ink2)}
-  .tones{display:flex;flex-wrap:wrap;gap:7px}
-  .tones .dchip{padding:7px 12px}
-  .dchip.on{background:var(--green-d);color:#fff;border-color:var(--green-d)}
+  /* features */
+  .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+  .fcard{background:var(--blush-2);border:1px solid var(--line);border-radius:22px;padding:28px 26px}
+  .fcard h3{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:24px}
+  .fcard .fl{color:var(--ink2);font-size:14.5px;margin:4px 0 14px;text-wrap:pretty}
+  .fcard ul{list-style:none}
+  .fcard li{position:relative;padding:9px 0 9px 26px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink);line-height:1.45}
+  .fcard li:first-of-type{border-top:none}
+  .fcard li::before{content:'';position:absolute;left:0;top:13px;width:15px;height:15px;border-radius:50%;
+        background:var(--green-2);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9.55 17.6 4.4 12.45l1.42-1.42 3.73 3.73 8.23-8.23 1.42 1.42z'/%3E%3C/svg%3E") center/contain no-repeat;
+        mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9.55 17.6 4.4 12.45l1.42-1.42 3.73 3.73 8.23-8.23 1.42 1.42z'/%3E%3C/svg%3E") center/contain no-repeat}
 
-  /* ---- privacy split ---- */
-  .priv{background:var(--green-d);color:#fff;border-radius:28px;padding:clamp(30px,5vw,56px);
-        display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;overflow:hidden;position:relative}
-  @media(max-width:820px){.priv{grid-template-columns:1fr;gap:26px}}
-  .priv h2{font-size:clamp(24px,3.6vw,36px);color:#fff;line-height:1.2;text-wrap:balance}
-  .priv p{color:rgba(255,255,255,.9);margin-top:14px;font-size:16px;max-width:46ch}
-  .flowcard{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:18px;padding:8px}
-  .frow{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:13px}
-  .frow + .frow{margin-top:6px}
-  .frow .fi{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;font-size:18px}
-  .frow .ft{font-family:var(--nira);font-weight:600;font-size:14.5px}
-  .frow .fd{font-size:12.5px;color:rgba(255,255,255,.85)}
-  .frow.a{background:rgba(255,255,255,.10)} .frow.a .fi{background:var(--green);color:#fff}
-  .frow.b .fi{background:rgba(242,184,41,.9);color:#3a2c00}
-  .frow.c .fi{background:rgba(255,255,255,.16);color:#fff}
-  .farr{text-align:center;color:rgba(255,255,255,.4);font-size:13px;line-height:.6;margin:1px 0}
+  /* privacy */
+  .priv h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(28px,4.4vw,46px);line-height:1.24;text-wrap:balance}
+  .priv p{color:var(--ink2);font-size:16px;margin-top:16px;max-width:48ch}
+  .ppoints{list-style:none;margin-top:22px}
+  .ppoints li{position:relative;padding:10px 0 10px 30px;font-size:15.5px;color:var(--ink)}
+  .ppoints li b{color:var(--forest)}
+  .ppoints li::before{content:'';position:absolute;left:0;top:12px;width:18px;height:18px;border-radius:50%;background:var(--green);
+        -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9.55 17.6 4.4 12.45l1.42-1.42 3.73 3.73 8.23-8.23 1.42 1.42z'/%3E%3C/svg%3E") center/contain no-repeat;
+        mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9.55 17.6 4.4 12.45l1.42-1.42 3.73 3.73 8.23-8.23 1.42 1.42z'/%3E%3C/svg%3E") center/contain no-repeat}
 
-  /* ---- steps ---- */
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:40px}
-  @media(max-width:760px){.steps{grid-template-columns:1fr}}
-  .step{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:var(--cardsh)}
-  .step .n{font-family:var(--nira);font-weight:700;font-size:14px;color:var(--green-d);
-           width:32px;height:32px;border-radius:9px;background:var(--green-card);display:grid;place-items:center;margin-bottom:14px}
-  .step h3{font-size:17px;font-weight:600;margin-bottom:6px}
-  .step p{color:var(--ink2);font-size:14.5px}
+  /* steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:42px}
+  .step .n{width:40px;height:40px;border-radius:50%;background:var(--blush-2);border:1px solid var(--line);color:var(--forest);
+        font-family:var(--serif);font-weight:600;font-size:19px;display:grid;place-items:center;margin-bottom:14px}
+  .step h3{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:20px}
+  .step p{color:var(--ink2);font-size:14.5px;margin-top:6px;text-wrap:pretty}
 
-  /* ---- pricing ---- */
-  .plans{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:42px;
-         max-width:760px;margin-inline:auto}
-  @media(max-width:680px){.plans{grid-template-columns:1fr}}
-  .plan{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;
-        padding:28px;box-shadow:var(--cardsh);display:flex;flex-direction:column}
-  .plan.free{border:1.5px solid var(--green);box-shadow:var(--liftsh)}
-  .plan.soon{background:#FBFAF6}
-  .plan-badge{align-self:flex-start;font-family:var(--nira);font-size:12px;font-weight:600;
-              padding:4px 12px;border-radius:20px;background:var(--green-card);color:var(--green-d);
-              margin-bottom:14px}
-  .plan-badge.soon{background:#F0ECE1;color:var(--ink2)}
-  .plan-name{font-family:var(--nira);font-size:22px;font-weight:600;color:var(--ink)}
-  .plan-price{font-family:var(--nira);font-size:34px;font-weight:700;color:var(--ink);margin:4px 0 2px}
-  .plan-price span{font-size:15px;font-weight:500;color:var(--ink2)}
-  .plan-price.muted{font-size:22px;color:var(--ink2);font-weight:600}
-  .plan-sub{color:var(--ink2);font-size:14px;margin-bottom:20px}
-  .plan-feat{list-style:none;display:flex;flex-direction:column;gap:11px;margin-bottom:24px}
-  .plan-feat li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;color:var(--ink);line-height:1.4}
-  .plan-feat li i{color:var(--green-d);margin-top:2px;flex:0 0 auto;font-size:16px;display:block}
-  .plan.soon .plan-feat li{color:var(--ink2)} .plan.soon .plan-feat li i{color:var(--ink3)}
-  .plan .btn{width:100%;justify-content:center;margin-top:auto}
-  .plan .btn[disabled]{opacity:.5;cursor:default;pointer-events:none}
+  /* pricing */
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:42px;max-width:880px;margin-inline:auto}
+  .plan{background:var(--blush-2);border:1px solid var(--line);border-radius:24px;padding:30px 28px;display:flex;flex-direction:column}
+  .plan.free{border-color:var(--green);box-shadow:0 0 0 3px rgba(28,122,72,.10)}
+  .pbadge{align-self:flex-start;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;background:var(--green);color:#fff}
+  .pbadge.soon{background:#EFE6D7;color:var(--ink2)}
+  .pname{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:26px;margin-top:14px}
+  .pprice{font-family:var(--serif);font-size:40px;color:var(--forest);font-weight:600;margin-top:2px}
+  .pprice span{font-family:var(--sans);font-size:15px;color:var(--ink2);font-weight:500}
+  .pprice.muted{font-size:24px;color:var(--ink2)}
+  .psub{color:var(--ink2);font-size:14.5px;margin:6px 0 16px}
+  .pfeat{list-style:none;flex:1;margin-bottom:20px}
+  .pfeat li{position:relative;padding:9px 0 9px 26px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink)}
+  .pfeat li:first-child{border-top:none}
+  .pfeat li::before{content:'';position:absolute;left:0;top:13px;width:15px;height:15px;border-radius:50%;background:var(--green-2);
+        -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9.55 17.6 4.4 12.45l1.42-1.42 3.73 3.73 8.23-8.23 1.42 1.42z'/%3E%3C/svg%3E") center/contain no-repeat;
+        mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9.55 17.6 4.4 12.45l1.42-1.42 3.73 3.73 8.23-8.23 1.42 1.42z'/%3E%3C/svg%3E") center/contain no-repeat}
+  .plan .pill[disabled]{background:#E4D9C8;color:var(--ink3);cursor:default;transform:none}
 
-  /* ---- final cta ---- */
-  .cta{background:var(--white);border:1px solid var(--line);border-radius:28px;padding:clamp(34px,5vw,60px);
-       text-align:center;box-shadow:var(--cardsh)}
-  .cta h2{font-size:clamp(26px,4vw,40px);font-weight:600;line-height:1.18;text-wrap:balance}
-  .cta p{color:var(--ink2);margin-top:14px;font-size:17px}
-  .waitlist{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
-  .waitlist input{height:50px;padding:0 18px;border-radius:14px;border:1px solid var(--line);
-                  background:#fff;font:inherit;font-size:15px;min-width:min(280px,80vw);color:var(--ink)}
-  .waitlist input::placeholder{color:var(--ink2);opacity:1}
-  .waitlist input:focus{outline:none;border-color:var(--green-d);box-shadow:0 0 0 3px var(--green-card)}
-  .wl-ok{margin-top:24px;font-family:var(--nira);font-weight:600;color:var(--green-d);font-size:17px}
-  .wl-note{font-size:12.5px;color:var(--ink2);margin-top:14px}
+  /* waitlist CTA */
+  .cta-final{text-align:center;background:var(--forest);color:#fff;border-radius:32px;padding:clamp(40px,6vw,72px) clamp(20px,4vw,40px);margin:0 auto;max-width:1140px}
+  .cta-final h2{font-family:var(--serif);font-weight:500;font-size:clamp(28px,4.4vw,46px);line-height:1.26;text-wrap:balance}
+  .cta-final p{color:rgba(255,255,255,.82);margin-top:14px;font-size:16px}
+  .waitlist{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+  .waitlist .field{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+  .waitlist label{font-size:12.5px;color:rgba(255,255,255,.7);padding-left:4px}
+  .waitlist input{height:52px;padding:0 18px;border-radius:14px;border:1.5px solid rgba(255,255,255,.22);background:rgba(255,255,255,.10);
+        font:inherit;font-size:15px;min-width:min(300px,82vw);color:#fff}
+  .waitlist input::placeholder{color:rgba(255,255,255,.6)}
+  .waitlist input:focus{outline:none;border-color:var(--yellow);background:rgba(255,255,255,.16)}
+  .waitlist .pill{background:var(--yellow);color:#3a2c00}.waitlist .pill:hover{background:#e0a91e}
+  .wl-err{color:#FFD9C2;font-size:12.5px;min-height:1em;padding-left:4px}
+  .wl-ok{margin-top:24px;font-family:var(--serif);font-size:19px}
+  .wl-note{font-size:12.5px;color:rgba(255,255,255,.62);margin-top:16px}
 
-  /* ---- footer ---- */
-  footer{padding:46px 0 38px;border-top:1px solid var(--line);margin-top:30px;color:var(--ink2);font-size:14px}
-  .frow2{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
-  footer a{color:var(--ink2)} footer a:hover{color:var(--green-d)}
+  footer{padding:48px 0 40px;margin-top:clamp(40px,6vw,72px);color:var(--ink2);font-size:14px;border-top:1px solid var(--line)}
+  .frow{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
   .fnav{display:flex;gap:22px;flex-wrap:wrap}
+  footer a:hover{color:var(--forest)}
 
-  /* ---- reveal motion ---- */
-  .rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
+  /* reveal */
+  .rv{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
   .rv.in{opacity:1;transform:none}
-  @media(prefers-reduced-motion:reduce){
-    *{scroll-behavior:auto!important}
-    .rv{opacity:1;transform:none;transition:none}
-    .uc-panel.on{animation:none}
-    .uc-chat .fd>*{animation:none}
+
+  @media(max-width:880px){
+    .split,.split.rev{grid-template-columns:1fr;gap:28px}
+    .feat,.steps{grid-template-columns:1fr}
+    .plans{grid-template-columns:1fr;max-width:460px}
+    .crow{grid-template-columns:repeat(3,1fr)}
+    .card:nth-child(4),.card:nth-child(5){display:none}
   }
+  @media(max-width:560px){
+    .crow{grid-auto-flow:column;grid-auto-columns:66%;grid-template-columns:none;overflow-x:auto;
+          scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
+    .card{scroll-snap-align:center}.card:nth-child(4),.card:nth-child(5){display:block}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}.rv{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -337,268 +201,111 @@
 <!-- NAV -->
 <header class="nav" id="nav">
   <div class="wrap row">
-    <a class="logo" href="#top"><span class="mark"><img src="assets/pin-icon.png" alt="ปิ่น"></span> ปิ่น</a>
+    <a class="brand" href="#top">ปิ่น
+      <svg class="bloom" viewBox="0 0 24 30" fill="none" aria-hidden="true">
+        <path d="M9 29V11M13 29V11" stroke="#1B3A29" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="11" cy="6" r="4.4" fill="#F2B829"/><circle cx="11" cy="6" r="1.7" fill="#1B3A29"/>
+      </svg>
+    </a>
     <nav>
-      <a href="#uses">การใช้งาน</a>
-      <a href="#features">จุดเด่น</a>
+      <a href="#uses">วิธีใช้</a>
       <a href="#privacy">ความเป็นส่วนตัว</a>
       <a href="#pricing">ราคา</a>
-      <a href="#how">เริ่มต้น</a>
     </nav>
     <span class="sp"></span>
-    <a class="btn btn-p navdl" href="#download">ดาวน์โหลด <span class="ar">→</span></a>
+    <a class="pill navcta" href="#join">รับสิทธิ์ก่อนใคร</a>
     <button class="burger" id="burger" aria-label="เมนู" aria-expanded="false" aria-controls="mnav"><i class="ph ph-list"></i></button>
   </div>
   <div class="mnav wrap" id="mnav">
-    <a href="#uses">การใช้งาน</a>
+    <a href="#uses">วิธีใช้</a>
     <a href="#features">จุดเด่น</a>
     <a href="#privacy">ความเป็นส่วนตัว</a>
     <a href="#pricing">ราคา</a>
-    <a href="#how">เริ่มต้น</a>
-    <a class="btn btn-p" href="#download">รับแจ้งเตือนเปิดตัว</a>
+    <a class="pill" href="#join">รับสิทธิ์ก่อนใคร</a>
   </div>
 </header>
 
 <!-- HERO -->
 <section class="hero" id="top">
-  <div class="wrap grid">
-    <div class="rv in">
-      <div class="eyebrow">ผู้ช่วยเอไอ ภาษาไทย · ทำงานบนเครื่องคุณ</div>
-      <h1 class="h1">ผู้ช่วยส่วนตัว<br>ที่เป็น<span class="hl">ส่วนตัวจริง ๆ</span></h1>
-      <p class="lede">ปิ่น ช่วยเตือน จัดการงาน ตอบคำถาม และต่อยอดความสามารถได้เรื่อย ๆ
-        ทุกบทสนทนาเข้ารหัสลับ เปิดอ่านได้แค่คุณ และสมองทำงานบนเครื่องคุณ
-        เซิร์ฟเวอร์ของเรา <b>มองไม่เห็น</b> ข้อมูลส่วนตัวของคุณเลย</p>
-      <div class="hero-cta">
-        <a class="btn btn-p" href="#download">เริ่มใช้ฟรี <span class="ar">→</span></a>
-        <a class="btn btn-g" href="#uses"><i class="ph ph-cursor-click"></i> ดูการใช้งานจริง</a>
-      </div>
-      <div class="hero-trust">
-        <span><i class="dot"></i> เปิดอ่านได้แค่คุณ</span>
-        <span><i class="dot"></i> สมองบนเครื่อง</span>
-        <span><i class="dot"></i> ไม่มีโฆษณา ไม่ขายข้อมูล</span>
-      </div>
+  <div class="wrap">
+    <svg class="sig" viewBox="0 0 90 110" fill="none" aria-hidden="true">
+      <path d="M37 108V44M53 108V44" stroke="#1B3A29" stroke-width="5" stroke-linecap="round"/>
+      <path d="M45 48c-12-4-20 4-15 11 4 6 15 3 15-4" stroke="#34B06A" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M45 50c12-5 21 3 16 11-4 6-16 2-16-5" stroke="#1C7A48" stroke-width="4.5" stroke-linecap="round"/>
+      <circle cx="27" cy="18" r="6" fill="#F4C95B"/><circle cx="63" cy="18" r="6" fill="#F4C95B"/>
+      <circle cx="33" cy="38" r="5" fill="#F4C95B"/><circle cx="57" cy="38" r="5" fill="#F4C95B"/>
+      <circle cx="45" cy="24" r="16" fill="#F2B829"/><circle cx="45" cy="24" r="6" fill="#1B3A29"/>
+    </svg>
+    <h1 class="h1">ผู้ช่วยส่วนตัว<br>ที่<em>รู้ใจ</em>คุณจริง ๆ</h1>
+    <p class="lede">คุยได้ทุกเรื่อง ช่วยจัดการชีวิต และจำคุณได้ — บนเครื่องคุณ เปิดอ่านได้แค่คุณ</p>
+    <div class="hero-cta">
+      <a class="pill lg" href="#join">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
+      <a class="ghost" href="#uses">ดูวิธีใช้</a>
     </div>
+    <div class="hero-note">เปิดตัวเร็ว ๆ นี้ · ใช้ฟรี ไม่มีโฆษณา</div>
+  </div>
+</section>
 
-    <!-- phone mock -->
-    <div class="phone-wrap rv in">
-      <div class="glow"></div>
-      <div class="phone">
-        <div class="screen">
-          <div class="pbar"><span>9:41</span><span style="letter-spacing:1px">▮▮▮ &nbsp;100%</span></div>
-          <div class="pnav"><i class="ph ph-list"></i><span class="pday">วันนี้</span><i class="ph ph-dots-three-outline"></i></div>
-          <div class="pfeed">
-            <div class="brow left">
-              <div class="bub pin">สวัสดีค่ะ ปิ่นเอง 📎 วันนี้ให้ช่วยอะไรดีคะ?</div>
-              <div class="bt">11:12</div>
-            </div>
-            <div class="brow right">
-              <div class="bub me">พรุ่งนี้อากาศเป็นไง</div>
-              <div class="bt">11:14</div>
-            </div>
-            <div class="brow left">
-              <div class="bub pin">พรุ่งนี้กรุงเทพฯ ฝน 80% ช่วงบ่าย 24–31° เอาร่มไปด้วยนะคะ ☔</div>
-              <div class="bt">11:15</div>
-            </div>
-            <div class="brow right">
-              <div class="bub me">เตือนกินยา 9 โมงทุกวันด้วย</div>
-              <div class="bt">11:34</div>
-            </div>
-            <div class="brow left">
-              <div class="bub pin">ตั้งให้แล้วค่ะ ⏰ เตือนกินยาทุกวัน 09:00 น.</div>
-            </div>
-            <div class="brow left">
-              <div class="pcard">
-                <div class="phd"><span><i class="ph ph-list-checks"></i> งานค้าง</span><span class="pcount">4 รายการ</span></div>
-                <div class="ptask"><div class="ptl">ปิดเทอม 2 · เหลือ 4</div><div class="pbar2"><span style="width:62%"></span></div></div>
-                <div class="ptask"><div class="ptl">พรีเซนต์ B · พฤหัส</div><div class="pbar2"><span style="width:35%"></span></div></div>
-              </div>
-            </div>
-          </div>
-          <div class="pcomp">
-            <span class="pci"><i class="ph ph-plus"></i></span>
-            <span class="pci"><i class="ph ph-image"></i></span>
-            <span class="ptext">พิมพ์ข้อความ…</span>
-            <span class="pmic"><i class="ph ph-microphone"></i></span>
-          </div>
-        </div>
-      </div>
-      <!-- floating cards for depth -->
-      <div class="float a">
-        <span class="fi"><i class="ph ph-bell"></i></span>
-        <div><div class="ft">ตั้งเตือนแล้ว</div><div class="fd">ทุกวันที่ 25 · 9 โมงเช้า</div></div>
-      </div>
-      <div class="float b">
-        <span class="fi"><i class="ph-fill ph-lock-key"></i></span>
-        <div><div class="ft">เปิดอ่านได้แค่คุณ</div><div class="fd">เข้ารหัสลับทั้งหมด</div></div>
-      </div>
+<!-- USE-CASE CARDS -->
+<section class="cards" id="uses">
+  <div class="wrap">
+    <div class="crow rv">
+      <div class="card"><img src="assets/cards/work.jpg" alt="ช่วยจัดการงาน" loading="lazy"><span class="chip"><i class="ph ph-briefcase"></i> จัดการงาน</span></div>
+      <div class="card"><img src="assets/cards/student.jpg" alt="ติวและทบทวนบทเรียน" loading="lazy"><span class="chip"><i class="ph ph-books"></i> ติว & ทบทวน</span></div>
+      <div class="card"><img src="assets/cards/family.jpg" alt="ดูแลเรื่องในบ้าน" loading="lazy"><span class="chip"><i class="ph ph-house"></i> ดูแลเรื่องบ้าน</span></div>
+      <div class="card"><img src="assets/cards/freelance.jpg" alt="ช่วยงานครีเอทีฟ" loading="lazy"><span class="chip"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</span></div>
+      <div class="card"><img src="assets/cards/owner.jpg" alt="ช่วยดูแลร้านค้า" loading="lazy"><span class="chip"><i class="ph ph-storefront"></i> ดูแลร้านค้า</span></div>
     </div>
   </div>
 </section>
 
-<!-- WOW STRIP -->
-<div class="wow">
-  <div class="wrap row5">
-    <div class="it">
-      <span class="ic"><i class="ph ph-brain"></i></span>
-      <div><h4>จำคุณได้</h4><p>จำความชอบ แล้วเอามาใช้เอง</p></div>
-    </div>
-    <div class="it">
-      <span class="ic"><i class="ph ph-squares-four"></i></span>
-      <div><h4>สโตร์ความสามารถ</h4><p>ดูดวง ค่าเงิน ข่าว วาดรูป</p></div>
-    </div>
-    <div class="it">
-      <span class="ic"><i class="ph ph-paint-brush"></i></span>
-      <div><h4>วาดรูปจากข้อความ</h4><p>พิมพ์บรรยาย ปิ่นวาดให้</p></div>
-    </div>
-    <div class="it">
-      <span class="ic"><i class="ph ph-globe"></i></span>
-      <div><h4>ค้นเว็บเรียลไทม์</h4><p>ถามเรื่องสดๆ พร้อมแหล่ง</p></div>
-    </div>
-    <div class="it">
-      <span class="ic"><i class="ph-fill ph-lock-key"></i></span>
-      <div><h4>ส่วนตัว 100%</h4><p>เข้ารหัส สมองบนเครื่อง</p></div>
-    </div>
+<!-- ASK BAND -->
+<section class="ask">
+  <div class="wrap center">
+    <h2 class="sec-title">ถามปิ่นได้ทุกเรื่อง คุยได้ทั้งวัน</h2>
+    <p class="sec-sub">เตือนนัด สรุปไฟล์ ดูดวง ค้นเว็บ วาดรูป — สั่งเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว</p>
   </div>
-</div>
-
-<!-- USE CASES -->
-<section class="pad" id="uses">
-  <div class="wrap">
-    <div class="center rv">
-      <h2 class="sec-title">ปิ่น ช่วยคุณได้ — ไม่ว่าคุณเป็นใคร</h2>
-      <p class="sec-sub" style="margin-inline:auto">เลือกแบบที่ใกล้ตัวคุณ แล้วดูว่าปิ่นช่วยจริงยังไงในแชตเดียว</p>
-    </div>
-
-    <div class="uc-tabs rv" id="ucTabs">
-      <button class="uc-tab on" data-uc="work"><span class="e"><i class="ph ph-briefcase"></i></span> คนทำงาน</button>
-      <button class="uc-tab" data-uc="student"><span class="e"><i class="ph ph-graduation-cap"></i></span> นักเรียน–นักศึกษา</button>
-      <button class="uc-tab" data-uc="family"><span class="e"><i class="ph ph-house"></i></span> ครอบครัว</button>
-      <button class="uc-tab" data-uc="freelance"><span class="e"><i class="ph ph-pencil-simple"></i></span> ฟรีแลนซ์</button>
-      <button class="uc-tab" data-uc="owner"><span class="e"><i class="ph ph-storefront"></i></span> เจ้าของร้าน</button>
-    </div>
-
-    <div class="uc-stage rv">
-      <div class="uc-panel on" data-uc="work">
-        <div class="uc-kicker"><span><i class="ph ph-briefcase"></i></span> คนทำงานออฟฟิศ</div>
-        <h3 class="uc-h">คอยกันลืม จัดคิวงาน และสรุปให้</h3>
-        <p class="uc-p">นัดประชุม เตือนเดดไลน์ สรุปไฟล์ยาว ๆ ให้สั้นลง สั่งเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว</p>
-        <div class="uc-out">
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ตั้งเตือนซ้ำ &amp; นัดล่วงหน้าได้เอง</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> สรุป PDF / เอกสารเป็นหัวข้อสั้น</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> รายการงานค้าง รวมไว้ที่เดียว</div>
-        </div>
-      </div>
-      <div class="uc-panel" data-uc="student">
-        <div class="uc-kicker"><span><i class="ph ph-graduation-cap"></i></span> นักเรียน–นักศึกษา</div>
-        <h3 class="uc-h">ติวให้เข้าใจ เตือนส่งงาน จดความรู้</h3>
-        <p class="uc-p">ถามการบ้านได้ทีละขั้น เตือนวันส่งงาน เก็บความรู้ไว้ถามซ้ำได้ ทั้งหมดอยู่บนเครื่องคุณ ไม่หลุดไปไหน</p>
-        <div class="uc-out">
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> อธิบายทีละสเต็ป ไม่ลอกให้เฉย ๆ</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนเดดไลน์ส่งงาน</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> บันทึกความรู้ ค้นกลับมาได้</div>
-        </div>
-      </div>
-      <div class="uc-panel" data-uc="family">
-        <div class="uc-kicker"><span><i class="ph ph-house"></i></span> ครอบครัว</div>
-        <h3 class="uc-h">ผู้ช่วยอุ่นใจ ดูแลเรื่องเล็ก ๆ ทุกวัน</h3>
-        <p class="uc-p">เตือนกินยา จดของที่ต้องซื้อ เช็กอากาศก่อนออกจากบ้าน คุยเป็นกันเองเหมือนคนในบ้าน</p>
-        <div class="uc-out">
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนกินยา / นัดหมอ</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ลิสต์ของซื้อ &amp; สิ่งที่ต้องทำ</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ปรับคำเรียก–บุคลิกให้ถูกใจ</div>
-        </div>
-      </div>
-      <div class="uc-panel" data-uc="freelance">
-        <div class="uc-kicker"><span><i class="ph ph-pencil-simple"></i></span> ฟรีแลนซ์ / ครีเอเตอร์</div>
-        <h3 class="uc-h">ร่างงาน หาไอเดีย คุมเดดไลน์ลูกค้า</h3>
-        <p class="uc-p">ช่วยร่างข้อความ คิดหัวข้อ วาดภาพประกอบ และเตือนส่งงานแต่ละเจ้า ข้อมูลลูกค้าอยู่บนเครื่องคุณเท่านั้น</p>
-        <div class="uc-out">
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ร่าง/ขัดเกลาข้อความ &amp; แคปชัน</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> วาดรูปประกอบจากคำบรรยาย</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เตือนเดดไลน์รายลูกค้า</div>
-        </div>
-      </div>
-      <div class="uc-panel" data-uc="owner">
-        <div class="uc-kicker"><span><i class="ph ph-storefront"></i></span> เจ้าของร้าน / SME</div>
-        <h3 class="uc-h">สรุปยอด เช็กต้นทุน ตอบลูกค้า</h3>
-        <p class="uc-p">สรุปยอดขาย เช็กค่าเงินก่อนสั่งของ ร่างโปรโมชั่นและตอบแชตลูกค้า เพิ่มความสามารถเฉพาะธุรกิจผ่านสโตร์ได้</p>
-        <div class="uc-out">
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> สรุปยอดขาย / อ่านบิล–ใบเสร็จ</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> เช็กค่าเงิน–ราคาวัตถุดิบ ก่อนสั่งของ</div>
-          <div class="o"><span class="c"><i class="ph ph-check"></i></span> ร่างโปรโมชั่น &amp; ตอบลูกค้า</div>
-        </div>
-      </div>
-
-      <div class="uc-chat">
-        <div class="hd">
-          <span class="av">ปิ่</span>
-          <div><div class="nm">ปิ่น</div><div class="st"><i></i> <span id="featLabel">กำลังช่วยอยู่</span></div></div>
-        </div>
-        <div class="fd" id="ucChat"></div>
+  <div class="wrap" style="margin-top:34px">
+    <div class="askwrap">
+      <div class="shot rv"><img src="assets/cards/ask.jpg" alt="คุยกับปิ่นจากที่ไหนก็ได้" loading="lazy"></div>
+      <div class="chatcard rv">
+        <div class="bub me">เตือนกินยา 9 โมงทุกวันด้วย</div>
+        <div class="bub pin">ตั้งให้แล้วค่ะ ⏰ เตือนกินยาทุกวัน 09:00 น.</div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- FEATURES -->
-<section class="pad" id="features" style="background:var(--white);border-block:1px solid var(--line)">
+<section class="pad" id="features">
   <div class="wrap">
-    <div class="center rv">
-      <h2 class="sec-title">ฉลาด อุ่นใจ และเป็น<span class="hl">ของคุณคนเดียว</span></h2>
-    </div>
-    <div class="pgrid">
-      <div class="pillar rv">
-        <div class="demo">
-          <div class="dlabel"><i class="ph ph-squares-four"></i> สโตร์ความสามารถ</div>
-          <div class="dchips">
-            <span class="dchip"><i class="ph ph-moon-stars"></i> ดูดวง</span>
-            <span class="dchip"><i class="ph ph-currency-circle-dollar"></i> ค่าเงิน</span>
-            <span class="dchip"><i class="ph ph-newspaper"></i> ข่าว</span>
-            <span class="dchip"><i class="ph ph-paint-brush"></i> วาดรูป</span>
-          </div>
-        </div>
+    <div class="center rv"><h2 class="sec-title">ฉลาด อุ่นใจ และเป็นของคุณคนเดียว</h2></div>
+    <div class="feat">
+      <div class="fcard rv">
         <h3>ฉลาด</h3>
-        <div class="lead">ช่วยงานได้จริง สั่งเป็นภาษาพูด</div>
+        <div class="fl">ช่วยงานได้จริง สั่งเป็นภาษาพูด</div>
         <ul>
-          <li><i class="ph ph-check"></i> เตือน นัด และเก็บงานค้างไว้ที่เดียว</li>
-          <li><i class="ph ph-check"></i> สโตร์ความสามารถ: ดูดวง ค่าเงิน ข่าว วาดรูป</li>
-          <li><i class="ph ph-check"></i> สรุปไฟล์ยาว ๆ และจำความรู้ไว้ถามซ้ำ</li>
+          <li>เตือน นัด และเก็บงานค้างไว้ที่เดียว</li>
+          <li>สโตร์ความสามารถ: ดูดวง ค่าเงิน ข่าว วาดรูป</li>
+          <li>สรุปไฟล์ยาว ๆ และจำความรู้ไว้ถามซ้ำ</li>
         </ul>
       </div>
-      <div class="pillar rv">
-        <div class="demo">
-          <div class="wire">
-            <div class="wlabel"><i class="ph ph-arrows-left-right"></i> ข้อมูลบนเครือข่าย</div>
-            <div class="cipher">8f3a··b21e··9c47··d0a5</div>
-          </div>
-          <div class="lockrow"><i class="ph-fill ph-lock-key"></i> เปิดอ่านได้แค่คุณกับปิ่น</div>
-        </div>
+      <div class="fcard rv">
         <h3>อุ่นใจ</h3>
-        <div class="lead">เป็นส่วนตัวจริง ตั้งแต่ออกแบบ</div>
+        <div class="fl">เป็นส่วนตัวจริง ตั้งแต่ออกแบบ</div>
         <ul>
-          <li><i class="ph ph-check"></i> เข้ารหัสลับ กุญแจอยู่ที่คุณคนเดียว</li>
-          <li><i class="ph ph-check"></i> สมองเอไอรันบนเครื่อง ไม่เก็บบนเซิร์ฟเวอร์</li>
-          <li><i class="ph ph-check"></i> ตัวกลางที่มองไม่เห็น เซิร์ฟเวอร์อ่านข้อมูลคุณไม่ได้</li>
+          <li>เข้ารหัสลับ กุญแจอยู่ที่คุณคนเดียว</li>
+          <li>สมองเอไอทำงานบนเครื่อง ไม่เก็บบนเซิร์ฟเวอร์</li>
+          <li>ตัวกลางที่มองไม่เห็น เซิร์ฟเวอร์อ่านข้อมูลคุณไม่ได้</li>
         </ul>
       </div>
-      <div class="pillar rv">
-        <div class="demo">
-          <div class="prow">
-            <span class="pav">ปิ่</span>
-            <div><div class="pnm">ปิ่น</div><div class="psub">น้ำเสียง · อ่อนโยน</div></div>
-          </div>
-          <div class="tones">
-            <span class="dchip on">อ่อนโยน</span>
-            <span class="dchip">สนุก</span>
-            <span class="dchip">เป็นทางการ</span>
-          </div>
-        </div>
+      <div class="fcard rv">
         <h3>เป็นของคุณ</h3>
-        <div class="lead">ปรับได้ พกไปได้ ไม่มีใครแทรก</div>
+        <div class="fl">ปรับได้ พกไปได้ ไม่มีใครแทรก</div>
         <ul>
-          <li><i class="ph ph-check"></i> ปรับชื่อ บุคลิก และน้ำเสียงของปิ่น</li>
-          <li><i class="ph ph-check"></i> กู้คืนข้ามเครื่องด้วยกุญแจชุดเดียว</li>
-          <li><i class="ph ph-check"></i> ไม่มีโฆษณา ไม่ขายข้อมูล</li>
+          <li>ปรับชื่อ บุคลิก และน้ำเสียงของปิ่น</li>
+          <li>กู้คืนข้ามเครื่องด้วยกุญแจชุดเดียว</li>
+          <li>ไม่มีโฆษณา ไม่ขายข้อมูล</li>
         </ul>
       </div>
     </div>
@@ -606,107 +313,103 @@
 </section>
 
 <!-- PRIVACY -->
-<section class="pad" id="privacy">
+<section class="pad" id="privacy" style="background:var(--blush-2);border-block:1px solid var(--line)">
   <div class="wrap">
-    <div class="priv rv">
-      <div>
-        <div class="eyebrow" style="color:rgba(255,255,255,.85)">เป็นส่วนตัวตั้งแต่ออกแบบ</div>
+    <div class="split priv">
+      <div class="rv">
         <h2>ไม่มีใคร<br>อ่านแชตคุณได้</h2>
-        <p>ทุกข้อความเข้ารหัสลับตั้งแต่ในเครื่องคุณ เปิดอ่านได้แค่คุณกับปิ่นเท่านั้น
-          แม้แต่เราก็มองไม่เห็น เวลาปิ่นถามเอไอ จะส่งไปแค่คำถามที่จำเป็น
-          ไม่ส่งว่าคุณเป็นใคร ไม่เก็บบทสนทนา ความเป็นส่วนตัวคือค่าเริ่มต้น ไม่ใช่ออปชัน</p>
+        <p>ทุกข้อความเข้ารหัสลับตั้งแต่ในเครื่องคุณ เปิดอ่านได้แค่คุณกับปิ่นเท่านั้น แม้แต่เราก็มองไม่เห็น</p>
+        <ul class="ppoints">
+          <li><b>เปิดอ่านได้แค่คุณ</b> — เข้ารหัสลับทั้งหมด กุญแจอยู่ที่เครื่องคุณ</li>
+          <li><b>สมองอยู่บนเครื่อง</b> — บทสนทนาและความทรงจำไม่ออกจากมือถือ</li>
+          <li><b>ถามเอไอแบบไม่เปิดเผยตัว</b> — ส่งไปแค่คำถาม ไม่ส่งว่าคุณเป็นใคร</li>
+        </ul>
       </div>
-      <div class="flowcard">
-        <div class="frow a"><span class="fi"><i class="ph ph-device-mobile"></i></span><div><div class="ft">เครื่องของคุณ</div><div class="fd">สมองปิ่น + แชตที่เข้ารหัส</div></div></div>
-        <div class="farr">▾</div>
-        <div class="frow b"><span class="fi"><i class="ph-fill ph-shield-check"></i></span><div><div class="ft">ตัวกลางที่มองไม่เห็น</div><div class="fd">ส่งต่อแค่คำถาม ไม่เห็นว่าเป็นคุณ</div></div></div>
-        <div class="farr">▾</div>
-        <div class="frow c"><span class="fi"><i class="ph ph-robot"></i></span><div><div class="ft">เอไอที่ช่วยตอบ</div><div class="fd">ตอบโดยไม่รู้ว่าคุณเป็นใคร</div></div></div>
-      </div>
+      <div class="shot rv"><img src="assets/cards/privacy.jpg" alt="ความเป็นส่วนตัวของคุณ" loading="lazy"></div>
     </div>
   </div>
 </section>
 
-<!-- HOW -->
-<section class="pad" id="how" style="background:var(--white);border-block:1px solid var(--line)">
+<!-- STEPS -->
+<section class="pad" id="how">
   <div class="wrap">
-    <div class="center rv">
-      <h2 class="sec-title">พร้อมใช้ใน 3 ขั้น</h2>
-    </div>
+    <div class="center rv"><h2 class="sec-title">พร้อมใช้ใน 3 ขั้น</h2></div>
     <div class="steps">
-      <div class="step rv"><div class="n">1</div><h3>ดาวน์โหลด &amp; สมัคร</h3>
-        <p>เข้าด้วย Google หรือสร้างบัญชี ตั้งค่าความเป็นส่วนตัวให้เสร็จในไม่กี่นาที</p></div>
-      <div class="step rv"><div class="n">2</div><h3>เก็บกุญแจกู้คืน</h3>
-        <p>บันทึกกุญแจไว้ในที่ปลอดภัย (เซฟลงรูปได้) ไว้กู้คืนเมื่อย้ายเครื่อง</p></div>
-      <div class="step rv"><div class="n">3</div><h3>คุยกับปิ่นได้เลย</h3>
-        <p>ตั้งชื่อ ปรับบุคลิก แล้วเริ่มสั่งงาน เพิ่มความสามารถใหม่ได้ตลอด</p></div>
+      <div class="step rv"><div class="n">1</div><h3>ดาวน์โหลด &amp; สมัคร</h3><p>เข้าด้วย Google หรือสร้างบัญชี ตั้งค่าความเป็นส่วนตัวในไม่กี่นาที</p></div>
+      <div class="step rv"><div class="n">2</div><h3>เก็บกุญแจกู้คืน</h3><p>บันทึกกุญแจไว้ในที่ปลอดภัย (เซฟลงรูปได้) ไว้กู้คืนเมื่อย้ายเครื่อง</p></div>
+      <div class="step rv"><div class="n">3</div><h3>คุยกับปิ่นได้เลย</h3><p>ตั้งชื่อ ปรับบุคลิก แล้วเริ่มสั่งงาน เพิ่มความสามารถใหม่ได้ตลอด</p></div>
     </div>
   </div>
 </section>
 
 <!-- PRICING -->
-<section class="pad" id="pricing">
+<section class="pad" id="pricing" style="background:var(--blush-2);border-block:1px solid var(--line)">
   <div class="wrap">
     <div class="center rv">
-      <h2 class="sec-title">เริ่ม<span class="hl">ฟรี</span> พรีเมียมเร็ว ๆ นี้</h2>
-      <p class="sec-sub" style="margin-inline:auto">ใช้ฟรีได้เต็มที่ทุกวัน ของขั้นสูงกำลังจะมา</p>
+      <h2 class="sec-title">เริ่ม<em>ฟรี</em> พรีเมียมเร็ว ๆ นี้</h2>
+      <p class="sec-sub">ใช้ฟรีได้เต็มที่ทุกวัน ของขั้นสูงกำลังจะมา</p>
     </div>
     <div class="plans rv">
-      <!-- FREE -->
       <div class="plan free">
-        <span class="plan-badge">ใช้ได้เลย</span>
-        <div class="plan-name">ฟรี</div>
-        <div class="plan-price">฿0<span>/เดือน</span></div>
-        <p class="plan-sub">ผู้ช่วยส่วนตัวครบ ใช้ได้ทุกวัน</p>
-        <ul class="plan-feat">
-          <li><i class="ph ph-check"></i> แชตกับปิ่น (เข้ารหัสลับ เปิดอ่านได้แค่คุณ)</li>
-          <li><i class="ph ph-check"></i> ค้นเว็บ Google เรียลไทม์</li>
-          <li><i class="ph ph-check"></i> ตั้งเตือน &amp; จัดการงาน</li>
-          <li><i class="ph ph-check"></i> วาดรูป · สรุปไฟล์ · ถอดเสียง · วิเคราะห์รูป</li>
-          <li><i class="ph ph-check"></i> ความสามารถพื้นฐาน</li>
+        <span class="pbadge">ใช้ได้เลย</span>
+        <div class="pname">ฟรี</div>
+        <div class="pprice">฿0<span>/เดือน</span></div>
+        <p class="psub">ผู้ช่วยส่วนตัวครบ ใช้ได้ทุกวัน</p>
+        <ul class="pfeat">
+          <li>แชตกับปิ่น (เข้ารหัสลับ เปิดอ่านได้แค่คุณ)</li>
+          <li>ค้นเว็บ Google เรียลไทม์</li>
+          <li>ตั้งเตือน &amp; จัดการงาน</li>
+          <li>วาดรูป · สรุปไฟล์ · ถอดเสียง · วิเคราะห์รูป</li>
+          <li>ความสามารถพื้นฐาน</li>
         </ul>
-        <a class="btn btn-p" href="#download">เริ่มใช้ฟรี <span class="ar">→</span></a>
+        <a class="pill" href="#join">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
       </div>
-      <!-- PREMIUM (coming soon) -->
       <div class="plan soon">
-        <span class="plan-badge soon">เร็ว ๆ นี้</span>
-        <div class="plan-name">พรีเมียม</div>
-        <div class="plan-price muted">เร็ว ๆ นี้</div>
-        <p class="plan-sub">เชื่อมปิ่นเข้ากับชีวิตคุณ</p>
-        <ul class="plan-feat">
-          <li><i class="ph ph-check"></i> เชื่อม Gmail · LINE · ปฏิทิน (และบริการอื่น ๆ)</li>
-          <li><i class="ph ph-check"></i> เลือกโมเดลเอไอเองได้</li>
-          <li><i class="ph ph-check"></i> วาดรูปคุณภาพสูง &amp; สร้างวิดีโอ</li>
-          <li><i class="ph ph-check"></i> ไฟล์ใหญ่ &amp; ค้นความรู้เชิงลึก</li>
-          <li><i class="ph ph-check"></i> ค้นเว็บ &amp; ทุกอย่างแบบไม่จำกัด</li>
+        <span class="pbadge soon">เร็ว ๆ นี้</span>
+        <div class="pname">พรีเมียม</div>
+        <div class="pprice muted">เร็ว ๆ นี้</div>
+        <p class="psub">เชื่อมปิ่นเข้ากับชีวิตคุณ</p>
+        <ul class="pfeat">
+          <li>เชื่อม Gmail · LINE · ปฏิทิน (และบริการอื่น ๆ)</li>
+          <li>เลือกโมเดลเอไอเองได้</li>
+          <li>วาดรูปคุณภาพสูง &amp; สร้างวิดีโอ</li>
+          <li>ไฟล์ใหญ่ &amp; ค้นความรู้เชิงลึก</li>
+          <li>ค้นเว็บ &amp; ทุกอย่างแบบไม่จำกัด</li>
         </ul>
-        <button class="btn btn-g" disabled>เร็ว ๆ นี้</button>
+        <button class="pill" disabled>เร็ว ๆ นี้</button>
       </div>
     </div>
   </div>
 </section>
 
-<!-- CTA -->
-<section class="pad" id="download">
-  <div class="wrap">
-    <div class="cta rv">
-      <h2>ให้ปิ่นช่วยดูแลเรื่องเล็ก ๆ<br>ในแบบที่เป็นส่วนตัวจริง ๆ</h2>
-      <p>กำลังเปิดตัวเร็ว ๆ นี้ ลงอีเมลไว้ เราจะส่งลิงก์ดาวน์โหลดให้คุณก่อนใคร</p>
-      <form class="waitlist" id="waitlist" novalidate>
-        <input type="email" name="email" required placeholder="อีเมลของคุณ" aria-label="อีเมลของคุณ">
-        <button class="btn btn-p" type="submit">รับแจ้งเตือนเปิดตัว <span class="ar">→</span></button>
-      </form>
-      <div class="wl-ok" id="wlOk" hidden>ขอบคุณค่ะ! เราจะส่งลิงก์ให้ทางอีเมลตอนเปิดตัว 💌</div>
-      <p class="wl-note">ฟรี ไม่มีโฆษณา ไม่ขายข้อมูล · ใช้อีเมลเพื่อแจ้งวันเปิดตัวเท่านั้น</p>
-    </div>
+<!-- WAITLIST CTA -->
+<section class="pad" id="join">
+  <div class="cta-final rv">
+    <h2>ให้ปิ่นช่วยดูแลเรื่องเล็ก ๆ<br>ในแบบที่เป็นส่วนตัวจริง ๆ</h2>
+    <p>กำลังเปิดตัวเร็ว ๆ นี้ ลงอีเมลไว้ เราจะส่งลิงก์ให้คุณก่อนใคร</p>
+    <form class="waitlist" id="waitlist" novalidate>
+      <div class="field">
+        <label for="wlEmail">อีเมลของคุณ</label>
+        <input id="wlEmail" type="email" name="email" required placeholder="you@email.com" autocomplete="email">
+        <span class="wl-err" id="wlErr" aria-live="polite"></span>
+      </div>
+      <button class="pill lg" type="submit" style="align-self:flex-start">รับสิทธิ์ก่อนใคร <span class="ar">→</span></button>
+    </form>
+    <div class="wl-ok" id="wlOk" hidden>ขอบคุณค่ะ! เราจะส่งลิงก์ให้ทางอีเมลตอนเปิดตัว 💌</div>
+    <p class="wl-note">ฟรี ไม่มีโฆษณา ไม่ขายข้อมูล · ใช้อีเมลเพื่อแจ้งวันเปิดตัวเท่านั้น</p>
   </div>
 </section>
 
 <footer>
-  <div class="wrap frow2">
-    <a class="logo" href="#top"><span class="mark"><img src="assets/pin-icon.png" alt="ปิ่น"></span> ปิ่น</a>
+  <div class="wrap frow">
+    <a class="brand" href="#top" style="font-size:22px">ปิ่น
+      <svg class="bloom" viewBox="0 0 24 30" fill="none" aria-hidden="true" style="width:16px;height:21px">
+        <path d="M9 29V11M13 29V11" stroke="#1B3A29" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="11" cy="6" r="4.4" fill="#F2B829"/><circle cx="11" cy="6" r="1.7" fill="#1B3A29"/>
+      </svg>
+    </a>
     <nav class="fnav">
-      <a href="#uses">การใช้งาน</a>
+      <a href="#uses">วิธีใช้</a>
       <a href="#features">จุดเด่น</a>
       <a href="#privacy">ความเป็นส่วนตัว</a>
       <a href="#pricing">ราคา</a>
@@ -717,97 +420,38 @@
 </footer>
 
 <script>
-  // nav shadow on scroll
   const nav=document.getElementById('nav');
   addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>8),{passive:true});
 
-  // mobile menu
   const burger=document.getElementById('burger'), mnav=document.getElementById('mnav');
   burger&&burger.addEventListener('click',()=>{
-    const open=mnav.classList.toggle('open');
-    burger.setAttribute('aria-expanded',open);
+    const open=mnav.classList.toggle('open'); burger.setAttribute('aria-expanded',open);
   });
   mnav&&mnav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{
     mnav.classList.remove('open'); burger.setAttribute('aria-expanded','false');
   }));
 
-  // pre-launch waitlist. ponytail: no backend yet set WAITLIST_ENDPOINT to a
-  // Formspree/Tally URL to capture server-side; until then it falls back to a
-  // mailto so intent still reaches the inbox. Either way the user sees success.
-  const WAITLIST_ENDPOINT='';                 // ← paste form endpoint when ready
-  const WAITLIST_EMAIL='hello@tokens2.io';    // ← mailto fallback target
-  const wlForm=document.getElementById('waitlist'), wlOk=document.getElementById('wlOk');
+  // pre-launch waitlist. ponytail: no backend yet — set WAITLIST_ENDPOINT to a
+  // Formspree/Tally URL to capture server-side; until then it falls back to mailto.
+  const WAITLIST_ENDPOINT='';
+  const WAITLIST_EMAIL='hello@tokens2.io';
+  const wlForm=document.getElementById('waitlist'), wlOk=document.getElementById('wlOk'), wlErr=document.getElementById('wlErr');
   wlForm&&wlForm.addEventListener('submit',async e=>{
     e.preventDefault();
     const email=(wlForm.email.value||'').trim();
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){wlForm.email.focus();return;}
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){wlErr.textContent='กรอกอีเมลให้ถูกต้องนะคะ';wlForm.email.focus();return;}
+    wlErr.textContent='';
     try{
       if(WAITLIST_ENDPOINT){
         await fetch(WAITLIST_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
       }else{
         location.href='mailto:'+WAITLIST_EMAIL+'?subject='+encodeURIComponent('ขอรับแจ้งเตือนเปิดตัวปิ่น')+'&body='+encodeURIComponent('อีเมล: '+email);
       }
-    }catch(_){/* intent already captured client-side; still confirm */}
+    }catch(_){/* intent captured client-side; still confirm */}
     wlForm.hidden=true; wlOk.hidden=false;
   });
 
-  // ---- use-case chat mocks ----
-  // item shapes: ['me'|'pin', text]  ·  ['card', {i:icon, t:title, r:[[label,value]...]}]
-  const CHATS={
-    work:[['me','สรุปไฟล์ประชุมเมื่อเช้า แล้วนัดตามงานทีมดีไซน์ ศุกร์ 10 โมง'],
-          ['pin','สรุปให้แล้วค่ะ: อนุมัติงบ Q3 · เลื่อนเปิดตัวเป็นเดือนหน้า · มอบงานทีมดีไซน์'],
-          ['card',{i:'<i class="ph ph-calendar-dots"></i>',t:'ลงนัด + เตือนแล้ว',r:[['ตามงานทีมดีไซน์','ศุกร์ 10:00'],['เตือนล่วงหน้า','30 นาที']]}],
-          ['pin','ถึงเวลาจะเตือนก่อนนะคะ ไม่ต้องกลัวลืม']],
-    student:[['me','อธิบายกฎข้อ 2 ของนิวตันแบบสั้น ๆ หน่อย'],
-          ['pin','F = ma ค่ะ แรงลัพธ์ = มวล × ความเร่ง ยิ่งออกแรงมาก ของยิ่งเร่งเร็ว'],
-          ['me','เตือนส่งรายงานพรุ่งนี้ 5 โมงเย็นด้วย'],
-          ['card',{i:'<i class="ph ph-alarm"></i>',t:'ตั้งเตือนแล้ว',r:[['ส่งรายงาน','พรุ่งนี้ 17:00'],['เตือนซ้ำ','ก่อน 1 ชม.']]}],
-          ['pin','อยากให้ติวเพิ่มหรือช่วยจดโน้ตก็บอกได้นะคะ สู้ ๆ ค่ะ']],
-    family:[['me','เตือนแม่กินยาความดันทุกเช้า 8 โมง'],
-          ['pin','ตั้งให้แล้วค่ะ 💊'],
-          ['card',{i:'<i class="ph ph-pill"></i>',t:'เตือนกินยา',r:[['ยาความดัน','ทุกวัน 08:00'],['สถานะ','เปิดอยู่']]}],
-          ['me','ของต้องซื้อ: นม ไข่ ผงซักฟอก'],
-          ['pin','จดลิสต์ให้แล้วค่ะ เดี๋ยวเตือนตอนผ่านร้านนะคะ 🛒']],
-    freelance:[['me','คิดแคปชันเปิดร้าน แล้ววาดโลโก้ถ้วยกาแฟมินิมอลให้หน่อย'],
-          ['pin','แคปชัน: “เปิดแล้ว! แวะมาชิมความตั้งใจในแก้วเดียว ✨”'],
-          ['card',{i:'<i class="ph ph-image"></i>',t:'ภาพร่างโลโก้',r:[['สไตล์','มินิมอล · เส้นโปร่ง'],['ไฟล์','พร้อมใช้งาน']]}],
-          ['pin','อยากปรับโทนสีหรือลองอีกแบบ บอกได้เลยนะคะ']],
-    owner:[['me','สรุปยอดขายวันนี้ แล้วเช็กค่าเงินเยน จะสั่งของญี่ปุ่นเข้าร้าน'],
-          ['pin','ยอดวันนี้ 12,450 บาท · 38 ออเดอร์ โตจากเมื่อวาน 8% ค่ะ'],
-          ['card',{i:'<i class="ph ph-currency-circle-dollar"></i>',t:'อัตราแลกเปลี่ยน',r:[['100 เยน','≈ 23.6 บาท'],['อัปเดต','2 นาทีก่อน']]}],
-          ['pin','ช่วงนี้เยนอ่อน สั่งของกำลังคุ้มค่ะ จะให้ร่างโปรโมชั่นต่อไหมคะ']]
-  };
-  const chatEl=document.getElementById('ucChat');
-  function renderChat(key){
-    chatEl.innerHTML=(CHATS[key]||[]).map(it=>{
-      if(it[0]==='card'){
-        const c=it[1];
-        return `<div class="cc"><div class="h">${c.i} ${c.t}</div>`+
-          c.r.map(([k,v])=>`<div class="r"><span>${k}</span><b>${v}</b></div>`).join('')+`</div>`;
-      }
-      return `<div class="bub ${it[0]==='me'?'me':'pin'}">${it[1]}</div>`;
-    }).join('');
-  }
-  // per-persona demo: tab switches the panel + the ปิ่น thread
-  const STATUS={work:'จัดคิวงานให้',student:'ติว & เตือนส่งงาน',family:'ดูแลเรื่องในบ้าน',
-                freelance:'ช่วยงานครีเอทีฟ',owner:'ต่อยอดให้ธุรกิจ'};
-  const labelEl=document.getElementById('featLabel');
-  function selectUC(k){
-    renderChat(k);
-    if(labelEl) labelEl.textContent=STATUS[k]||'กำลังช่วยอยู่';
-  }
-  selectUC('work');
-  document.querySelectorAll('.uc-tab').forEach(b=>b.addEventListener('click',()=>{
-    const k=b.dataset.uc;
-    document.querySelectorAll('.uc-tab').forEach(x=>x.classList.toggle('on',x===b));
-    document.querySelectorAll('.uc-panel').forEach(p=>p.classList.toggle('on',p.dataset.uc===k));
-    selectUC(k);
-  }));
-
-  // ---- reveal on scroll ----
-  const io=new IntersectionObserver((es)=>es.forEach(e=>{
-    if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}
-  }),{threshold:.12});
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
   document.querySelectorAll('.rv').forEach(el=>io.observe(el));
 </script>
 </body>
