@@ -17,7 +17,7 @@ Model is **`gemini-flash-lite-latest`** everywhere on the free path (`/infer`,
 |---|---|---|
 | chat, 1 message (~6k in + 0.6k out incl. tool round-trip) | Gemini flash-lite $0.10/$0.40 per 1M | **฿0.03** |
 | **web_search** — TODAY (Gemini Google-Search *grounding*) | **$35 / 1k requests** | **฿1.2** ← expensive |
-| web_search — Brave Search API (planned) | ~$3–5 / 1k | **฿0.15** |
+| web_search — Serper.dev (real Google) | $0.30–1 / 1k | **฿0.02** |
 | web_search — Gemini 3.x grounding (alt) | $14/1k + 5k/mo free | ฿0.5 |
 | transcribe, per minute audio | flash-lite tokens | ฿0.01 |
 | image analyze, per image | ~1.3k tokens | ฿0.01 |
@@ -31,7 +31,7 @@ Model is **`gemini-flash-lite-latest`** everywhere on the free path (`/infer`,
 **Key facts:**
 - Chat, basic image gen, transcribe, embeddings, image-analyze = **pennies to
   free**. Free tier costs us almost nothing.
-- The only costly things are **web_search** (fixable: Brave → 8× cheaper) and the
+- The only costly things are **web_search** (fixable: Serper.dev → ~40× cheaper, real Google = best Thai) and the
   **planned premium media** (better photo, video gen, big-file RAG).
 - So the tier line = cheap-basics (free) vs costly/advanced-services (premium).
 
@@ -59,7 +59,7 @@ capabilities (partner connectors stay à-la-carte).
 
 | premium service | included | cost to us | built? |
 |---|---|---|---|
-| **web_search** | generous (e.g. 20/day) | ฿0.15 (Brave) | ✅ exists (swap grounding→Brave) |
+| **web_search** | generous (e.g. 20/day) | ฿0.02 (Serper) | ✅ exists (swap grounding→Serper) |
 | **BYOK** (choose any model) | unlimited | ฿0 (user's key) | ✅ exists |
 | **better photo** (Flux/Imagen) | monthly quota | ฿0.1–0.4/img | ❌ build |
 | **video generation** | **small quota** (+ top-up) | ฿10–50/clip | ❌ build |
@@ -69,7 +69,7 @@ capabilities (partner connectors stay à-la-carte).
 
 **The cost driver in Premium = video gen.** It can't be unlimited at any sane
 price → small included quota + **top-up** for heavy use. Everything else is cheap
-(search via Brave, BYOK free, photo/RAG moderate).
+(search via Serper, BYOK free, photo/RAG moderate).
 
 ---
 
@@ -134,7 +134,7 @@ topup, byok}`**; else proceed + `usage++`. The app's 429 sheet offers
 ---
 
 ## 6. Roadmap
-1. **Cut web_search cost**: swap Gemini grounding → **Brave Search API** (8×
+1. **Cut web_search cost**: swap Gemini grounding → **Serper.dev** (real Google, best Thai) (~40×
    cheaper). Unblocks pricing.
 2. **Spec final caps + Premium price** once `better photo` + `video` providers
    are chosen.

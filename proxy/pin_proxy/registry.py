@@ -27,7 +27,7 @@ MCP = [
     {"name": "brave-search", "category": "ค้นหา", "url": "https://brave.mcp.host/mcp",
      "audited": True, "source": {"list": _AML_MCP, "repo": "modelcontextprotocol/servers"},
      "tools": [
-         {"name": "web_search", "description": "ค้นเว็บ + ข่าวสด (Brave)",
+         {"name": "web_search", "description": "ค้นเว็บ + ข่าวสด (Google)",
           "parameters": _obj(query=_S), "argKeys": ["query"]},
          {"name": "news_search", "description": "ค้นข่าวล่าสุด",
           "parameters": _obj(query=_S), "argKeys": ["query"]},

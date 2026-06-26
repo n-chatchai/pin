@@ -79,34 +79,38 @@ async def currency(args: dict) -> dict:
 
 
 async def web_search(args: dict) -> dict:
-    """Web search via the Brave Search API (~฿0.15/query) — ~8× cheaper than
-    Gemini's Google-Search grounding ($35/1k = ฿1.2). Return the top results as
-    text; the on-device brain grounds its answer on them (no extra summarize
-    call), so the only cost is the Brave query. Needs BRAVE_API_KEY."""
+    """Web search via Serper.dev — real Google results (best Thai coverage) at
+    ~฿0.01–0.035/query, far cheaper than Gemini's Google-Search grounding
+    ($35/1k = ฿1.2). gl/hl=th for Thai locale. Return the answer box + top
+    results as text; the on-device brain grounds its reply on them (no extra
+    summarize call), so the only cost is the Serper query. Needs SERPER_API_KEY."""
     query = (args.get("query") or "").strip()
     if not query:
         return {"text": "ไม่มีคำค้น"}
-    key = os.environ.get("BRAVE_API_KEY")
+    key = os.environ.get("SERPER_API_KEY")
     if not key:
         return {"text": "ค้นไม่ได้ตอนนี้"}
     async with httpx.AsyncClient(timeout=20, transport=_IPV4) as c:
-        r = await c.get(
-            "https://api.search.brave.com/res/v1/web/search",
-            params={"q": query, "count": 6, "country": "th",
-                    "search_lang": "th", "text_decorations": False},
-            headers={"X-Subscription-Token": key,
-                     "Accept": "application/json"},
+        r = await c.post(
+            "https://google.serper.dev/search",
+            json={"q": query, "gl": "th", "hl": "th", "num": 6},
+            headers={"X-API-KEY": key, "Content-Type": "application/json"},
         )
     try:
-        results = (r.json().get("web") or {}).get("results") or []
-        if not results:
-            return {"text": "ไม่พบข้อมูล"}
+        data = r.json()
         lines = []
-        for x in results[:6]:
+        # Direct answer first, if Google surfaced one.
+        ab = data.get("answerBox") or {}
+        ans = (ab.get("answer") or ab.get("snippet") or "").strip()
+        if ans:
+            lines.append(f"คำตอบ: {ans}")
+        for x in (data.get("organic") or [])[:6]:
             title = (x.get("title") or "").strip()
-            desc = (x.get("description") or "").strip()
-            url = (x.get("url") or "").strip()
-            lines.append(f"• {title}\n  {desc}\n  {url}")
+            snip = (x.get("snippet") or "").strip()
+            url = (x.get("link") or "").strip()
+            lines.append(f"• {title}\n  {snip}\n  {url}")
+        if not lines:
+            return {"text": "ไม่พบข้อมูล"}
         return {"text": "ผลค้นหาเว็บ:\n" + "\n".join(lines)}
     except Exception:  # noqa: BLE001
         return {"text": "ค้นไม่ได้ตอนนี้"}
