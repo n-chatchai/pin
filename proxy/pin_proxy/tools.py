@@ -79,24 +79,35 @@ async def currency(args: dict) -> dict:
 
 
 async def web_search(args: dict) -> dict:
+    """Web search via the Brave Search API (~฿0.15/query) — ~8× cheaper than
+    Gemini's Google-Search grounding ($35/1k = ฿1.2). Return the top results as
+    text; the on-device brain grounds its answer on them (no extra summarize
+    call), so the only cost is the Brave query. Needs BRAVE_API_KEY."""
     query = (args.get("query") or "").strip()
     if not query:
         return {"text": "ไม่มีคำค้น"}
-    gkey = os.environ.get("GEMINI_API_KEY")
-    if not gkey:
+    key = os.environ.get("BRAVE_API_KEY")
+    if not key:
         return {"text": "ค้นไม่ได้ตอนนี้"}
-    model = os.environ.get("PIN_FREE_MODEL", "gemini-flash-lite-latest")
-    url = _GEMINI.format(model=model)
-    body = {
-        "contents": [{"role": "user", "parts": [{"text": query}]}],
-        "tools": [{"google_search": {}}],
-    }
-    async with httpx.AsyncClient(timeout=30, transport=_IPV4) as c:
-        r = await c.post(url, params={"key": gkey}, json=body)
+    async with httpx.AsyncClient(timeout=20, transport=_IPV4) as c:
+        r = await c.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": query, "count": 6, "country": "th",
+                    "search_lang": "th", "text_decorations": False},
+            headers={"X-Subscription-Token": key,
+                     "Accept": "application/json"},
+        )
     try:
-        parts = r.json()["candidates"][0]["content"]["parts"]
-        text = "".join(p.get("text", "") for p in parts).strip()
-        return {"text": text or "ไม่พบข้อมูล"}
+        results = (r.json().get("web") or {}).get("results") or []
+        if not results:
+            return {"text": "ไม่พบข้อมูล"}
+        lines = []
+        for x in results[:6]:
+            title = (x.get("title") or "").strip()
+            desc = (x.get("description") or "").strip()
+            url = (x.get("url") or "").strip()
+            lines.append(f"• {title}\n  {desc}\n  {url}")
+        return {"text": "ผลค้นหาเว็บ:\n" + "\n".join(lines)}
     except Exception:  # noqa: BLE001
         return {"text": "ค้นไม่ได้ตอนนี้"}
 
