@@ -28,3 +28,13 @@ pin-admin.tokens2.io {
 	encode gzip
 	reverse_proxy 127.0.0.1:8800
 }
+
+# Marketing site + privacy page — static files only, no app. Served from
+# ~/pin/site (push with site/deploy.sh). DNS: Cloudflare pin -> A VPS, proxied.
+pin.tokens2.io {
+	tls /etc/ssl/cloudflare/tokens2.io.pem /etc/ssl/cloudflare/tokens2.io.key
+	encode gzip
+	root * /home/pace6/pin/site
+	try_files {path} {path}.html {path}/index.html
+	file_server
+}
