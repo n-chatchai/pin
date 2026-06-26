@@ -50,8 +50,8 @@ active user.
 | image analyze | 5 |
 | transcribe (min) | 5 |
 | file summarize (small files) | 3 |
-| web_search | **off** (or 1–2/day taster) |
-| BYOK · better photo · video · big-file RAG | ✗ |
+| ค้นเว็บ Google (Serper, ฿0.02) | 10–20/day |
+| connectors (Gmail/LINE/Calendar) · BYOK · better photo · video · RAG | ✗ |
 
 ### Premium — the premium-services bundle
 Unlocks the costly/advanced services + lifts caps. Bundles Pin-hosted premium
@@ -59,7 +59,8 @@ capabilities (partner connectors stay à-la-carte).
 
 | premium service | included | cost to us | built? |
 |---|---|---|---|
-| **web_search** | generous (e.g. 20/day) | ฿0.02 (Serper) | ✅ exists (swap grounding→Serper) |
+| **connectors** (Gmail · LINE · Calendar) | OAuth integrations | partner cost + cut | ❌ build (MCP) |
+| **web_search** | unlimited (free gets 10–20/day) | ฿0.02 (Serper) | ✅ live |
 | **BYOK** (choose any model) | unlimited | ฿0 (user's key) | ✅ exists |
 | **better photo** (Flux/Imagen) | monthly quota | ฿0.1–0.4/img | ❌ build |
 | **video generation** | **small quota** (+ top-up) | ฿10–50/clip | ❌ build |

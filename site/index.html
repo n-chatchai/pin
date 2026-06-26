@@ -210,6 +210,30 @@
   .step h3{font-size:17px;font-weight:600;margin-bottom:6px}
   .step p{color:var(--ink2);font-size:14.5px}
 
+  /* ---- pricing ---- */
+  .plans{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:42px;
+         max-width:760px;margin-inline:auto}
+  @media(max-width:680px){.plans{grid-template-columns:1fr}}
+  .plan{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;
+        padding:28px;box-shadow:var(--cardsh);display:flex;flex-direction:column}
+  .plan.free{border:1.5px solid var(--green);box-shadow:var(--liftsh)}
+  .plan.soon{background:#FBFAF6}
+  .plan-badge{align-self:flex-start;font-family:var(--nira);font-size:12px;font-weight:600;
+              padding:4px 12px;border-radius:20px;background:var(--green-card);color:var(--green-d);
+              margin-bottom:14px}
+  .plan-badge.soon{background:#F0ECE1;color:var(--ink3)}
+  .plan-name{font-family:var(--nira);font-size:22px;font-weight:600;color:var(--ink)}
+  .plan-price{font-family:var(--nira);font-size:34px;font-weight:700;color:var(--ink);margin:4px 0 2px}
+  .plan-price span{font-size:15px;font-weight:500;color:var(--ink2)}
+  .plan-price.muted{font-size:22px;color:var(--ink3);font-weight:600}
+  .plan-sub{color:var(--ink2);font-size:14px;margin-bottom:20px}
+  .plan-feat{list-style:none;display:flex;flex-direction:column;gap:11px;margin-bottom:24px}
+  .plan-feat li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;color:var(--ink);line-height:1.4}
+  .plan-feat li i{color:var(--green-d);margin-top:2px;flex:0 0 auto;font-size:16px;display:block}
+  .plan.soon .plan-feat li{color:var(--ink2)} .plan.soon .plan-feat li i{color:var(--ink3)}
+  .plan .btn{width:100%;justify-content:center;margin-top:auto}
+  .plan .btn[disabled]{opacity:.5;cursor:default;pointer-events:none}
+
   /* ---- final cta ---- */
   .cta{background:var(--white);border:1px solid var(--line);border-radius:28px;padding:clamp(34px,5vw,60px);
        text-align:center;box-shadow:var(--cardsh)}
@@ -243,6 +267,7 @@
       <a href="#uses">การใช้งาน</a>
       <a href="#features">จุดเด่น</a>
       <a href="#privacy">ความเป็นส่วนตัว</a>
+      <a href="#pricing">ราคา</a>
       <a href="#how">เริ่มต้น</a>
     </nav>
     <span class="sp"></span>
@@ -467,6 +492,48 @@
   </div>
 </section>
 
+<!-- PRICING -->
+<section class="pad" id="pricing">
+  <div class="wrap">
+    <div class="center rv">
+      <h2 class="sec-title">เริ่มฟรี — พรีเมียมเร็ว ๆ นี้</h2>
+      <p class="sec-sub" style="margin-inline:auto">ใช้ฟรีได้เต็มที่ทุกวัน ของขั้นสูงกำลังจะมา</p>
+    </div>
+    <div class="plans rv">
+      <!-- FREE -->
+      <div class="plan free">
+        <span class="plan-badge">ใช้ได้เลย</span>
+        <div class="plan-name">ฟรี</div>
+        <div class="plan-price">฿0<span>/เดือน</span></div>
+        <p class="plan-sub">ผู้ช่วยส่วนตัวครบ ใช้ได้ทุกวัน</p>
+        <ul class="plan-feat">
+          <li><i class="ph ph-check"></i> แชตกับปิ่น (เข้ารหัสลับ เปิดอ่านได้แค่คุณ)</li>
+          <li><i class="ph ph-check"></i> ค้นเว็บ Google เรียลไทม์</li>
+          <li><i class="ph ph-check"></i> ตั้งเตือน &amp; จัดการงาน</li>
+          <li><i class="ph ph-check"></i> วาดรูป · สรุปไฟล์ · ถอดเสียง · วิเคราะห์รูป</li>
+          <li><i class="ph ph-check"></i> ความสามารถพื้นฐาน</li>
+        </ul>
+        <a class="btn btn-p" href="#download">เริ่มใช้ฟรี <span class="ar">→</span></a>
+      </div>
+      <!-- PREMIUM (coming soon) -->
+      <div class="plan soon">
+        <span class="plan-badge soon">เร็ว ๆ นี้</span>
+        <div class="plan-name">พรีเมียม</div>
+        <div class="plan-price muted">เร็ว ๆ นี้</div>
+        <p class="plan-sub">เชื่อมปิ่นเข้ากับชีวิตคุณ</p>
+        <ul class="plan-feat">
+          <li><i class="ph ph-check"></i> เชื่อม Gmail · LINE · ปฏิทิน (และคอนเนกเตอร์อื่น)</li>
+          <li><i class="ph ph-check"></i> เลือกโมเดลเอง (BYOK)</li>
+          <li><i class="ph ph-check"></i> วาดรูปคุณภาพสูง &amp; สร้างวิดีโอ</li>
+          <li><i class="ph ph-check"></i> ไฟล์ใหญ่ &amp; ค้นความรู้เชิงลึก</li>
+          <li><i class="ph ph-check"></i> ค้นเว็บ &amp; ทุกอย่างแบบไม่จำกัด</li>
+        </ul>
+        <button class="btn btn-g" disabled>เร็ว ๆ นี้</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- CTA -->
 <section class="pad" id="download">
   <div class="wrap">
@@ -488,6 +555,7 @@
       <a href="#uses">การใช้งาน</a>
       <a href="#features">จุดเด่น</a>
       <a href="#privacy">ความเป็นส่วนตัว</a>
+      <a href="#pricing">ราคา</a>
       <a href="/developers/">นักพัฒนา</a>
     </nav>
     <span>© 2026 ปิ่น · tokens2.io</span>
