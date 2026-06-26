@@ -133,7 +133,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // First run (no history): conversational onboarding once (after the
     // account/room exist, so persona syncs to room state). A returning user with
     // an empty room just sees an empty chat and types — no static greeting.
-    if (_messages.isEmpty && !PrefsController.instance.value.personaSetup) {
+    if (mounted &&
+        _messages.isEmpty &&
+        !PrefsController.instance.value.personaSetup) {
       _startPersonaSetup();
     }
     // Load the catalog in the background — it doesn't block the chat render, and
@@ -368,6 +370,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// design-style — not the quick-reply bar). [kind] = chips | tone | addr.
   void _postStage(String stage, String q, String kind,
       [List<Map<String, String>> options = const []]) {
+    if (!mounted) return; // _boot is async; the screen may be gone by now
     _personaStage = stage;
     setState(() {
       _messages.add(_text(q, me: false));

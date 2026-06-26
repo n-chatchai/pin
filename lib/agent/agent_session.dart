@@ -56,9 +56,13 @@ class AgentSession {
   Future<void> loadCatalog() async {
     final optedOut = <String>{};
     if (room.startsWith('!')) {
-      final rawList = await MatrixService.instance
-          .loadListFromRoom(room, 'io.tokens2.opted_out_capabilities');
-      optedOut.addAll(rawList.map((e) => '${e['name']}'));
+      // Best-effort: pre-login (or transient) reads throw "user not logged in" —
+      // an unhandled async error if not caught. Fall back to no opt-outs.
+      try {
+        final rawList = await MatrixService.instance
+            .loadListFromRoom(room, 'io.tokens2.opted_out_capabilities');
+        optedOut.addAll(rawList.map((e) => '${e['name']}'));
+      } catch (_) {/* not logged in yet / offline → assume none opted out */}
     }
     _optedOut = optedOut;
     // Remembered facts → injected into the system prompt so ปิ่น actually uses
