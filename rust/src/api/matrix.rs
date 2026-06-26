@@ -1146,6 +1146,12 @@ pub fn reset_recovery_key() -> Result<String, String> {
         };
         let client = current_client().await?;
 
+        // Bootstrap cross-signing too (passwordless, MSC3967 no-UIA first upload),
+        // so an SSO user who resets their key gets a COMPLETE E2EE identity rather
+        // than backup-only / "recovery incomplete". Best-effort: errors (e.g. keys
+        // already exist → UIA required) are ignored and we fall back to backup.
+        let _ = client.encryption().bootstrap_cross_signing(None).await;
+
         // Delete whatever backup version currently exists on the server. Ignore
         // errors: a missing backup (M_NOT_FOUND) just means there's nothing to
         // clear, and `enable()` below will create one regardless.

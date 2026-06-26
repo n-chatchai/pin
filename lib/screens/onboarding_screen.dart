@@ -12,6 +12,7 @@ import '../config.dart';
 
 import '../services/auth_service.dart';
 import '../services/matrix_service.dart';
+import 'settings_screen.dart' show E2eeResetScreen;
 import 'auth_screen.dart';
 import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
@@ -633,16 +634,51 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                 Text('ตั้งกุญแจไม่สำเร็จ: $_error',
                     style: TextStyle(color: scheme.error)),
                 const SizedBox(height: 14),
-                FilledButton(
-                  onPressed: () {
-                    setState(() => _error = null);
-                    _init();
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Text('ลองอีกครั้ง'),
+                // A locked companion (recovery key rotated → derived ปิ่น pw no
+                // longer matches) can NEVER recover by retrying — the only fix is
+                // registering a fresh ปิ่น. Offer that as the primary action so the
+                // user isn't stuck tapping a dead-end "ลองอีกครั้ง".
+                if (MatrixService.instance.companionLocked) ...[
+                  FilledButton(
+                    onPressed: () async {
+                      await Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) =>
+                              const E2eeResetScreen(lockedCompanion: true)));
+                      if (!mounted) return;
+                      if (MatrixService.instance.companionReady) {
+                        // New ปิ่น is up and its key was shown/saved on that
+                        // screen → mark done and unlock "ถัดไป".
+                        setState(() {
+                          _error = null;
+                          _mode = 'restored';
+                        });
+                        widget.onSaved?.call();
+                      }
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Text('เริ่ม ปิ่น ใหม่ (กู้ ปิ่น เดิมไม่ได้)'),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _error = null);
+                      _init();
+                    },
+                    child: const Text('ลองอีกครั้ง'),
+                  ),
+                ] else
+                  FilledButton(
+                    onPressed: () {
+                      setState(() => _error = null);
+                      _init();
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Text('ลองอีกครั้ง'),
+                    ),
+                  ),
               ],
             )
           else if (_key == null)
