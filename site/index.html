@@ -83,9 +83,9 @@
   .hero .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
   @media(max-width:880px){.hero .grid{grid-template-columns:1fr;gap:34px}}
   .h1{font-size:clamp(34px,6vw,60px);font-weight:600;line-height:1.08;letter-spacing:-.02em;text-wrap:balance}
-  .h1 .hl{color:var(--green-d);position:relative;
-          background:linear-gradient(transparent 62%,rgba(242,184,41,.34) 0);
-          -webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .05em}
+  .hl{color:var(--green-d);position:relative;
+      background:linear-gradient(transparent 62%,rgba(242,184,41,.34) 0);
+      -webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .05em}
   .lede{font-size:clamp(16px,2vw,19px);color:var(--ink2);margin-top:20px;max-width:48ch;text-wrap:pretty}
   .hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
   .hero-trust{display:flex;gap:18px;margin-top:26px;flex-wrap:wrap;color:var(--ink2);font-size:13.5px}
@@ -542,7 +542,7 @@
 <section class="pad" id="features" style="background:var(--white);border-block:1px solid var(--line)">
   <div class="wrap">
     <div class="center rv">
-      <h2 class="sec-title">ฉลาด อุ่นใจ และเป็นของคุณคนเดียว</h2>
+      <h2 class="sec-title">ฉลาด อุ่นใจ และเป็น<span class="hl">ของคุณคนเดียว</span></h2>
     </div>
     <div class="pgrid">
       <div class="pillar rv">
@@ -576,7 +576,7 @@
         <ul>
           <li><i class="ph ph-check"></i> เข้ารหัสลับ กุญแจอยู่ที่คุณคนเดียว</li>
           <li><i class="ph ph-check"></i> สมองเอไอรันบนเครื่อง ไม่เก็บบนเซิร์ฟเวอร์</li>
-          <li><i class="ph ph-check"></i> พร็อกซีตาบอด เซิร์ฟเวอร์มองไม่เห็นข้อมูล</li>
+          <li><i class="ph ph-check"></i> ตัวกลางที่มองไม่เห็น เซิร์ฟเวอร์อ่านข้อมูลคุณไม่ได้</li>
         </ul>
       </div>
       <div class="pillar rv">
@@ -646,7 +646,7 @@
 <section class="pad" id="pricing">
   <div class="wrap">
     <div class="center rv">
-      <h2 class="sec-title">เริ่มฟรี พรีเมียมเร็ว ๆ นี้</h2>
+      <h2 class="sec-title">เริ่ม<span class="hl">ฟรี</span> พรีเมียมเร็ว ๆ นี้</h2>
       <p class="sec-sub" style="margin-inline:auto">ใช้ฟรีได้เต็มที่ทุกวัน ของขั้นสูงกำลังจะมา</p>
     </div>
     <div class="plans rv">
