@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ความเป็นส่วนตัว · ปิ่น</title>
+<meta name="description" content="ปิ่นเป็นส่วนตัวจริง — ทุกข้อความเข้ารหัสลับ สมองทำงานบนเครื่องคุณ เปิดอ่านได้แค่คุณ ไม่ขายข้อมูล ไม่มีโฆษณา">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Trirong:ital,wght@0,400;0,500;0,600;1,400&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+  :root{
+    --blush:#F7EEE3; --blush-2:#FBF6EE; --white:#fff;
+    --forest:#1B3A29; --green:#1C7A48; --green-2:#34B06A; --yellow:#F2B829;
+    --ink:#2E2A24; --ink2:#6E6457; --line:#E7DCCB;
+    --cardsh:0 1px 2px rgba(60,40,15,.05),0 10px 30px rgba(60,40,15,.08);
+    --serif:'Trirong',Georgia,serif; --sans:'Sarabun','Leelawadee UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--blush);color:var(--ink);font-family:var(--sans);line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:8px}
+  .wrap{width:min(760px,92vw);margin-inline:auto}
+  .wide{width:min(1080px,92vw);margin-inline:auto}
+
+  .nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--blush) 82%,transparent);backdrop-filter:saturate(1.3) blur(10px);border-bottom:1px solid var(--line)}
+  .nav .row{display:flex;align-items:center;gap:14px;height:70px}
+  .brand{display:flex;align-items:center;gap:9px}
+  .brand img{height:30px;border-radius:8px;display:block}
+  .brand span{font-family:var(--serif);font-weight:600;font-size:22px;color:var(--forest)}
+  .nav .sp{margin-left:auto}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--forest);color:#fff;font-weight:600;font-size:15px;padding:11px 22px;border-radius:999px;border:none;cursor:pointer;transition:background .18s,transform .18s}
+  .pill:hover{background:#12301F;transform:translateY(-1px)}
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--ink2);font-weight:500;font-size:15px}
+  .back:hover{color:var(--forest)}
+
+  .hero{text-align:center;padding:clamp(48px,8vw,88px) 0 clamp(30px,4vw,46px)}
+  .lock{width:60px;height:60px;border-radius:18px;background:var(--green-2);color:#fff;display:grid;place-items:center;font-size:30px;margin:0 auto 22px;box-shadow:var(--cardsh)}
+  .lock i{display:block}
+  h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(34px,6vw,58px);line-height:1.2;letter-spacing:-.01em;text-wrap:balance}
+  .lede{font-size:clamp(16px,2vw,19px);color:var(--ink2);margin:20px auto 0;max-width:44ch;text-wrap:pretty}
+
+  .blocks{padding:clamp(20px,4vw,40px) 0 20px}
+  .blk{display:flex;gap:20px;padding:30px 0;border-top:1px solid var(--line)}
+  .blk:first-child{border-top:none}
+  .blk .ic{width:46px;height:46px;border-radius:13px;background:var(--green-card,#E9F1E6);color:var(--green-d,#1B3A29);background:#EBF1E6;color:var(--forest);display:grid;place-items:center;font-size:23px;flex:0 0 auto}
+  .blk .ic i{display:block}
+  .blk h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(20px,2.6vw,26px);line-height:1.3}
+  .blk p{color:var(--ink2);font-size:15.5px;margin-top:8px;max-width:60ch}
+  .blk b{color:var(--ink);font-weight:600}
+
+  /* comparison */
+  .cmp{margin:clamp(40px,6vw,64px) 0;background:var(--blush-2);border:1px solid var(--line);border-radius:24px;padding:clamp(24px,4vw,40px)}
+  .cmp h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(22px,3.2vw,30px);text-align:center;text-wrap:balance}
+  .cmp .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px}
+  .col{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:22px}
+  .col.pin{border-color:var(--green);box-shadow:0 0 0 3px rgba(28,122,72,.08)}
+  .col .ct{font-family:var(--serif);font-weight:600;font-size:19px;color:var(--forest);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .col.other .ct{color:var(--ink2)}
+  .col ul{list-style:none}
+  .col li{position:relative;padding:8px 0 8px 26px;font-size:14.5px;color:var(--ink);line-height:1.5}
+  .col li i{position:absolute;left:0;top:10px;font-size:16px}
+  .col.pin li i{color:var(--green)}
+  .col.other li i{color:#B98A4B}
+  @media(max-width:620px){.cmp .grid{grid-template-columns:1fr}}
+
+  .cta{text-align:center;background:var(--forest);color:#fff;border-radius:28px;padding:clamp(36px,6vw,60px) 24px;margin:0 auto clamp(40px,6vw,64px)}
+  .cta h2{font-family:var(--serif);font-weight:500;font-size:clamp(24px,4vw,38px);line-height:1.22;text-wrap:balance}
+  .cta p{color:rgba(255,255,255,.82);margin-top:12px;font-size:15.5px}
+  .cta .pill{background:var(--yellow);color:#3a2c00;margin-top:22px;font-size:16px;padding:14px 30px}
+  .cta .pill:hover{background:#e0a91e}
+
+  footer{padding:40px 0;border-top:1px solid var(--line);color:var(--ink2);font-size:14px;text-align:center}
+  footer a:hover{color:var(--forest)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wide row">
+    <a class="brand" href="index.html"><img src="assets/pin-icon.png" alt="ปิ่น"><span>ปิ่น</span></a>
+    <span class="sp"></span>
+    <a class="back" href="index.html"><i class="ph ph-arrow-left"></i> กลับหน้าแรก</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="lock"><i class="ph-fill ph-lock-key"></i></div>
+    <h1>ไม่มีใคร อ่านแชตคุณได้<br>แม้แต่เรา</h1>
+    <p class="lede">ปิ่นออกแบบมาให้เป็นส่วนตัวตั้งแต่แรก ไม่ใช่เพิ่มทีหลัง นี่คือวิธีที่เราดูแลข้อมูลของคุณ</p>
+  </div>
+</section>
+
+<section class="blocks">
+  <div class="wrap">
+    <div class="blk">
+      <span class="ic"><i class="ph-fill ph-lock-key"></i></span>
+      <div>
+        <h2>เปิดอ่านได้แค่คุณ</h2>
+        <p>ทุกข้อความถูก<b>เข้ารหัสลับตั้งแต่ในเครื่องคุณ</b> ก่อนส่งออกไป มีแค่คุณกับปิ่นที่อ่านออก
+          แม้แต่ทีมงานเราเปิดดูก็เห็นเป็นรหัสที่อ่านไม่ได้ (end-to-end encryption)</p>
+      </div>
+    </div>
+    <div class="blk">
+      <span class="ic"><i class="ph-fill ph-device-mobile"></i></span>
+      <div>
+        <h2>สมองอยู่บนเครื่องคุณ</h2>
+        <p>ปิ่นคิด ตัดสินใจ และ<b>จำเรื่องของคุณอยู่บนมือถือ</b> บทสนทนาและความทรงจำไม่ถูกอัปโหลดไปกองรวมบนเซิร์ฟเวอร์ของใคร
+          ย้ายเครื่องเมื่อไหร่ก็กู้คืนได้ด้วยกุญแจของคุณเอง</p>
+      </div>
+    </div>
+    <div class="blk">
+      <span class="ic"><i class="ph-fill ph-eye-slash"></i></span>
+      <div>
+        <h2>ถามเอไอแบบไม่เปิดเผยตัว</h2>
+        <p>เวลาปิ่นต้องถามโมเดลเอไอ จะส่งผ่าน<b>ตัวกลางที่มองไม่เห็น</b> ซึ่งส่งต่อแค่คำถามที่จำเป็น
+          ไม่ส่งว่าคุณเป็นใคร ไม่แนบบทสนทนา และไม่เก็บอะไรไว้ — เอไอตอบโดยไม่รู้ด้วยซ้ำว่ากำลังคุยกับใคร</p>
+      </div>
+    </div>
+    <div class="blk">
+      <span class="ic"><i class="ph-fill ph-hand-heart"></i></span>
+      <div>
+        <h2>ไม่มีโฆษณา ไม่ขายข้อมูล</h2>
+        <p>เราตั้งใจอยู่ได้ด้วย<b>ค่าสมาชิก ไม่ใช่ด้วยข้อมูลของคุณ</b> ข้อมูลคุณไม่ใช่สินค้า
+          ไม่มีการติดตามเพื่อยิงโฆษณา ไม่มีการขายต่อให้ใคร</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="cmp">
+    <h2>ต่างจากผู้ช่วยเอไอทั่วไปยังไง</h2>
+    <div class="grid">
+      <div class="col pin">
+        <div class="ct"><i class="ph-fill ph-shield-check"></i> ปิ่น</div>
+        <ul>
+          <li><i class="ph ph-check"></i> แชตเข้ารหัส เปิดอ่านได้แค่คุณ</li>
+          <li><i class="ph ph-check"></i> สมอง &amp; ความทรงจำอยู่บนเครื่อง</li>
+          <li><i class="ph ph-check"></i> ถามเอไอแบบไม่เปิดเผยตัว</li>
+          <li><i class="ph ph-check"></i> ไม่มีโฆษณา ไม่ขายข้อมูล</li>
+        </ul>
+      </div>
+      <div class="col other">
+        <div class="ct"><i class="ph ph-cloud"></i> ผู้ช่วยเอไอบนคลาวด์ทั่วไป</div>
+        <ul>
+          <li><i class="ph ph-x"></i> บทสนทนาเก็บบนเซิร์ฟเวอร์บริษัท</li>
+          <li><i class="ph ph-x"></i> ผูกกับบัญชี รู้ว่าคุณเป็นใคร</li>
+          <li><i class="ph ph-x"></i> ข้อมูลอาจถูกใช้เทรนต่อ</li>
+          <li><i class="ph ph-x"></i> รายได้หลักมาจากข้อมูล/โฆษณา</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="cta">
+    <h2>ผู้ช่วยที่เก็บความลับคุณได้จริง</h2>
+    <p>กำลังเปิดตัวเร็ว ๆ นี้ · ใช้ฟรี ไม่มีโฆษณา</p>
+    <a class="pill" href="index.html#join">รับสิทธิ์ก่อนใคร →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wide">© 2026 ปิ่น · tokens2.io · <a href="index.html">หน้าแรก</a> · <a href="/developers/">นักพัฒนา</a></div>
+</footer>
+
+</body>
+</html>

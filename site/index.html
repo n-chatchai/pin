@@ -65,16 +65,19 @@
 
   /* hero */
   .hero{text-align:center;padding:clamp(48px,8vw,104px) 0 clamp(34px,5vw,60px)}
-  .sig{width:clamp(88px,13vw,116px);height:auto;border-radius:24px;margin:0 auto 26px;display:block;box-shadow:var(--liftsh)}
+  .brandmark{display:flex;align-items:center;justify-content:center;gap:clamp(12px,2vw,20px);margin-bottom:26px}
+  .sig{width:clamp(60px,8.5vw,86px);height:auto;border-radius:20px;display:block;box-shadow:var(--liftsh)}
+  .wm{font-family:var(--serif);font-weight:600;font-size:clamp(46px,9vw,92px);color:var(--forest);line-height:1;letter-spacing:-.01em}
   .h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(40px,8vw,82px);line-height:1.26;letter-spacing:-.012em;text-wrap:balance}
   .h1 em{font-weight:400}
   .lede{font-size:clamp(16px,2.1vw,20px);color:var(--ink2);max-width:46ch;margin:24px auto 0;text-wrap:pretty}
   .hero-cta{margin-top:32px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-  .hero-note{margin-top:18px;font-size:13.5px;color:var(--ink3)}
+  .hero-note{margin-top:18px;font-size:13.5px;color:var(--ink2)}
 
   /* cards */
   .cards{padding:14px 0 clamp(60px,8vw,90px)}
-  .crow{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+  .crow{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
+  .cap{margin-top:11px;font-size:13px;color:var(--ink2);text-align:center;line-height:1.4;text-wrap:pretty}
   .card{position:relative;aspect-ratio:3/4;border-radius:22px;overflow:hidden;box-shadow:var(--cardsh);transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s}
   .card:hover{transform:translateY(-6px);box-shadow:var(--liftsh)}
   .card img{width:100%;height:100%;object-fit:cover;display:block}
@@ -93,8 +96,10 @@
   .bub.pin{background:var(--blush);color:var(--ink);border-bottom-left-radius:5px}
   .hl-body h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(28px,4.4vw,46px);line-height:1.22;text-wrap:balance}
   .hl-body p{color:var(--ink2);font-size:16px;margin-top:16px;max-width:46ch}
-  .trust-line{display:flex;align-items:center;gap:9px;margin-top:18px;color:var(--forest);font-weight:600;font-size:14.5px}
+  .trust-line{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px 9px;margin-top:18px;color:var(--forest);font-weight:600;font-size:14.5px}
   .trust-line i{font-size:19px}
+  .trust-line .more{color:var(--green);font-weight:600}
+  .trust-line:hover .more{text-decoration:underline}
   .waitlist{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;align-items:flex-end}
   .waitlist .field{display:flex;flex-direction:column;gap:6px}
   .waitlist label{font-size:12.5px;color:var(--ink2);padding-left:4px}
@@ -124,11 +129,11 @@
   @media(max-width:880px){
     .split{grid-template-columns:1fr;gap:30px}
     .crow{grid-template-columns:repeat(3,1fr)}
-    .card:nth-child(4),.card:nth-child(5){display:none}
+    .uc:nth-child(4),.uc:nth-child(5){display:none}
   }
   @media(max-width:560px){
     .crow{grid-auto-flow:column;grid-auto-columns:66%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
-    .card{scroll-snap-align:center}.card:nth-child(4),.card:nth-child(5){display:block}
+    .uc{scroll-snap-align:center}.uc:nth-child(4),.uc:nth-child(5){display:block}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}.rv{opacity:1;transform:none}}
 </style>
@@ -157,7 +162,7 @@
 <!-- HERO -->
 <section class="hero" id="top">
   <div class="wrap">
-    <img class="sig" src="assets/pin-icon.png" alt="ปิ่น">
+    <div class="brandmark"><img class="sig" src="assets/pin-icon.png" alt=""><span class="wm">ปิ่น</span></div>
     <h1 class="h1">ผู้ช่วยส่วนตัว<br>ที่<em>รู้ใจ</em>คุณจริง ๆ</h1>
     <p class="lede">ถามปิ่นได้ทุกเรื่อง คุยได้ทั้งวัน ปิ่นพร้อมช่วยคุณคิด วางแผน และดูแลเรื่องต่าง ๆ ในชีวิต — บนเครื่องคุณ เปิดอ่านได้แค่คุณ</p>
     <div class="hero-cta">
@@ -172,11 +177,11 @@
 <section class="cards" id="uses">
   <div class="wrap">
     <div class="crow rv">
-      <div class="card"><img src="assets/cards/work.jpg" alt="ช่วยจัดการงาน" loading="lazy"><span class="chip"><i class="ph ph-briefcase"></i> จัดการงาน</span></div>
-      <div class="card"><img src="assets/cards/student.jpg" alt="ติวและทบทวนบทเรียน" loading="lazy"><span class="chip"><i class="ph ph-books"></i> ติว & ทบทวน</span></div>
-      <div class="card"><img src="assets/cards/family.jpg" alt="ดูแลเรื่องในบ้าน" loading="lazy"><span class="chip"><i class="ph ph-house"></i> ดูแลเรื่องบ้าน</span></div>
-      <div class="card"><img src="assets/cards/freelance.jpg" alt="ช่วยงานครีเอทีฟ" loading="lazy"><span class="chip"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</span></div>
-      <div class="card"><img src="assets/cards/owner.jpg" alt="ช่วยดูแลร้านค้า" loading="lazy"><span class="chip"><i class="ph ph-storefront"></i> ดูแลร้านค้า</span></div>
+      <div class="uc"><div class="card"><img src="assets/cards/work.jpg" alt="ช่วยจัดการงาน" loading="lazy"><span class="chip"><i class="ph ph-briefcase"></i> จัดการงาน</span></div><p class="cap">สรุปอีเมล นัดประชุม ทวงงานให้</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/student.jpg" alt="ติวและทบทวนบทเรียน" loading="lazy"><span class="chip"><i class="ph ph-books"></i> ติว & ทบทวน</span></div><p class="cap">อธิบายทีละขั้น สรุปโน้ต เตือนส่งงาน</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/family.jpg" alt="ดูแลเรื่องในบ้าน" loading="lazy"><span class="chip"><i class="ph ph-house"></i> ดูแลเรื่องบ้าน</span></div><p class="cap">เตือนกินยา จดของซื้อ เช็กอากาศ</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/freelance.jpg" alt="ช่วยงานครีเอทีฟ" loading="lazy"><span class="chip"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</span></div><p class="cap">ร่างแคปชัน คิดไอเดีย วาดภาพประกอบ</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/owner.jpg" alt="ช่วยดูแลร้านค้า" loading="lazy"><span class="chip"><i class="ph ph-storefront"></i> ดูแลร้านค้า</span></div><p class="cap">สรุปยอด เช็กค่าเงิน ตอบแชตลูกค้า</p></div>
     </div>
   </div>
 </section>
@@ -194,8 +199,8 @@
       </div>
       <div class="hl-body rv">
         <h2>คุยกับปิ่นได้ทุกที่<br>บนเครื่องของคุณ</h2>
-        <p>เตือนนัด สรุปไฟล์ ดูดวง ค้นเว็บ วาดรูป — สั่งเป็นภาษาพูด ปิ่นจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
-        <div class="trust-line"><i class="ph-fill ph-lock-key"></i> เปิดอ่านได้แค่คุณ เข้ารหัสลับทั้งหมด</div>
+        <p>พิมพ์หรือพูดได้เลย ปิ่นช่วยจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
+        <a class="trust-line" href="privacy.html"><i class="ph-fill ph-lock-key"></i> เปิดอ่านได้แค่คุณ เข้ารหัสลับทั้งหมด <span class="more">ดูวิธีที่เราดูแลข้อมูล ›</span></a>
         <form class="waitlist" id="waitlist" novalidate>
           <div class="field">
             <label for="wlEmail">อีเมลของคุณ — รับลิงก์ตอนเปิดตัว</label>
@@ -218,7 +223,7 @@
     <h2>สร้างโดย tokens2.io</h2>
     <p>ปิ่นเป็นผู้ช่วยที่เป็นส่วนตัวจริง — บทสนทนาเข้ารหัสลับ สมองทำงานบนเครื่องคุณ
       เปิดอ่านได้แค่คุณ ไม่มีโฆษณา ไม่ขายข้อมูล</p>
-    <a class="lk" href="/developers/">อ่านเพิ่มเกี่ยวกับเรา <i class="ph ph-arrow-right"></i></a>
+    <a class="lk" href="privacy.html">อ่านวิธีที่เราดูแลข้อมูลของคุณ <i class="ph ph-arrow-right"></i></a>
   </div>
 </section>
 
@@ -227,6 +232,7 @@
     <a class="brand" href="#top"><img src="assets/pin-icon.png" alt="ปิ่น" style="height:26px"><span style="font-size:21px">ปิ่น</span></a>
     <nav class="fnav">
       <a href="#uses">วิธีใช้</a>
+      <a href="privacy.html">ความเป็นส่วนตัว</a>
       <a href="#join">เริ่มต้น</a>
       <a href="/developers/">นักพัฒนา</a>
     </nav>
