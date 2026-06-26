@@ -132,9 +132,17 @@
   @media (max-width:560px){.float{display:none}}
   @media (prefers-reduced-motion:reduce){.float{animation:none}}
 
-  /* ---- logos / trust band ---- */
-  .band{padding:22px 0;border-block:1px solid var(--line);background:var(--white)}
-  .band .row{display:flex;flex-wrap:wrap;gap:14px 26px;align-items:center;justify-content:center}
+  /* ---- wow strip ---- */
+  .wow{padding:30px 0;border-block:1px solid var(--line);background:var(--white)}
+  .wow .row5{display:grid;grid-template-columns:repeat(5,1fr);gap:24px}
+  @media(max-width:900px){.wow .row5{grid-template-columns:repeat(2,1fr);gap:22px 24px}}
+  @media(max-width:520px){.wow .row5{grid-template-columns:1fr}}
+  .wow .it{display:flex;gap:12px;align-items:flex-start}
+  .wow .it .ic{width:40px;height:40px;border-radius:12px;background:var(--green-card);color:var(--green-d);display:grid;place-items:center;font-size:21px;flex:0 0 auto}
+  .wow .it .ic i{display:block}
+  .wow .it h4{font-family:var(--nira);font-weight:600;font-size:14.5px;color:var(--ink);line-height:1.3}
+  .wow .it p{font-size:12.5px;color:var(--ink2);margin-top:3px;line-height:1.4}
+  /* pills (used elsewhere) */
   .pill{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);font-weight:500}
   .pill .i{width:26px;height:26px;border-radius:8px;background:var(--green-card);display:grid;place-items:center;color:var(--green-d);font-size:14px}
 
@@ -396,14 +404,29 @@
   </div>
 </section>
 
-<!-- TRUST BAND -->
-<div class="band">
-  <div class="wrap row">
-    <span class="pill"><span class="i"><i class="ph ph-lock-key"></i></span> เข้ารหัส เปิดอ่านได้แค่คุณ</span>
-    <span class="pill"><span class="i"><i class="ph ph-device-mobile"></i></span> สมองเอไอ รันบนเครื่อง</span>
-    <span class="pill"><span class="i"><i class="ph ph-translate"></i></span> เข้าใจภาษาไทย</span>
-    <span class="pill"><span class="i"><i class="ph ph-puzzle-piece"></i></span> เพิ่มความสามารถได้</span>
-    <span class="pill"><span class="i"><i class="ph ph-bell"></i></span> เตือน &amp; จัดการงาน</span>
+<!-- WOW STRIP -->
+<div class="wow">
+  <div class="wrap row5">
+    <div class="it">
+      <span class="ic"><i class="ph ph-brain"></i></span>
+      <div><h4>จำคุณได้</h4><p>จำความชอบ แล้วเอามาใช้เอง</p></div>
+    </div>
+    <div class="it">
+      <span class="ic"><i class="ph ph-squares-four"></i></span>
+      <div><h4>สโตร์ความสามารถ</h4><p>ดูดวง ค่าเงิน ข่าว วาดรูป</p></div>
+    </div>
+    <div class="it">
+      <span class="ic"><i class="ph ph-paint-brush"></i></span>
+      <div><h4>วาดรูปจากข้อความ</h4><p>พิมพ์บรรยาย ปิ่นวาดให้</p></div>
+    </div>
+    <div class="it">
+      <span class="ic"><i class="ph ph-globe"></i></span>
+      <div><h4>ค้นเว็บเรียลไทม์</h4><p>ถามเรื่องสดๆ พร้อมแหล่ง</p></div>
+    </div>
+    <div class="it">
+      <span class="ic"><i class="ph-fill ph-lock-key"></i></span>
+      <div><h4>ส่วนตัว 100%</h4><p>เข้ารหัส สมองบนเครื่อง</p></div>
+    </div>
   </div>
 </div>
 
