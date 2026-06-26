@@ -68,7 +68,7 @@
   .brandmark{display:flex;align-items:center;justify-content:center;gap:clamp(12px,2vw,20px);margin-bottom:26px}
   .sig{width:clamp(60px,8.5vw,86px);height:auto;border-radius:20px;display:block;box-shadow:var(--liftsh)}
   .wm{font-family:var(--serif);font-weight:600;font-size:clamp(46px,9vw,92px);color:var(--forest);line-height:1;letter-spacing:-.01em}
-  .h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(40px,8vw,82px);line-height:1.26;letter-spacing:-.012em;text-wrap:balance}
+  .h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(40px,8vw,80px);line-height:1.42;letter-spacing:-.012em;text-wrap:balance}
   .h1 em{font-weight:400}
   .lede{font-size:clamp(16px,2.1vw,20px);color:var(--ink2);max-width:46ch;margin:24px auto 0;text-wrap:pretty}
   .hero-cta{margin-top:32px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
@@ -111,6 +111,14 @@
   .wl-note{font-size:12.5px;color:var(--ink2);margin-top:14px}
 
   /* creator / trust (= Pi's "Created by Inflection AI") */
+  /* felt-privacy band */
+  .trustband{text-align:center;padding:clamp(48px,7vw,80px) 0;border-top:1px solid var(--line)}
+  .tb-line{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(24px,4vw,38px);line-height:1.34;text-wrap:balance}
+  .tb-points{display:flex;justify-content:center;flex-wrap:wrap;gap:14px 30px;margin-top:26px}
+  .tb-points span{display:inline-flex;align-items:center;gap:9px;font-size:15px;color:var(--ink);font-weight:500}
+  .tb-points i{font-size:20px;color:var(--green);display:block}
+  .trustband .lk{display:inline-flex;align-items:center;gap:6px;margin-top:24px;color:var(--green);font-weight:600;font-size:15px}
+  .trustband .lk i{font-size:17px;display:block}
   .creator{text-align:center;padding:clamp(48px,7vw,84px) 0;border-top:1px solid var(--line)}
   .creator .mk{width:56px;height:56px;border-radius:15px;margin:0 auto 18px;display:block;box-shadow:var(--cardsh)}
   .creator h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(22px,3.2vw,32px);line-height:1.3;text-wrap:balance}
@@ -216,14 +224,26 @@
   </div>
 </section>
 
-<!-- CREATOR / TRUST (= Pi's "Created by Inflection AI") -->
+<!-- FELT-PRIVACY BAND -->
+<section class="trustband">
+  <div class="wrap">
+    <p class="tb-line">ไม่มีใคร อ่านแชตคุณได้ — แม้แต่เรา</p>
+    <div class="tb-points">
+      <span><i class="ph-fill ph-lock-key"></i> เข้ารหัสลับทั้งหมด</span>
+      <span><i class="ph-fill ph-device-mobile"></i> สมองอยู่บนเครื่อง</span>
+      <span><i class="ph-fill ph-hand-heart"></i> ไม่ขายข้อมูล</span>
+    </div>
+    <a class="lk" href="privacy.html">ดูวิธีที่เราดูแลข้อมูลของคุณ <i class="ph ph-arrow-right"></i></a>
+  </div>
+</section>
+
+<!-- CREATOR + final CTA echo (peak-end) -->
 <section class="creator">
   <div class="wrap">
     <img class="mk" src="assets/pin-icon.png" alt="ปิ่น">
-    <h2>สร้างโดย tokens2.io</h2>
-    <p>ปิ่นเป็นผู้ช่วยที่เป็นส่วนตัวจริง — บทสนทนาเข้ารหัสลับ สมองทำงานบนเครื่องคุณ
-      เปิดอ่านได้แค่คุณ ไม่มีโฆษณา ไม่ขายข้อมูล</p>
-    <a class="lk" href="privacy.html">อ่านวิธีที่เราดูแลข้อมูลของคุณ <i class="ph ph-arrow-right"></i></a>
+    <h2>พร้อมให้ปิ่นดูแล<br>เรื่องเล็ก ๆ ของคุณ</h2>
+    <p>สร้างโดย tokens2.io · กำลังเปิดตัวเร็ว ๆ นี้ ใช้ฟรี ไม่มีโฆษณา</p>
+    <a class="pill" href="#join" style="margin-top:22px">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
   </div>
 </section>
 
