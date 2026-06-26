@@ -83,9 +83,11 @@
   .hero .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
   @media(max-width:880px){.hero .grid{grid-template-columns:1fr;gap:34px}}
   .h1{font-size:clamp(34px,6vw,60px);font-weight:600;line-height:1.08;letter-spacing:-.02em;text-wrap:balance}
+  /* baseline-hugging marker — Thai stacks vowels/tone marks high, so the band
+     must sit low (≈bottom quarter) or it crosses mid-glyph and reads as a box */
   .hl{color:var(--green-d);position:relative;
-      background:linear-gradient(transparent 62%,rgba(242,184,41,.34) 0);
-      -webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .05em}
+      background:linear-gradient(transparent 74%,rgba(242,184,41,.42) 74%,rgba(242,184,41,.42) 92%,transparent 92%);
+      -webkit-box-decoration-break:clone;box-decoration-break:clone}
   .lede{font-size:clamp(16px,2vw,19px);color:var(--ink2);margin-top:20px;max-width:48ch;text-wrap:pretty}
   .hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
   .hero-trust{display:flex;gap:18px;margin-top:26px;flex-wrap:wrap;color:var(--ink2);font-size:13.5px}
