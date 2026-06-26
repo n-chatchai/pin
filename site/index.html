@@ -202,7 +202,7 @@
         <p>พิมพ์หรือพูดได้เลย ปิ่นช่วยจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
         <a class="trust-line" href="privacy.html"><i class="ph-fill ph-lock-key"></i> เปิดอ่านได้แค่คุณ เข้ารหัสลับทั้งหมด <span class="more">ดูวิธีที่เราดูแลข้อมูล ›</span></a>
         <div class="join-cta">
-          <a class="pill lg" id="joinMail" href="mailto:hello@tokens2.io?subject=%E0%B8%82%E0%B8%AD%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%AA%E0%B8%B4%E0%B8%97%E0%B8%98%E0%B8%B4%E0%B9%8C%E0%B9%83%E0%B8%8A%E0%B9%89%E0%B8%9B%E0%B8%B4%E0%B9%88%E0%B8%99%E0%B8%81%E0%B9%88%E0%B8%AD%E0%B8%99%E0%B9%83%E0%B8%84%E0%B8%A3&body=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5%E0%B8%84%E0%B9%88%E0%B8%B0%20%E0%B8%AD%E0%B8%A2%E0%B8%B2%E0%B8%81%E0%B8%A5%E0%B8%AD%E0%B8%87%E0%B9%83%E0%B8%8A%E0%B9%89%E0%B8%9B%E0%B8%B4%E0%B9%88%E0%B8%99%E0%B8%81%E0%B9%88%E0%B8%AD%E0%B8%99%E0%B9%83%E0%B8%84%E0%B8%A3%20%E0%B8%8A%E0%B9%88%E0%B8%A7%E0%B8%A2%E0%B8%AA%E0%B9%88%E0%B8%87%E0%B8%A5%E0%B8%B4%E0%B8%87%E0%B8%81%E0%B9%8C%E0%B8%95%E0%B8%AD%E0%B8%99%E0%B9%80%E0%B8%9B%E0%B8%B4%E0%B8%94%E0%B8%95%E0%B8%B1%E0%B8%A7%E0%B9%83%E0%B8%AB%E0%B9%89%E0%B8%94%E0%B9%89%E0%B8%A7%E0%B8%A2%E0%B8%99%E0%B8%B0%E0%B8%84%E0%B8%B0">ส่งอีเมลขอรับสิทธิ์ <span class="ar">→</span></a>
+          <a class="pill lg" id="joinMail" href="#join">ส่งอีเมลขอรับสิทธิ์ <span class="ar">→</span></a>
         </div>
         <p class="wl-note">กำลังเปิดตัวเร็ว ๆ นี้ · ส่งอีเมลมาบอกเรา เดี๋ยวส่งลิงก์ดาวน์โหลดให้คุณก่อนใคร · ฟรี ไม่มีโฆษณา</p>
       </div>
@@ -254,8 +254,17 @@
   burger&&burger.addEventListener('click',()=>{const o=mnav.classList.toggle('open');burger.setAttribute('aria-expanded',o);});
   mnav&&mnav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{mnav.classList.remove('open');burger.setAttribute('aria-expanded','false');}));
 
-  // waitlist = plain mailto (no backend, no form-spam). The ปิ่น brand email is
-  // in the join CTA's href. ponytail: swap the address there + here if it changes.
+  // waitlist = plain mailto (no backend, no form-spam). Build it in JS so the
+  // address isn't sitting in the static HTML for scrapers, and so the prefilled
+  // body can ask which platform → we send the right store link at launch.
+  // ponytail: change PIN_INBOX if the address changes.
+  const PIN_INBOX='hello'+'@'+'tokens2.io';
+  const mailEl=document.getElementById('joinMail');
+  if(mailEl){
+    const subj='ขอรับสิทธิ์ใช้ปิ่นก่อนใคร';
+    const body='สวัสดีค่ะ อยากลองใช้ปิ่นก่อนใคร ช่วยส่งลิงก์ดาวน์โหลดตอนเปิดตัวให้ด้วยนะคะ\n\nอุปกรณ์ของฉัน: (เลือก) iPhone / Android';
+    mailEl.href='mailto:'+PIN_INBOX+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+  }
 
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
   document.querySelectorAll('.rv').forEach(el=>io.observe(el));
