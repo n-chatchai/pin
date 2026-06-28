@@ -106,15 +106,32 @@ def health() -> dict:
 
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_WL_HITS: dict[str, list[float]] = {}  # ip -> recent submit times (rate limit)
 
 
 @app.post("/waitlist")
 async def waitlist(request: Request) -> dict:
-    """Public pre-launch signup from the marketing site. No auth. Stores
-    {email, use} for the launch list — no conversation content."""
+    """Public pre-launch signup from the marketing site. No auth — guarded by a
+    honeypot + a per-IP rate limit (dedupe by email is in store.add_waitlist).
+    Stores {email, use} only — no conversation content."""
     from . import store
 
     b = await request.json()
+    # Honeypot: humans leave 'hp' empty, bots auto-fill every field. Silently
+    # accept (don't tip the bot off) but store nothing.
+    if str(b.get("hp", "")).strip():
+        return {"ok": True}
+    # Per-IP rate limit: 5/hour. ponytail: in-process dict, fine for a single
+    # instance — move to redis if this ever runs multi-worker.
+    ip = (request.headers.get("cf-connecting-ip")
+          or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+          or (request.client.host if request.client else "?"))
+    now = time.time()
+    hits = [t for t in _WL_HITS.get(ip, []) if now - t < 3600]
+    if len(hits) >= 5:
+        raise HTTPException(status_code=429, detail="too many requests")
+    hits.append(now)
+    _WL_HITS[ip] = hits
     email = str(b.get("email", "")).strip()
     if not _EMAIL_RE.match(email):
         raise HTTPException(status_code=422, detail="invalid email")

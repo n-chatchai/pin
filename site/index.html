@@ -370,9 +370,11 @@
     <p>กรอกอีเมล บอกเราว่าอยากใช้ปิ่นช่วยเรื่องอะไร เดี๋ยวส่งลิงก์ให้ก่อนใคร</p>
     <form class="wl-form" id="joinForm">
       <input type="email" id="wlEmail" name="email" required placeholder="อีเมลของคุณ" autocomplete="email">
+      <!-- honeypot: hidden from humans, bots auto-fill it → server drops the submit -->
+      <input type="text" id="wlHp" name="hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
       <select id="wlUse" name="use" required>
         <option value=""  selected>อยากใช้ปิ่นช่วยเรื่องอะไรมากที่สุด?</option>
-        <option value="study">ติว &amp; ทบทวนบทเรียน</option>
+        <option value="study">ติวและทบทวนบทเรียน</option>
         <option value="home">ดูแลเรื่องในบ้าน · เตือนความจำ</option>
         <option value="creative">งานครีเอทีฟ · วาดรูป แคปชัน ไอเดีย</option>
         <option value="sme">ดูแลร้านค้า · ยอดขาย + ตอบแชต (เร็วๆนี้)</option>
@@ -507,7 +509,7 @@
       try{
         const r=await fetch(FORM_ENDPOINT,{method:'POST',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({email,use})});
+          body:JSON.stringify({email,use,hp:document.getElementById('wlHp').value})});
         if(r.ok){ ok(); return; }
         throw new Error('http '+r.status);
       }catch(_){
