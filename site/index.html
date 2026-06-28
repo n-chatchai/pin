@@ -241,7 +241,9 @@
     .split{grid-template-columns:1fr;gap:16px}
     .demo{order:2}                       /* phone sits BELOW heading + chips */
     .phone{width:min(236px,62%)}
-    .hl-body{text-align:center}
+    /* min-width:0 so the nowrap chips carousel scrolls INSIDE the column instead
+       of stretching it past the viewport (which knocked the whole block off-centre). */
+    .hl-body{text-align:center;min-width:0}
     .hl-body h2{font-size:clamp(26px,7vw,34px)}
     .hl-body p{margin-top:10px;font-size:15px;margin-inline:auto}
     /* chips as a horizontal carousel — tap a chip and the phone below updates */
