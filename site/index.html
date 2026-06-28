@@ -154,8 +154,8 @@
   .genthumb .play i{font-size:24px;display:block}
   .soonnote i{font-size:13px;color:var(--green-2);display:block;flex:0 0 auto}
   /* branch sales carousel — mirrors app wcard (strip header + big number body) */
-  .brc{display:flex;gap:8px;overflow-x:auto;margin-top:8px;padding-bottom:4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
-  .brc::-webkit-scrollbar{height:0}
+  .brc{display:flex;gap:8px;overflow-x:auto;margin-top:8px;padding-bottom:4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
+  .brc::-webkit-scrollbar{display:none;width:0;height:0}
   .brc-card{flex:0 0 132px;scroll-snap-align:start;background:var(--white);border-radius:15px;overflow:hidden;box-shadow:0 1px 4px rgba(60,40,15,.06)}
   .brc-strip{display:flex;align-items:center;gap:6px;background:var(--blush);padding:8px 11px;font-size:12px;font-weight:600;color:var(--forest)}
   .brc-strip i{font-size:14px;display:block;color:var(--green)}
@@ -248,14 +248,14 @@
     .hl-body p{margin-top:10px;font-size:15px;margin-inline:auto}
     /* chips as a horizontal carousel — tap a chip and the phone below updates */
     .ucchips{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;
-      -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding-bottom:4px}
-    .ucchips::-webkit-scrollbar{height:0}
+      -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding-bottom:0;scrollbar-width:none;-ms-overflow-style:none}
+    .ucchips::-webkit-scrollbar{display:none;width:0;height:0}
     .ucchip{flex:0 0 auto;scroll-snap-align:start}
     .ucsoon-hd{display:none}
     #joinBridge{display:none}
     /* All 5 cards in one horizontal-scroll row (no hiding, no cramped grid). */
     .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-    .crow::-webkit-scrollbar{height:0}
+    .crow::-webkit-scrollbar{display:none;width:0;height:0}
     .uc{scroll-snap-align:center}
   }
   @media(max-width:560px){
