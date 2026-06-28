@@ -407,11 +407,7 @@
   burger&&burger.addEventListener('click',()=>{const o=mnav.classList.toggle('open');burger.setAttribute('aria-expanded',o);});
   mnav&&mnav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{mnav.classList.remove('open');burger.setAttribute('aria-expanded','false');}));
 
-  // waitlist register form — no backend: on submit we compose a mailto so the
-  // signup lands in the inbox. Address built in JS so scrapers don't see it.
-  // ponytail: change PIN_INBOX if the address changes; swap submit handler for a
-  // real POST endpoint when one exists.
-  const PIN_INBOX='hello'+'@'+'tokens2.io';
+  // waitlist register form → posts to the pin-proxy /waitlist backend.
   const form=document.getElementById('joinForm');
   const useSel=document.getElementById('wlUse');
   const customIn=document.getElementById('wlCustom');
@@ -494,8 +490,7 @@
   selectUC('sme',false); // demo teaser only; dropdown stays on placeholder so the pick is intentional
 
   // Submit to our own backend (pin-proxy /waitlist). Stores {email,use} for the
-  // launch list. On any failure, fall back to mailto. Either way the user sees a
-  // confirmation. ponytail: endpoint follows the app's proxy base.
+  // launch list. On failure, show a retry message (no mailto fallback).
   const FORM_ENDPOINT='https://pin-gateway.tokens2.io/waitlist';
   const statusEl=document.getElementById('wlStatus');
   if(form){
@@ -515,13 +510,11 @@
           body:JSON.stringify({email,use})});
         if(r.ok){ ok(); return; }
         throw new Error('http '+r.status);
-      }catch(_){/* fall through to mailto */}
-      // fallback: open the user's mail client, still confirm on-page
-      const subj='ขอรับสิทธิ์ใช้ปิ่นก่อนใคร';
-      const body='อีเมล: '+email+'\nอยากใช้ปิ่นช่วยเรื่อง: '+use+'\n\nช่วยส่งลิงก์ดาวน์โหลดตอนเปิดตัวให้ด้วยนะคะ';
-      location.href='mailto:'+PIN_INBOX+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
-      submitBtn.disabled=false; submitBtn.innerHTML=orig;
-      statusEl.className='wl-status'; statusEl.textContent='เปิดแอปอีเมลให้แล้ว — กดส่งเพื่อยืนยันการรับสิทธิ์ได้เลยค่ะ';
+      }catch(_){
+        submitBtn.disabled=false; submitBtn.innerHTML=orig;
+        statusEl.className='wl-status err';
+        statusEl.textContent='ส่งไม่สำเร็จ ลองอีกครั้งนะคะ';
+      }
     });
   }
 
