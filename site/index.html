@@ -254,7 +254,8 @@
     .ucsoon-hd{display:none}
     #joinBridge{display:none}
     /* All 5 cards in one horizontal-scroll row (no hiding, no cramped grid). */
-    .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
+    .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .crow::-webkit-scrollbar{height:0}
     .uc{scroll-snap-align:center}
   }
   @media(max-width:560px){
