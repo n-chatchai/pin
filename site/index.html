@@ -235,12 +235,19 @@
   @media(max-width:880px){
     /* Stack the highlight tighter on mobile: smaller phone, smaller gap, centered
        copy so the chips sit right under the mockup instead of floating far below. */
-    .split{grid-template-columns:1fr;gap:18px}
+    .split{grid-template-columns:1fr;gap:16px}
+    .demo{order:2}                       /* phone sits BELOW heading + chips */
     .phone{width:min(236px,62%)}
     .hl-body{text-align:center}
     .hl-body h2{font-size:clamp(26px,7vw,34px)}
     .hl-body p{margin-top:10px;font-size:15px;margin-inline:auto}
-    .ucchips{justify-content:center}
+    /* chips as a horizontal carousel — tap a chip and the phone below updates */
+    .ucchips{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;
+      -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding-bottom:4px}
+    .ucchips::-webkit-scrollbar{height:0}
+    .ucchip{flex:0 0 auto;scroll-snap-align:start}
+    .ucsoon-hd{display:none}
+    #joinBridge{display:none}
     /* All 5 cards in one horizontal-scroll row (no hiding, no cramped grid). */
     .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
     .uc{scroll-snap-align:center}
@@ -339,7 +346,7 @@
        </div>
       </div>
       <div class="hl-body rv">
-        <h2>คุยกับปิ่นได้ทุกที่<br>บนเครื่องของคุณ</h2>
+        <h2>คุยกับปิ่นได้ทุกที่บนเครื่องของคุณ</h2>
         <p>พิมพ์หรือพูดได้เลย ปิ่นช่วยจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
         <p style="font-size:14px;color:var(--ink2);margin-top:6px">แตะดูตัวอย่าง — ปิ่นช่วยอะไรคุณได้บ้าง</p>
         <div class="ucchips" id="ucChips">
