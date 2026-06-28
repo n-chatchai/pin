@@ -234,12 +234,12 @@
 
   @media(max-width:880px){
     .split{grid-template-columns:1fr;gap:30px}
-    .crow{grid-template-columns:repeat(3,1fr)}
-    .uc:nth-child(4),.uc:nth-child(5){display:none}
+    /* All 5 cards in one horizontal-scroll row (no hiding, no cramped grid). */
+    .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
+    .uc{scroll-snap-align:center}
   }
   @media(max-width:560px){
-    .crow{grid-auto-flow:column;grid-auto-columns:66%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
-    .uc{scroll-snap-align:center}.uc:nth-child(4),.uc:nth-child(5){display:block}
+    .crow{grid-auto-columns:72%}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}.rv{opacity:1;transform:none}}
 </style>
