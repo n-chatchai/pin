@@ -8,20 +8,13 @@ import 'package:flutter_zxing/flutter_zxing.dart';
 import 'package:image/image.dart' as img;
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import '../config.dart';
-
-import '../services/auth_service.dart';
 import '../services/matrix_service.dart';
-import 'settings_screen.dart' show E2eeResetScreen;
-import 'auth_screen.dart';
 import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
-import '../widgets/pin_toast.dart';
-import '../widgets/recovery_qr.dart';
-import '../widgets/google_sign_in_button.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
-import '../widgets/pin_route.dart';
+import '../widgets/pin_toast.dart';
+import '../widgets/recovery_qr.dart';
 
 /// Onboarding. New users (signup=true): welcome → naming → theme → SIGNUP →
 /// recovery key → ready (account created mid-flow, before recovery which needs
@@ -29,9 +22,7 @@ import '../widgets/pin_route.dart';
 /// ready. Dots top, full-width button bottom.
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onDone;
-  final bool signup; // include the create-account step (new users)
-  const OnboardingScreen(
-      {super.key, required this.onDone, this.signup = false});
+  const OnboardingScreen({super.key, required this.onDone});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -51,14 +42,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   /// persona + theme are collected IN-CHAT after the account/room exist (so they
   /// sync to room state from the start). '' label = self-advancing.
   List<(Widget, String)> _stepList() => [
-        if (widget.signup) (_SignupStep(onAuthed: _next), ''),
         (_recovery, 'ถัดไป'),
-        (_ReadyStep(active: _index == _readyIndex), 'เริ่มคุยเลย'),
+        // Last step self-advances after a fade-in (label '' → no button).
+        (_ReadyStep(active: _index == _readyIndex, onDone: _next), ''),
       ];
 
   // The celebratory last step is always last; animate it only once the user
   // actually reaches it (PageView builds pages eagerly).
-  int get _readyIndex => (widget.signup ? 1 : 0) + 1;
+  int get _readyIndex => 1;
 
   List<String> get _labels => [for (final s in _stepList()) s.$2];
 
@@ -133,23 +124,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             if (!hideButton)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 58,
-                  child: FilledButton(
-                    // On the recovery step, stay disabled until the key is
-                    // copied / saved (or restored).
-                    onPressed: (_index == _recoveryIndex && !_recoverySaved)
-                        ? null
-                        : _next,
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      textStyle: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    child: Text(_labels[_index]),
-                  ),
+                // On the recovery step, stay disabled until the key is saved.
+                child: PinButton(
+                  _labels[_index],
+                  onTap: (_index == _recoveryIndex && !_recoverySaved)
+                      ? null
+                      : _next,
                 ),
               ),
           ],
@@ -165,7 +145,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 /// expanding success ring, then the title and subtitle fade + rise.
 class _ReadyStep extends StatefulWidget {
   final bool active;
-  const _ReadyStep({required this.active});
+  final VoidCallback onDone; // self-advance into the app once shown
+  const _ReadyStep({required this.active, required this.onDone});
   @override
   State<_ReadyStep> createState() => _ReadyStepState();
 }
@@ -173,18 +154,29 @@ class _ReadyStep extends StatefulWidget {
 class _ReadyStepState extends State<_ReadyStep>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1100));
+      vsync: this, duration: const Duration(milliseconds: 500));
+  bool _ran = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.active) _c.forward();
+    if (widget.active) _run();
   }
 
   @override
   void didUpdateWidget(_ReadyStep old) {
     super.didUpdateWidget(old);
-    if (widget.active && !old.active) _c.forward(from: 0);
+    if (widget.active && !old.active) _run();
+  }
+
+  // Fade in, hold briefly, then advance into the app on its own.
+  void _run() {
+    if (_ran) return;
+    _ran = true;
+    _c.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) widget.onDone();
+    });
   }
 
   @override
@@ -193,84 +185,37 @@ class _ReadyStepState extends State<_ReadyStep>
     super.dispose();
   }
 
-  double _seg(double a, double b, Curve curve) =>
-      curve.transform(((_c.value - a) / (b - a)).clamp(0.0, 1.0));
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) {
-          final badge = _seg(0.0, 0.55, Curves.elasticOut); // springy pop
-          final ring = _seg(0.05, 0.65, Curves.easeOut); // success pulse
-          final title = _seg(0.45, 0.85, Curves.easeOut);
-          final sub = _seg(0.6, 1.0, Curves.easeOut);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 120,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Expanding fading ring behind the badge.
-                    Opacity(
-                      opacity: (1 - ring) * 0.5,
-                      child: Transform.scale(
-                        scale: 0.6 + ring * 1.4,
-                        child: Container(
-                          width: 66,
-                          height: 66,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: scheme.primary.withValues(alpha: 0.25)),
-                        ),
-                      ),
-                    ),
-                    Transform.scale(
-                      scale: badge,
-                      child: Container(
-                        width: 66,
-                        height: 66,
-                        decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.15),
-                            shape: BoxShape.circle),
-                        child: Icon(PhosphorIconsRegular.check,
-                            color: scheme.secondary, size: 32),
-                      ),
-                    ),
-                  ],
-                ),
+      child: FadeTransition(
+        opacity: CurvedAnimation(parent: _c, curve: Curves.easeOut),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 66,
+              height: 66,
+              decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle),
+              child: Icon(PhosphorIconsRegular.check,
+                  color: scheme.secondary, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text('พร้อมแล้ว', style: PinPalette.brand(size: 30)),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 48),
+              child: Text(
+                'เริ่มคุยได้เลย — ถามอะไรก็ได้ที่อยากให้ช่วย',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: PinPalette.ink2, height: 1.5),
               ),
-              const SizedBox(height: 16),
-              Opacity(
-                opacity: title,
-                child: Transform.translate(
-                  offset: Offset(0, (1 - title) * 12),
-                  child: Text('พร้อมแล้ว', style: PinPalette.brand(size: 30)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Opacity(
-                opacity: sub,
-                child: Transform.translate(
-                  offset: Offset(0, (1 - sub) * 12),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 48),
-                    child: Text(
-                      'เริ่มคุยได้เลย — ถามอะไรก็ได้ที่อยากให้ช่วย',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: PinPalette.ink2, height: 1.5),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -323,15 +268,27 @@ class _RecoveryStepState extends State<_RecoveryStep> {
       // A FAILED check must never fall through to create: creating runs
       // resetRecovery, which DELETES the server backup and mints a new key —
       // destroying a backup that may well exist and locking other devices out.
+      // BOUNDED: both are network/state queries with no internal deadline; on a
+      // fresh post-login store one can stall and wedge this step ("sso loading"
+      // forever). On timeout, degrade safely — unknown backup → restore (never
+      // create, which would delete a real backup); unknown recovery state.
       bool? hasBackup;
       try {
-        hasBackup = await MatrixService.instance.backupExists();
-      } catch (_) {
+        debugPrint('[onb] _init backupExists …');
+        hasBackup = await MatrixService.instance
+            .backupExists()
+            .timeout(const Duration(seconds: 20));
+        debugPrint('[onb] backupExists=$hasBackup');
+      } catch (e) {
+        debugPrint('[onb] backupExists failed/timeout: $e');
         hasBackup = null; // server unreachable → unknown, treat as "maybe yes"
       }
+      debugPrint('[onb] _init recoveryState …');
       final state = await MatrixService.instance
           .recoveryState()
+          .timeout(const Duration(seconds: 20), onTimeout: () => 'unknown')
           .catchError((_) => 'unknown');
+      debugPrint('[onb] recoveryState=$state');
       if (!mounted) return;
       if (hasBackup == true || state == 'enabled') {
         // Returning user on a new device → restore with the existing key
@@ -488,7 +445,7 @@ class _RecoveryStepState extends State<_RecoveryStep> {
       if (mounted) setState(() => _mode = 'restored');
       widget.onSaved?.call(); // unlock "Next" only after a successful restore
       // Show "กู้คืนสำเร็จ" briefly, then advance for them — nothing left to do here.
-      await Future.delayed(const Duration(milliseconds: 700));
+      await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) widget.onRestored?.call();
     } catch (e) {
       if (mounted) {
@@ -550,33 +507,19 @@ class _RecoveryStepState extends State<_RecoveryStep> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
+                PinField(
                   controller: _restoreCtl,
+                  placeholder: 'วางกุญแจกู้คืนที่นี่',
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                    hintText: 'วางกุญแจกู้คืนที่นี่',
-                    border: OutlineInputBorder(),
-                  ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                  monospace: true,
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _restoring ? null : _loadQr,
-                  icon: const Icon(PhosphorIconsRegular.qrCode, size: 18),
-                  label: const Text('โหลดจากรูป QR'),
-                  // Secondary action: faint green tonal fill + green border/text
-                  // so it reads as a real button on cream (a hairline outline
-                  // blended in), without competing with the solid green "กู้คืน".
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    foregroundColor: scheme.primary,
-                    backgroundColor: scheme.primary.withValues(alpha: 0.08),
-                    side: BorderSide(
-                        color: scheme.primary.withValues(alpha: 0.40)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
+                PinButton.outlined(
+                  'โหลดจากรูป QR',
+                  onTap: _restoring ? null : _loadQr,
+                  icon: const Icon(PhosphorIconsRegular.qrCode,
+                      size: 18, color: PinPalette.ink2),
                 ),
                 if (_error != null)
                   Padding(
@@ -584,25 +527,26 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                     child: Text(_error!, style: TextStyle(color: scheme.error)),
                   ),
                 const SizedBox(height: 12),
-                FilledButton(
-                  // Same size as "โหลดจากรูป QR"; disabled until a key is present
-                  // (typed or QR-loaded) so it can't be tapped with empty input.
-                  onPressed: (_restoring || _restoreCtl.text.trim().isEmpty)
-                      ? null
-                      : _restore,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text(_restoring ? 'กำลังกู้คืน…' : 'กู้คืน'),
+                // Disabled until a key is present (typed or QR-loaded).
+                PinButton(
+                  'กู้คืน',
+                  busy: _restoring,
+                  onTap:
+                      _restoreCtl.text.trim().isEmpty ? null : _restore,
                 ),
-                TextButton(
-                  onPressed: _restoring
+                const SizedBox(height: 4),
+                PinButton.text(
+                  'ไม่มีกุญแจ? เริ่มใหม่',
+                  onTap: _restoring
                       ? null
                       : () async {
-                          // No saved key → start fresh: rebuild the combined QR
-                          // (resets both accounts' backups + new keys).
+                          // No saved key → start fresh (old chat is abandoned).
+                          // For SSO (no account password) the old ปิ่น pw is tied
+                          // to the discarded recovery key, so a plain bootstrap
+                          // would leave the companion LOCKED → a useless user-only
+                          // QR. Recreate the companion instead → fresh pw stored in
+                          // 4S → the new QR carries BOTH codes. Password users do
+                          // the password-backed full reset.
                           setState(() {
                             _mode = 'create';
                             _key = null;
@@ -610,8 +554,14 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                             _error = null;
                           });
                           try {
-                            final payload = await MatrixService.instance
-                                .bootstrapE2eeQr();
+                            final m2 = MatrixService.instance;
+                            final String payload;
+                            if (m2.hasUserPassword) {
+                              payload = await m2.bootstrapE2eeQr();
+                            } else {
+                              final key = await m2.resetAndRecreateCompanion();
+                              payload = await m2.packRecoveryQr(key);
+                            }
                             final m = jsonDecode(payload) as Map<String, dynamic>;
                             if (mounted) {
                               setState(() {
@@ -623,7 +573,6 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                             if (mounted) setState(() => _error = '$e');
                           }
                         },
-                  child: const Text('ไม่มีกุญแจ? เริ่มใหม่'),
                 ),
               ],
             )
@@ -634,51 +583,10 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                 Text('ตั้งกุญแจไม่สำเร็จ: $_error',
                     style: TextStyle(color: scheme.error)),
                 const SizedBox(height: 14),
-                // A locked companion (recovery key rotated → derived ปิ่น pw no
-                // longer matches) can NEVER recover by retrying — the only fix is
-                // registering a fresh ปิ่น. Offer that as the primary action so the
-                // user isn't stuck tapping a dead-end "ลองอีกครั้ง".
-                if (MatrixService.instance.companionLocked) ...[
-                  FilledButton(
-                    onPressed: () async {
-                      await Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const E2eeResetScreen(lockedCompanion: true)));
-                      if (!mounted) return;
-                      if (MatrixService.instance.companionReady) {
-                        // New ปิ่น is up and its key was shown/saved on that
-                        // screen → mark done and unlock "ถัดไป".
-                        setState(() {
-                          _error = null;
-                          _mode = 'restored';
-                        });
-                        widget.onSaved?.call();
-                      }
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Text('เริ่ม ปิ่น ใหม่ (กู้ ปิ่น เดิมไม่ได้)'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _error = null);
-                      _init();
-                    },
-                    child: const Text('ลองอีกครั้ง'),
-                  ),
-                ] else
-                  FilledButton(
-                    onPressed: () {
-                      setState(() => _error = null);
-                      _init();
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Text('ลองอีกครั้ง'),
-                    ),
-                  ),
+                PinButton('ลองอีกครั้ง', onTap: () {
+                  setState(() => _error = null);
+                  _init();
+                }),
               ],
             )
           else if (_key == null)
@@ -707,36 +615,22 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
+                      child: PinButton.key(
+                        'คัดลอก',
+                        icon: const Icon(PhosphorIconsRegular.copy),
+                        onTap: () {
                           Clipboard.setData(ClipboardData(text: _key!));
                           PinToast.show(context, 'คัดลอกกุญแจแล้ว');
                           widget.onSaved?.call();
                         },
-                        icon: const Icon(PhosphorIconsRegular.copy, size: 17),
-                        label: const Text('คัดลอก'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          foregroundColor: PinPalette.ink,
-                          side: const BorderSide(color: PinPalette.line),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _saveQr,
-                        icon: const Icon(PhosphorIconsRegular.image, size: 17),
-                        label: const Text('บันทึกรูป'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          foregroundColor: PinPalette.ink,
-                          side: const BorderSide(color: PinPalette.line),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                        ),
+                      child: PinButton.key(
+                        'บันทึกรูป',
+                        icon: const Icon(PhosphorIconsRegular.image),
+                        onTap: _saveQr,
                       ),
                     ),
                   ],
@@ -810,148 +704,6 @@ class _Dots extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-/// Create-account step inside onboarding (new users). On success it calls
-/// [onAuthed] to advance to the recovery-key step (which needs the account).
-class _SignupStep extends StatefulWidget {
-  final VoidCallback onAuthed;
-  const _SignupStep({required this.onAuthed});
-
-  @override
-  State<_SignupStep> createState() => _SignupStepState();
-}
-
-class _SignupStepState extends State<_SignupStep> {
-  static const _homeserver = kHomeserver;
-  final _username = TextEditingController();
-  final _password = TextEditingController();
-  final _auth = AuthService();
-  bool _busy = false;
-  String? _error;
-  Timer? _debounce; // realtime username-availability check
-  bool? _taken; // true = username already registered, null = unknown/typing
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _username.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  void _onNameChanged(String v) {
-    _debounce?.cancel();
-    setState(() => _taken = null);
-    final name = v.trim();
-    if (name.length < 3) return;
-    _debounce = Timer(const Duration(milliseconds: 600), () async {
-      final free =
-          await _auth.usernameAvailable(homeserver: _homeserver, username: name);
-      if (mounted && _username.text.trim() == name) {
-        setState(() => _taken = !free);
-      }
-    });
-  }
-
-  Future<void> _go() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await _auth.registerWithUsername(
-        homeserver: _homeserver,
-        username: _username.text.trim(),
-        password: _password.text,
-      );
-      if (mounted) widget.onAuthed();
-    } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('สร้างบัญชี', style: PinPalette.brand(size: 27)),
-          const SizedBox(height: 8),
-          const Text('ตั้งชื่อผู้ใช้ไว้เข้าสู่ระบบ',
-              style: TextStyle(color: PinPalette.ink2)),
-          const SizedBox(height: 24),
-          PinField(
-            controller: _username,
-            enabled: !_busy,
-            placeholder: 'ชื่อผู้ใช้',
-            icon: PhosphorIconsLight.user,
-            keyboardType: TextInputType.text,
-            onChanged: _onNameChanged,
-          ),
-          // Realtime availability hint — fixed height so nothing shifts.
-          SizedBox(
-            height: 26,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8, left: 4),
-              // Only flag a problem (name taken). Nothing when free or typing.
-              child: _taken == true
-                  ? const Text('ชื่อนี้มีคนใช้แล้ว — เข้าสู่ระบบด้านล่าง',
-                      style: TextStyle(fontSize: 12, color: Color(0xFFC0392B)))
-                  : const SizedBox.shrink(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          PinField(
-            controller: _password,
-            enabled: !_busy,
-            placeholder: 'รหัสผ่าน',
-            icon: PhosphorIconsLight.lockSimple,
-            obscure: true,
-            onSubmitted: () => (_busy || _taken == true) ? null : _go(),
-          ),
-          // Reserve a fixed slot for the error so the button never jumps.
-          SizedBox(
-            height: 34,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: _error == null
-                  ? const SizedBox.shrink()
-                  : Text(_error!,
-                      style: const TextStyle(color: PinPalette.neg)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          PinButton('สมัครและไปต่อ',
-              busy: _busy, onTap: _taken == true ? null : _go),
-          const SizedBox(height: 18),
-          Row(children: [
-            const Expanded(child: Divider(color: PinPalette.line)),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Text('หรือ',
-                  style: TextStyle(fontSize: 13.5, color: PinPalette.ink2)),
-            ),
-            const Expanded(child: Divider(color: PinPalette.line)),
-          ]),
-          const SizedBox(height: 16),
-          const GoogleSignInButton(),
-          const SizedBox(height: 8),
-          Center(
-            child: PinButton.text('มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',
-                onTap: _busy
-                    ? null
-                    : () => Navigator.of(context)
-                        .push(pinRoute(const AuthScreen()))),
-          ),
-        ],
-      ),
     );
   }
 }

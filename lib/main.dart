@@ -159,15 +159,30 @@ class AfterAuth extends StatefulWidget {
 }
 
 class _AfterAuthState extends State<AfterAuth> {
-  /// On a fresh install the local Keychain is empty (onboarded=false) but the
-  /// account may already have a ปิ่น room carrying the persona in room state.
-  /// Pull it back before we decide whether to run onboarding.
+  /// On a fresh install the local Keychain is empty (onboarded=false, NOT
+  /// persisted locally — room state is the source of truth) but the account may
+  /// already have a ปิ่น room. Pull it back to decide onboarding-vs-chat, so we
+  /// must await this before gating (can't render non-blocking, or every launch
+  /// flashes onboarding + triggers a key reset). It's fast now: findPinRoomId
+  /// reads the local store (no blocking sync); on a cold store it returns null
+  /// immediately, on a warm store it finds the room and reads a little state.
   late final Future<void> _hydrate = _rehydratePrefs();
 
+  /// Bounded backstop so a stalled homeserver can't wedge the boot screen.
   Future<void> _rehydratePrefs() async {
+    try {
+      await _doRehydratePrefs().timeout(const Duration(seconds: 12));
+    } catch (e) {
+      debugPrint('[boot] rehydratePrefs failed/timeout: $e');
+    }
+  }
+
+  Future<void> _doRehydratePrefs() async {
     // Persona is room-only (never persisted on device), so always pull it from
     // the ปิ่น room state on launch — the room is the single source of truth.
+    debugPrint('[boot] rehydrate: findPinRoomId …');
     final id = await MatrixService.instance.findPinRoomId();
+    debugPrint('[boot] rehydrate: pinRoom=$id');
     if (id == null) return; // brand-new account → onboarding runs
     final p = await MatrixService.instance.loadPrefsFromRoom(id);
     if (p == null || (p['pin_name'] ?? '').isEmpty) return;

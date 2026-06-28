@@ -13,6 +13,7 @@ import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/pin_button.dart';
+import '../widgets/pin_field.dart';
 import '../widgets/theme_picker.dart';
 import '../widgets/pin_toast.dart';
 import '../widgets/recovery_qr.dart';
@@ -1023,13 +1024,12 @@ class _E2eeResetScreenState extends State<E2eeResetScreen> {
               style: TextStyle(fontSize: 13, height: 1.45)),
           const SizedBox(height: 16),
           if (MatrixService.instance.hasUserPassword) ...[
-            TextField(
+            PinField(
               controller: _pw,
-              obscureText: true,
+              placeholder: 'รหัสผ่านบัญชี',
+              icon: PhosphorIconsLight.lockSimple,
+              obscure: true,
               enabled: !_running && _key == null,
-              decoration: const InputDecoration(
-                  labelText: 'รหัสผ่านบัญชี',
-                  border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
           ],

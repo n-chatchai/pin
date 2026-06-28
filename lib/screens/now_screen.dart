@@ -1,22 +1,42 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../agent/agent_store.dart';
 import '../services/files_store.dart';
-import '../services/notification_service.dart';
 import '../widgets/pin_toast.dart';
 import '../services/now_controllers.dart';
 import '../services/tasks_controller.dart';
+import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 
-/// "ตอนนี้" content (fab-now) — focused peek at what matters right now:
-/// overdue first, then today / deadlines. Used both as a left slide-in panel
-/// and as a full screen.
+// Pull straight from the app theme (now warm "Pi") so the panel can't drift.
+const _line = PinPalette.line;
+const _ink = PinPalette.ink;
+const _ink2 = PinPalette.ink2;
+const _ink3 = PinPalette.ink3;
+const _neg = PinPalette.neg;
+const _cardSh = <BoxShadow>[
+  BoxShadow(color: Color(0x143C280F), blurRadius: 30, offset: Offset(0, 10)),
+  BoxShadow(color: Color(0x0D3C280F), blurRadius: 2, offset: Offset(0, 1)),
+];
+
+/// One row in the merged "วันนี้" card — a today event or a one-time reminder.
+class _DayItem {
+  final String time;
+  final String title;
+  final bool remind;
+  final bool isReminder;
+  _DayItem(this.time, this.title,
+      {this.remind = false, this.isReminder = false});
+}
+
+/// "ตอนนี้" content (fab-now) — a Pi-style glance: warm greeting in ปิ่น's
+/// voice, today's tasks/events/reminders merged into one card, what ปิ่น is
+/// watching, and a link to files. Used as the left slide-in panel + full screen.
 class NowView extends StatelessWidget {
   const NowView({super.key});
 
@@ -28,264 +48,307 @@ class NowView extends StatelessWidget {
     return _todayHints.any(due.contains);
   }
 
+  static TextStyle _serif(double size,
+          {Color color = _ink, FontWeight weight = FontWeight.w600}) =>
+      GoogleFonts.trirong(fontSize: size, fontWeight: weight, color: color);
+
+  /// Warm greeting in ปิ่น's voice: time of day + how ปิ่น calls the user.
+  static String _greet() {
+    final h = DateTime.now().hour;
+    final call = PrefsController.instance.value.userCall.trim();
+    final base = h < 11
+        ? 'สวัสดีตอนเช้า'
+        : h < 16
+            ? 'สวัสดีตอนบ่าย'
+            : h < 19
+                ? 'สวัสดีตอนเย็น'
+                : 'สวัสดีตอนค่ำ';
+    return call.isEmpty ? base : '$base, $call';
+  }
+
+  /// One-line ปิ่น summary under the greeting. Quiet days get an invitation to
+  /// rest; busy days lead with the count. ponytail: rule-based, no LLM.
+  static String _summary(int overdue, int timed) {
+    final parts = <String>[];
+    if (timed > 0) parts.add('มีนัด $timed');
+    if (overdue > 0) parts.add('งานค้าง $overdue เรื่องเลยกำหนด');
+    if (parts.isEmpty) return 'วันนี้โล่ง ๆ ไม่มีอะไรด่วน — พักได้เลย ☕';
+    return 'วันนี้${parts.join(' กับ ')} นะ ที่เหลือเบา ๆ';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        // bottom:false so the drawer fills to the screen edge (no blank bar
-        // under the home indicator); the lists pad their own bottom instead.
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: Color(0xFF34B06A),
-                  unselectedLabelColor: PinPalette.ink2,
-                  indicatorColor: Color(0xFF34B06A),
-                  indicatorWeight: 2.5,
-                  // Heading face (IBM Plex Sans Thai) to match the app bar +
-                  // section headers — tab titles are headings, not body.
-                  labelStyle: PinPalette.brand(size: 16),
-                  tabs: const [Tab(text: 'ตอนนี้'), Tab(text: 'ไฟล์')],
-                  // (const dropped from parent Padding so labelStyle can use brand)
-                ),
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [_nowTab(context), const FilesTab()],
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        bottom: false,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            TasksController.instance,
+            EventsController.instance,
+            JobsController.instance,
+            WatchesController.instance,
+            PrefsController.instance,
+          ]),
+          builder: (context, _) {
+            final now =
+                TasksController.instance.value.where(_isNow).toList();
+            final overdue = now.where((t) => t.overdue).toList();
+            final pending = now.where((t) => !t.overdue).toList();
+            final events = EventsController.instance.value;
+            // One-time nudges land in "วันนี้"; recurring/agentic jobs are
+            // background routine and stay out of the glance.
+            final reminders = JobsController.instance.value
+                .where((j) => !j.isAgentic && j.repeat != 'daily')
+                .toList();
+            final watches = WatchesController.instance.value;
+            // Accent follows the active palette (green/clay/slate/…).
+            final accent = Theme.of(context).colorScheme.primary;
+
+            // Timed items (today's events + one-time reminders), by the clock.
+            final timed = <_DayItem>[
+              for (final e in events)
+                _DayItem(e.time, e.title, remind: e.remind),
+              for (final r in reminders)
+                _DayItem(r.time, r.text, isReminder: true),
+            ]..sort((a, b) => a.time.compareTo(b.time));
+
+            // One merged "วันนี้" card: overdue first, then timed, then the rest.
+            final dayRows = <Widget>[
+              for (final t in overdue) _taskRow(t, accent),
+              for (final d in timed) _timedRow(d, accent),
+              for (final t in pending) _taskRow(t, accent),
+            ];
+
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                  20, 8, 20, 24 + MediaQuery.viewPaddingOf(context).bottom),
+              children: [
+                Text(_greet(), style: _serif(27)),
+                const SizedBox(height: 7),
+                Text(_summary(overdue.length, timed.length),
+                    style: const TextStyle(
+                        fontSize: 14, color: _ink2, height: 1.5)),
+                if (dayRows.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  _dayCard(dayRows),
+                ],
+                const SizedBox(height: 14),
+                _watchBlock(context, watches, accent),
+                const SizedBox(height: 2),
+                _filesLink(context, accent),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _nowTab(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-                animation: Listenable.merge([
-                  TasksController.instance,
-                  EventsController.instance,
-                  JobsController.instance,
-                ]),
-                builder: (context, _) {
-                  final now = TasksController.instance.value
-                      .where(_isNow)
-                      .toList()
-                    ..sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0));
-                  final events = EventsController.instance.value;
-                  final jobs = JobsController.instance.value;
-                  // Group by recurrence, not kind: one-time nudges = "การเตือน";
-                  // anything recurring or that ปิ่น runs = "ตารางเวลา" (daily
-                  // reminders + auto jobs combined).
-                  final reminders = jobs
-                      .where((j) => !j.isAgentic && j.repeat != 'daily')
-                      .toList();
-                  final scheduled = jobs
-                      .where((j) => j.isAgentic || j.repeat == 'daily')
-                      .toList();
-                  final empty = now.isEmpty && events.isEmpty && jobs.isEmpty;
-                  return ListView(
-                    padding: EdgeInsets.fromLTRB(
-                        16, 0, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
-                    children: [
-                      if (empty)
-                        _breathe()
-                      else ...[
-                        if (now.isNotEmpty) ...[
-                          _sectionLabel('เรื่องที่กำลังสำคัญ · ${now.length}'),
-                          for (final t in now) _row(scheme, t),
-                        ],
-                        if (events.isNotEmpty) ...[
-                          _sectionLabel('วันนี้ · ${events.length}'),
-                          for (final e in events) _eventRow(e),
-                        ],
-                        if (reminders.isNotEmpty) ...[
-                          _sectionLabel('การเตือน · ${reminders.length}'),
-                          for (final j in reminders) _jobRow(j),
-                        ],
-                        if (scheduled.isNotEmpty) ...[
-                          _sectionLabel('ตารางเวลา · ${scheduled.length}'),
-                          for (final j in scheduled) _jobRow(j),
-                        ],
-                      ],
-                    ],
-                  );
-                },
-              );
+  /// The merged "วันนี้" card — rows hairline-separated inside one soft card.
+  Widget _dayCard(List<Widget> rows) {
+    final children = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      children.add(rows[i]);
+      if (i != rows.length - 1) {
+        children.add(const Divider(height: 1, thickness: 1, color: _line));
+      }
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: _cardSh,
+      ),
+      child: Column(children: children),
+    );
   }
 
-  Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-        child: Text(text,
-            style: const TextStyle(color: PinPalette.ink2, fontSize: 13)),
-      );
-
-  Widget _eventRow(PinEvent e) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(color: Color(0x0F282822), blurRadius: 9, offset: Offset(0, 3)),
-          ],
-        ),
+  Widget _gridRow({
+    required String time,
+    required String name,
+    required Color accent,
+    Color nameColor = _ink,
+    FontWeight nameWeight = FontWeight.w400,
+    Widget? trailing,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 15),
         child: Row(
           children: [
             SizedBox(
-              width: 52,
-              child: Text(e.time,
-                  style: PinPalette.brand(size: 15)),
+              width: 48,
+              child: Text(time,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: accent)),
             ),
-            const SizedBox(width: 8),
             Expanded(
-              child: Text(e.title,
-                  style: const TextStyle(fontSize: 14, color: PinPalette.ink)),
+              child: Text(name,
+                  style: TextStyle(
+                      fontSize: 15,
+                      height: 1.35,
+                      color: nameColor,
+                      fontWeight: nameWeight)),
             ),
-            if (e.remind)
-              const Icon(PhosphorIconsRegular.bell, size: 16, color: PinPalette.ink2),
+            if (trailing != null) ...[const SizedBox(width: 10), trailing],
           ],
         ),
       );
 
-  Widget _jobRow(PinJob j) {
-    final agentic = j.isAgentic;
-    final tint = agentic ? const Color(0xFF8A6516) : PinPalette.ink2;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x0A282822), blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(agentic ? PhosphorIconsRegular.sparkle : PhosphorIconsRegular.bell,
-                size: 17, color: tint),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(j.text,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13.5,
-                        height: 1.25,
-                        color: PinPalette.ink)),
-                const SizedBox(height: 2),
-                Text(
-                    '${j.time} · ${j.repeat == 'daily' ? 'ทุกวัน' : 'ครั้งเดียว'}',
-                    style:
-                        const TextStyle(fontSize: 11.5, color: PinPalette.ink3)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => _deleteJob(j.id),
-            customBorder: const CircleBorder(),
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(PhosphorIconsRegular.x, size: 16, color: PinPalette.ink3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Cancel a reminder: drop it from on-device store + the OS schedule, then
-  /// refresh the "ตั้งเวลา" list.
-  Future<void> _deleteJob(String id) async {
-    final s = AgentStore();
-    await s.load();
-    await s.removeReminder(id);
-    final nid = int.tryParse(id);
-    if (nid != null) await NotificationService.instance.cancel(nid);
-    JobsController.instance.updateFromJson(jsonEncode(s.reminders()));
-  }
-
-  Widget _breathe() => const Padding(
-        padding: EdgeInsets.fromLTRB(8, 40, 8, 24),
-        child: Column(
-          children: [
-            Icon(PhosphorIconsRegular.coffee, size: 38, color: PinPalette.ink2),
-            SizedBox(height: 14),
-            Text('พอมีเวลาหายใจ',
-                style: TextStyle(fontSize: 16, color: PinPalette.ink)),
-            SizedBox(height: 6),
-            Text('ตอนนี้ยังไม่มีอะไรด่วน',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: PinPalette.ink2, height: 1.5)),
-          ],
-        ),
+  Widget _taskRow(PinTask t, Color accent) => _gridRow(
+        time: '',
+        accent: accent,
+        name: t.text,
+        nameColor: t.overdue ? _neg : _ink,
+        nameWeight: t.overdue ? FontWeight.w600 : FontWeight.w400,
+        trailing: (t.due ?? '').isEmpty
+            ? null
+            : Text(t.due!,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: t.overdue ? _neg : _ink3)),
       );
 
-  Widget _row(ColorScheme scheme, PinTask t) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: t.overdue
-              ? Border.all(color: PinPalette.neg.withValues(alpha: 0.4))
-              : null,
-          boxShadow: const [
-            BoxShadow(color: Color(0x0F282822), blurRadius: 9, offset: Offset(0, 3)),
-          ],
-        ),
+  Widget _timedRow(_DayItem d, Color accent) => _gridRow(
+        time: d.time,
+        accent: accent,
+        name: d.title,
+        trailing: d.remind
+            ? const Icon(PhosphorIconsRegular.bell, size: 15, color: _ink3)
+            : d.isReminder
+                ? const Text('เตือน',
+                    style: TextStyle(fontSize: 12.5, color: _ink3))
+                : null,
+      );
+
+  /// "ปิ่นเฝ้าให้อยู่" — a glance at the watches; the findings live in chat.
+  /// Empty → a gentle invitation to start one.
+  Widget _watchBlock(
+      BuildContext context, List<PinWatch> watches, Color accent) {
+    if (watches.isEmpty) {
+      return _softCard(
+        onTap: () => Navigator.of(context).maybePop(),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(PhosphorIconsRegular.circle,
-                size: 20,
-                color: t.overdue ? PinPalette.neg : const Color(0xFFA0A096)),
-            const SizedBox(width: 12),
+            _watchIcon(accent),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.text,
-                      style: const TextStyle(fontSize: 14, color: PinPalette.ink)),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(t.sub ?? t.group,
-                        style: const TextStyle(fontSize: 12, color: PinPalette.ink2)),
+                  Text('อยากให้ปิ่นเฝ้าเรื่องไหนไหม', style: _serif(15.5)),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 3),
+                    child: Text(
+                        'บอกในแชตว่าสนใจอะไร เดี๋ยวปิ่นคอยดูให้ มีอะไรค่อยบอก',
+                        style: TextStyle(
+                            fontSize: 13, color: _ink2, height: 1.45)),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Text(t.due ?? '',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: t.overdue ? PinPalette.neg : PinPalette.ink2)),
           ],
+        ),
+      );
+    }
+    final newCount = watches.where((w) => w.hasNew).length;
+    return _softCard(
+      onTap: () {
+        WatchesController.instance.markAllSeen();
+        Navigator.of(context).maybePop();
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _watchIcon(accent),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ปิ่นเฝ้าให้อยู่', style: _serif(15.5)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: newCount > 0
+                      ? Text.rich(TextSpan(
+                          style: const TextStyle(
+                              fontSize: 13, color: _ink2, height: 1.45),
+                          children: [
+                            TextSpan(
+                                text: '${watches.length} เรื่องที่คุณสนใจ · '),
+                            TextSpan(
+                                text: 'เจอใหม่ $newCount',
+                                style: TextStyle(
+                                    color: accent,
+                                    fontWeight: FontWeight.w700)),
+                            const TextSpan(text: ' — แตะดูในแชต'),
+                          ]))
+                      : Text(
+                          '${watches.length} เรื่องที่คุณสนใจ · ยังเงียบ มีอะไรเดี๋ยวบอก',
+                          style: const TextStyle(
+                              fontSize: 13, color: _ink2, height: 1.45)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(PhosphorIconsRegular.caretRight, size: 17, color: _ink3),
+        ],
+      ),
+    );
+  }
+
+  Widget _watchIcon(Color accent) => Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(PhosphorIconsRegular.eye, size: 19, color: accent),
+      );
+
+  Widget _softCard({required Widget child, VoidCallback? onTap}) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _line),
+            boxShadow: _cardSh,
+          ),
+          child: child,
+        ),
+      );
+
+  Widget _filesLink(BuildContext context, Color accent) => InkWell(
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const _FilesScreen())),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+          child: Row(
+            children: [
+              Icon(PhosphorIconsRegular.folder, size: 18, color: accent),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text('ไฟล์ที่ปิ่นเก็บไว้',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _ink2)),
+              ),
+              const Icon(PhosphorIconsRegular.caretRight,
+                  size: 17, color: _ink3),
+            ],
+          ),
         ),
       );
 }
@@ -716,4 +779,23 @@ class NowScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       const Scaffold(body: NowView());
+}
+
+/// ไฟล์ as its own screen, opened from the "ตอนนี้" panel's menu row (was a tab).
+class _FilesScreen extends StatelessWidget {
+  const _FilesScreen();
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        surfaceTintColor: bg,
+        elevation: 0,
+        title: const Text('ไฟล์'),
+      ),
+      body: const SafeArea(child: FilesTab()),
+    );
+  }
 }

@@ -18,6 +18,7 @@ import '../agent/agent_session.dart';
 import '../agent/agent_store.dart';
 import '../agent/agentic_job_service.dart';
 import '../services/android_job_alarm.dart';
+import '../services/pin_meta.dart';
 import '../agent/abilities.dart';
 import '../models/chat_view_message.dart';
 import 'settings_screen.dart' show E2eeResetScreen;
@@ -167,6 +168,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         TasksController.instance.loadFromRoom(rid),
         EventsController.instance.loadFromRoom(rid),
         JobsController.instance.loadFromRoom(rid),
+        WatchesController.instance.loadFromRoom(rid),
         FilesStore.instance.loadFromRoom(),
         AgentStore().load(), // seeds memory→MemoryController + reminders→JobsController
       ]);
@@ -248,9 +250,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           seen.add(m.eventId);
           final view = await _dmToView(m);
           if (view != null) fresh.add(view);
-          final role = m.sender == MatrixService.instance.pinUserId
-              ? 'assistant'
-              : 'user';
+          final role = _isPinEvent(m) ? 'assistant' : 'user';
           if (m.body.isNotEmpty) {
             modelTurns.add({'role': role, 'content': m.body});
           }
@@ -281,12 +281,17 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     _dmSub ??= live.where((m) => m.roomId == _roomId).listen(_onLiveDmEvent);
   }
 
-  /// Map a DM event to a chat bubble. Sender = role (ปิ่น account → left bubble,
-  /// user account → right). Returns null for ephemeral/non-chat events.
+  /// Whether a DM event is a ปิ่น (assistant) turn. Self-DM: both the human and
+  /// ปิ่น post from the user's own account, so they're told apart by a
+  /// `meta.pin == true` flag, not the sender.
+  bool _isPinEvent(rust.ChatMessage m) => isPinMeta(m.metaJson);
+
+  /// Map a DM event to a chat bubble. ปิ่น turn (meta.pin) → left bubble, the
+  /// user's own → right. Returns null for ephemeral/non-chat events.
   Future<ChatViewMessage?> _dmToView(rust.ChatMessage m) async {
     const skip = {'typing', 'receipt', 'reaction', 'tasks', 'events', 'jobs'};
     if (skip.contains(m.kind)) return null;
-    final isPin = m.sender == MatrixService.instance.pinUserId;
+    final isPin = _isPinEvent(m);
     final sender = isPin ? '@pin' : '@me';
     final tsMs = m.timestampMs.toInt();
     final t = DateTime.fromMillisecondsSinceEpoch(
@@ -335,10 +340,11 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // optimistic bubble (temp id, not a real "$" Matrix id) with the same side
     // + body already exists, this IS that message: mark the real id seen and
     // drop the echo instead of appending a duplicate.
-    final fromUser = m.sender == MatrixService.instance.userId;
-    final fromPin = m.sender == MatrixService.instance.pinUserId;
-    if ((fromUser || fromPin) &&
-        m.body.isNotEmpty &&
+    // Self-DM: every event is from the user's account; the side is decided by the
+    // ปิ่น meta flag (human turn = isMe). Match a still-optimistic bubble by side
+    // + body to drop our own echo.
+    final fromUser = !_isPinEvent(m);
+    if (m.body.isNotEmpty &&
         _messages.any((x) =>
             !x.eventId.startsWith(r'$') &&
             x.isMe == fromUser &&
@@ -828,9 +834,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
             ? r.text!
             : (r.flex != null ? '(ส่งการ์ดให้แล้ว)' : '');
         final pe = await MatrixService.instance.sendText(rid, body,
-            role: 'pin',
+            role: 'user',
             flex: r.flex,
-            meta: r.usedTools.isEmpty ? null : {'used': r.usedTools});
+            meta: pinMeta(r.usedTools));
         _seenEvents.add(pe);
       }
     } catch (e) {
@@ -857,9 +863,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
             ? r.text!
             : (r.flex != null ? '(ส่งการ์ดให้แล้ว)' : '');
         final pe = await MatrixService.instance.sendText(rid, body,
-            role: 'pin',
+            role: 'user',
             flex: r.flex,
-            meta: r.usedTools.isEmpty ? null : {'used': r.usedTools});
+            meta: pinMeta(r.usedTools));
         _seenEvents.add(pe);
       }
     } catch (e) {
@@ -884,9 +890,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
             ? r.text!
             : (r.flex != null ? '(ส่งการ์ดให้แล้ว)' : '');
         final pe = await MatrixService.instance.sendText(rid, body,
-            role: 'pin',
+            role: 'user',
             flex: r.flex,
-            meta: r.usedTools.isEmpty ? null : {'used': r.usedTools});
+            meta: pinMeta(r.usedTools));
         _seenEvents.add(pe);
       }
     } catch (e) {

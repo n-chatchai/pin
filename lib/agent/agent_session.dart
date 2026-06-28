@@ -117,11 +117,17 @@ class AgentSession {
         'พิมพ์ผลลัพธ์เป็นข้อความแทน (ถ้ายังไม่เรียก ถือว่ายังไม่ได้ทำ). โดยเฉพาะ: '
         'วาด/แก้รูป (รวมสั่งอ้อม เช่น "ไม่ใช่ เอาผู้ชาย")→generate_image; '
         'เตือน/นัดเวลา→schedule_reminder; "จำไว้"→remember_fact/save_knowledge; '
-        'งานที่ต้องติดตาม→add_task; ถาม "ทำอะไรได้บ้าง"→list_capabilities. '
+        'งานที่ต้องติดตาม→add_task; ผู้ใช้สนใจ/ตามเรื่องไหนต่อเนื่อง (ข่าว/ราคา/หุ้น/'
+        'ทีมบอล)→add_watch; เลิกตาม→remove_watch; ถาม "ทำอะไรได้บ้าง"→list_capabilities. '
         'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
         '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
         '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
-        'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
+        'แต่บันทึกคำขอไว้ให้แล้ว.\n'
+        // Proactively capture interests as watches — but ask the first time so
+        // ปิ่น doesn't create them unprompted.
+        'ถ้าจับได้ว่าผู้ใช้สนใจ/พูดถึงเรื่องไหนซ้ำ ๆ ชวนสั้น ๆ ว่าจะให้ "เฝ้าให้" ไหม '
+        'ถ้าตกลงค่อยเรียก add_watch — ปิ่นจะคอยดูให้เงียบ ๆ แล้วบอกเฉพาะตอนมีอะไรใหม่จริง '
+        '(ครั้งแรกถามก่อนเสมอ อย่าสร้างเองพร่ำเพรื่อ).\n\n$persona';
     // Remembered facts about the user — always in context so ปิ่น uses them
     // (e.g. ชื่อ/สิ่งที่ชอบ) without being asked to recall.
     if (_facts.isNotEmpty) {

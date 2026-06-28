@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS capability_requests(
   id INTEGER PRIMARY KEY AUTOINCREMENT, capability TEXT, detail TEXT,
   status TEXT DEFAULT 'requested', count INTEGER DEFAULT 1,
   requesters TEXT, created_at REAL, updated_at REAL);
+CREATE TABLE IF NOT EXISTS waitlist(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, use TEXT,
+  source TEXT, created_at REAL);
 """
 
 # Legacy hard-coded hosted tools — used to seed an empty DB.
@@ -570,6 +573,26 @@ def set_capability_status(req_id: int, status: str) -> None:
     with conn() as c:
         c.execute("UPDATE capability_requests SET status=?,updated_at=? WHERE id=?",
                   (status, time.time(), req_id))
+
+
+def add_waitlist(email: str, use: str, source: str = "site") -> None:
+    """Pre-launch signup from the marketing site. Dedupe by email (keep the
+    latest chosen use). No conversation content — just email + use-case."""
+    em = email.strip().lower()
+    if not em:
+        return
+    with conn() as c:
+        c.execute(
+            "INSERT INTO waitlist(email,use,source,created_at) VALUES(?,?,?,?)"
+            " ON CONFLICT(email) DO UPDATE SET use=excluded.use,"
+            "created_at=excluded.created_at",
+            (em, use.strip(), source, time.time()))
+
+
+def list_waitlist() -> list[dict]:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM waitlist ORDER BY created_at DESC").fetchall()]
 
 
 def add_submission(type_: str, name: str, payload: dict, developer: str) -> int:

@@ -41,7 +41,9 @@ void main() {
         debugBot: true,
         morningTime: '09:30',
       ).toLocalMap();
-      expect(local['lang'], 'en');
+      // lang is room-derived now (synced cross-device via room state), so it is
+      // NOT persisted locally — see _roomDerivedKeys / copyWithRoomState.
+      expect(local['lang'], isNull);
       expect(local['debugBot'], '1');
       expect(local['morningTime'], '09:30');
     });

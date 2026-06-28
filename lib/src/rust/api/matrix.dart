@@ -220,10 +220,25 @@ Future<String?> getDisplayName({required String role}) =>
 Future<String> getOrCreatePinDm({required String pinUid}) =>
     RustLib.instance.api.crateApiMatrixGetOrCreatePinDm(pinUid: pinUid);
 
+/// Create a single-member ENCRYPTED room — the ปิ่น self-DM. No second account:
+/// the human and the on-device agent both post here as the USER, told apart by an
+/// event meta flag. E2EE is to the user's own (cross-signed) devices only.
+///
+/// ponytail: caller caches the room id (validated via `room_in_store`); a cache
+/// loss creates a fresh room and abandons the old one. Fine for a personal chat —
+/// add a "find my existing ปิ่น room" scan only if orphans actually pile up.
+Future<String> createSelfRoom() =>
+    RustLib.instance.api.crateApiMatrixCreateSelfRoom();
+
 /// Accept a pending invite to `room_id` on the `role` client (the pin client
 /// joins the DM the user created).
 Future<void> joinRoom({required String role, required String roomId}) =>
     RustLib.instance.api.crateApiMatrixJoinRoom(role: role, roomId: roomId);
+
+/// Leave + forget a room (used to GC duplicate self-rooms). After every local
+/// member leaves, the room has no joined users → the server can prune it.
+Future<void> leaveRoom({required String role, required String roomId}) =>
+    RustLib.instance.api.crateApiMatrixLeaveRoom(role: role, roomId: roomId);
 
 /// Write a room STATE event (e.g. `io.tokens2.prefs` / `.facts` / `.knowledge`)
 /// from the `role` client, so persona/memory sync cross-device. Mirrors
@@ -295,6 +310,15 @@ Future<void> recoverWithKey({required String recoveryKey}) =>
 /// re-runs / lost-key state), then enables. Role-aware sibling of
 /// [`reset_recovery_key`] — used to set up recovery on BOTH the user and ปิ่น
 /// accounts so one QR can carry both keys.
+///
+/// Also bootstraps CROSS-SIGNING (not just key backup) so the account has a
+/// COMPLETE E2EE identity — backup-only leaves recovery "Incomplete" and the
+/// account's keys won't reliably restore/share across devices (the SSO + ปิ่น
+/// "sync is broken" symptom). No password/UIA is needed on the FIRST upload:
+/// the homeserver (tuwunel) skips UIA when the account has no existing
+/// cross-signing keys (MSC3967). This is the passwordless path —
+/// `reset_recovery` covers password users via a UIA stage, which SSO/companion
+/// accounts can't satisfy.
 Future<String> ensureRecoveryFor({required String role}) =>
     RustLib.instance.api.crateApiMatrixEnsureRecoveryFor(role: role);
 
@@ -332,6 +356,28 @@ Future<void> secretPut({
 }) => RustLib.instance.api.crateApiMatrixSecretPut(
   role: role,
   recoveryKey: recoveryKey,
+  name: name,
+  value: value,
+);
+
+/// Read a GLOBAL account-data event (UNENCRYPTED, server-side) for `role`,
+/// returning its raw JSON string or None if unset (M_NOT_FOUND). Server-
+/// authoritative (direct GET, no sync wait) so it's reliable right after login.
+///
+/// Used for the STABLE companion identity `{u,p}`: unlike 4S secret storage, plain
+/// account data is NOT tied to — nor wiped by — the recovery key, so a key
+/// reset/rotation never changes the companion password and thus never strands it.
+Future<String?> accountDataGet({required String role, required String name}) =>
+    RustLib.instance.api.crateApiMatrixAccountDataGet(role: role, name: name);
+
+/// Write a GLOBAL account-data event (UNENCRYPTED, server-side) for `role` from a
+/// raw JSON string. See [`account_data_get`].
+Future<void> accountDataPut({
+  required String role,
+  required String name,
+  required String value,
+}) => RustLib.instance.api.crateApiMatrixAccountDataPut(
+  role: role,
   name: name,
   value: value,
 );

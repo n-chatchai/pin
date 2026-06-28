@@ -19,6 +19,11 @@ Future<void> embedInit({
   tokenizerJson: tokenizerJson,
 );
 
+/// ONNX Runtime is load-dynamic on both platforms: Android dlopens
+/// `libonnxruntime.so` by soname (jniLibs is on the loader path) and embeddings
+/// work; iOS ships no runtime, so the dlopen fails — embed_init catches that and
+/// Dart falls back to recency. No explicit path needed here.
+///
 /// True once a model is loaded — lets Dart skip embedding (recency fallback)
 /// until the model is provisioned.
 bool embedReady() => RustLib.instance.api.crateApiEmbedEmbedReady();

@@ -1,12 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../main.dart';
 import '../theme/pin_theme.dart';
 import '../widgets/pin_button.dart';
 import '../widgets/pin_route.dart';
 import '../widgets/pin_scaffold.dart';
 import 'auth_screen.dart';
-import 'onboarding_screen.dart';
 
 /// Landing before auth. New users go straight into a personalize-first
 /// onboarding (account is created near the end, lowering the signup wall);
@@ -39,17 +37,8 @@ class WelcomeScreen extends StatelessWidget {
             const Spacer(flex: 5),
             PinButton(
               'เริ่มใช้งาน',
-              onTap: () => Navigator.of(context).push(
-                pinRoute(
-                  OnboardingScreen(
-                    signup: true,
-                    onDone: () => Navigator.of(context).pushAndRemoveUntil(
-                      pinRoute(const AfterAuth()),
-                      (_) => false,
-                    ),
-                  ),
-                ),
-              ),
+              onTap: () => Navigator.of(context)
+                  .push(pinRoute(const AuthScreen(initialRegister: true))),
             ),
             const SizedBox(height: 12),
             PinButton.text(

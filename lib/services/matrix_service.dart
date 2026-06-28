@@ -6,7 +6,6 @@ import 'dart:math';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
@@ -14,8 +13,8 @@ import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import '../config.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import 'api_log.dart';
-import 'auth_service.dart';
 import 'files_store.dart';
+import 'pin_meta.dart';
 import 'now_controllers.dart';
 import 'prefs.dart';
 import 'session_store.dart';
@@ -42,33 +41,18 @@ class MatrixService {
   /// Broadcast stream of live decrypted messages (started after login/restore).
   /// On first use it also routes task payloads into [TasksController] so the
   /// งานค้าง screen stays live app-wide, regardless of which screen is open.
-  /// The companion ปิ่น account's user id (the assistant identity in the DM),
-  /// set once the pin session is up. Dart compares message senders against this
-  /// vs [userId] to decide the bubble side.
-  String? pinUserId;
+  /// ปิ่น is the user themselves (self-DM model). Kept as an alias of [userId] so
+  /// debug/admin screens that show "the ปิ่น identity" still resolve. Assistant
+  /// turns are told apart from the human's by an event `meta.pin` flag, NOT by a
+  /// distinct sender.
+  String? get pinUserId => userId;
 
-  /// The user's plaintext password, held in memory only between a fresh login
-  /// and pin provisioning. The ปิ่น companion account reuses the SAME password
-  /// so any device the user signs into can bring up the pin session without
-  /// recovering a separate secret. Null after a token-restore (relaunch).
+  /// The user's plaintext password, held in memory between a fresh login and the
+  /// E2EE bootstrap (used to reset cross-signing). Null after a token-restore.
   String? _userPassword;
 
-  /// Companion login password for SSO (Google) users, who have NO account
-  /// password to reuse. Derived from the user's recovery key (see
-  /// [_deriveCompanionPw]); set in the recovery create/restore paths, both of
-  /// which hold that key. [ensurePinSession] uses it when [_userPassword] is null.
-  String? _companionPw;
-
-  /// Companion localpart. Normally `{user}_pin`, but [recreateCompanion] picks a
-  /// fresh suffixed name when the old account is locked (recovery key lost). The
-  /// chosen name rides the secret-storage blob so every device agrees. Null =
-  /// fall back to the default `{user}_pin`.
-  String? _companionUser;
-
-  /// True once the ปิ่น companion session is up — i.e. the real 2-account E2EE
-  /// DM can exist. While false, any "chat" is a local-only fallback with NO ปิ่น
-  /// account, which SSO users must never be silently left in.
-  bool get companionReady => pinUserId != null;
+  /// True once the user is logged in. There is no separate companion to bring up.
+  bool get companionReady => userId != null;
   bool get hasUserPassword => _userPassword != null && _userPassword!.isNotEmpty;
 
   /// The user's email, held in memory between a fresh login and pin setup. Used
@@ -204,17 +188,37 @@ class MatrixService {
 
   Future<List<rust.RoomSummary>> listRooms() => rust.listRooms();
 
-  static const _pinRoomKey = 'pin_room_id';
+  static const _pinRoomKey = 'pin_room_id'; // legacy device cache (being retired)
 
-  /// Find the existing ปิ่น DM room id WITHOUT creating one. Returns null on a
-  /// brand-new account (→ onboarding should run). Used to rehydrate persona
-  /// prefs from room state after a reinstall, before deciding onboarding.
+  /// Account-data pointer to the canonical self-room id. Server-side + per-user +
+  /// key-independent → every device/relogin resolves the SAME room deterministically
+  /// (no device cache to clear, no name-match guessing, no duplicate rooms).
+  static const _selfRoomAd = 'io.tokens2.selfroom';
+
+  Future<String?> _selfRoomFromAd() async {
+    try {
+      return selfRoomId(
+          await rust.accountDataGet(role: 'user', name: _selfRoomAd));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveSelfRoomToAd(String id) async {
+    try {
+      await rust.accountDataPut(
+          role: 'user', name: _selfRoomAd, value: selfRoomPointer(id));
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Find the existing ปิ่น room id WITHOUT creating one. Returns null on a
+  /// brand-new account (→ onboarding runs). Account data is the source of truth;
+  /// a legacy room (named 'ปิ่น', pre-account-data) is the only fallback.
   Future<String?> findPinRoomId() async {
-    const storage = FlutterSecureStorage();
+    final adId = await _selfRoomFromAd();
+    if (adId != null) return adId;
     final rooms = await listRooms();
-    final savedId = await storage.read(key: _pinRoomKey);
-    if (savedId != null && rooms.any((r) => r.id == savedId)) return savedId;
-    final existing = rooms.where((r) => r.name == 'ปิ่น AI');
+    final existing = rooms.where((r) => r.name == 'ปิ่น');
     return existing.isEmpty ? null : existing.first.id;
   }
 
@@ -260,9 +264,9 @@ class MatrixService {
   Future<String> resetRecovery(String password) =>
       rust.resetRecovery(password: password);
 
-  /// The stored ปิ่น DM room id (if any).
-  Future<String?> pinRoomId() =>
-      const FlutterSecureStorage().read(key: _pinRoomKey);
+  /// The canonical self-room id from account data (if any). Used by cold-wake
+  /// jobs to post without creating a room.
+  Future<String?> pinRoomId() => _selfRoomFromAd();
 
   /// Joined member user-ids of a room.
   Future<List<String>> roomMembers(String roomId) =>
@@ -282,7 +286,9 @@ class MatrixService {
   /// key + the ปิ่น account's recovery key, as JSON. Both accounts have separate
   /// E2EE keys, so one QR must carry both to restore the full DM on a new device.
   Future<String> buildRecoveryQr() async {
+    debugPrint('[qr] buildRecoveryQr → ensureRecoveryFor(user) …');
     final userKey = await rust.ensureRecoveryFor(role: 'user');
+    debugPrint('[qr] ensureRecoveryFor(user) OK');
     return packRecoveryQr(userKey);
   }
 
@@ -294,6 +300,7 @@ class MatrixService {
   /// combined recovery QR payload.
   Future<String> bootstrapE2eeQr() async {
     final pw = _userPassword;
+    debugPrint('[qr] bootstrapE2eeQr (pw=${pw != null && pw.isNotEmpty})');
     if (pw != null && pw.isNotEmpty) {
       final userKey = await rust.resetRecovery(password: pw);
       return packRecoveryQr(userKey);
@@ -305,20 +312,8 @@ class MatrixService {
   /// the combined QR JSON. Used by Settings (which gets the user key from a full
   /// cross-signing reset) so the user key isn't rotated twice.
   Future<String> packRecoveryQr(String userKey) async {
-    // SSO user (no account password): resolve the companion password from secret
-    // storage (rotation-safe), seeding it from the legacy derivation the first
-    // time, so ensurePinSession can bring up the ปิ่น account. No-op for password
-    // users (_userPassword wins).
-    await _resolveCompanionPw(userKey);
-    await ensurePinSession();
-    String? pinKey;
-    if (pinUserId != null) {
-      try {
-        pinKey = await rust.ensureRecoveryFor(role: 'pin');
-      } catch (_) {/* pin recovery best-effort */}
-    }
-    // Resolve the email even on a token-restored session (no _userEmail): we set
-    // the account displayname = email, so read it back as a fallback.
+    // Self-DM: one account, one recovery key. Resolve the email even on a
+    // token-restored session (no _userEmail) by reading back the displayname.
     var email = _userEmail;
     if (email == null || email.isEmpty) {
       try {
@@ -329,7 +324,6 @@ class MatrixService {
       'v': 1,
       if (email != null && email.isNotEmpty) 'e': email,
       'u': userKey,
-      if (pinKey != null) 'p': pinKey,
     });
   }
 
@@ -346,23 +340,9 @@ class MatrixService {
       final lines = scanned.trim().split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       if (lines.isEmpty) return null;
       await rust.recoverWithKeyFor(role: 'user', recoveryKey: lines[0]);
-      await _resolveCompanionPw(lines[0]);
-      await ensurePinSession();
-      if (lines.length > 1 && pinUserId != null) {
-        try {
-          await rust.recoverWithKeyFor(role: 'pin', recoveryKey: lines[1]);
-        } catch (_) {/* pin restore best-effort */}
-      }
       return null;
     }
     await rust.recoverWithKeyFor(role: 'user', recoveryKey: '${j['u']}');
-    await _resolveCompanionPw('${j['u']}');
-    await ensurePinSession();
-    if (j['p'] != null && pinUserId != null) {
-      try {
-        await rust.recoverWithKeyFor(role: 'pin', recoveryKey: '${j['p']}');
-      } catch (_) {/* pin restore best-effort */}
-    }
     return j['e'] as String?;
   }
 
@@ -376,17 +356,10 @@ class MatrixService {
 
   Future<void> logout() async {
     final s = await _store.read();
-    // Tear down the pin companion session first (if up), then the user session.
-    if (userId != null) {
-      try {
-        await rust.logout(role: 'pin', dbPath: await _dbPathFor('pin_$userId'));
-      } catch (_) {/* pin may not be running */}
-    }
     await rust.logout(role: 'user', dbPath: s?.dbPath ?? await _legacyDbPath());
     await _store.clear();
     accessToken = null;
     userId = null;
-    pinUserId = null;
     _userPassword = null;
     _userEmail = null;
     // Cancel the live-message listeners and drop the stream so the next
@@ -420,276 +393,73 @@ class MatrixService {
   }
 
   // -------------------------------------------------------------------------
-  // ปิ่น companion account — second concurrent matrix session (2-account E2EE DM)
+  // ปิ่น self-DM — ONE account. The human and the on-device agent both post into a
+  // single-member encrypted room (the user's own), told apart by an event meta
+  // flag (`meta.pin == true`). No second account, no companion password, no
+  // cross-account verification. E2EE is to the user's own cross-signed devices.
   // -------------------------------------------------------------------------
 
-  static const _pinCredsPrefix = 'pin_companion_creds_'; // + user id
+  /// No-op shim: there is no separate companion session to bring up. Kept so the
+  /// "ensure ปิ่น is ready" callers still compile. The user session (the only
+  /// session) is brought up by [tryRestore]/[login]/[loginWithGoogle].
+  Future<void> ensurePinSession() async {}
 
-  /// Companion login password for an SSO user, derived from the USER's recovery
-  /// key. Properties that make this the secure choice:
-  ///  - never stored anywhere — recomputed on demand from the key;
-  ///  - server-blind — the homeserver never sees the recovery key, only the
-  ///    resulting matrix password *hash*, so an admin can't read or reuse it;
-  ///  - cross-device — the recovery key rides along in the recovery QR, so every
-  ///    device derives the SAME companion password.
-  /// HMAC-SHA256 acts as the PRF; base64url makes it an ASCII-safe password.
-  ///
-  /// The companion password is the LEGACY derivation, kept only to bootstrap
-  /// the stable secret on accounts created before [_resolveCompanionPw]. New
-  /// accounts read/write the seed in secret storage instead (rotation-safe).
-  String? _deriveCompanionPw(String userRecoveryKey) {
-    final uid = userId;
-    if (uid == null || userRecoveryKey.isEmpty) return null;
-    final pinUser = '${uid.substring(1).split(':').first}_pin';
-    final mac = Hmac(sha256, utf8.encode(userRecoveryKey))
-        .convert(utf8.encode('pin-companion:$pinUser'));
-    return base64Url.encode(mac.bytes);
+  /// "เริ่ม ปิ่น ใหม่": abandon the current self-room and start a fresh one (drops
+  /// the cached id so [getOrCreatePinDm] creates a new room). The old chat is left
+  /// behind.
+  Future<void> recreateCompanion() async {
+    if (userId == null) throw Exception('ยังไม่ได้เข้าสู่ระบบ');
+    await const FlutterSecureStorage().delete(key: _pinRoomKey);
+    await getOrCreatePinDm(); // creates + caches a fresh self-room
   }
 
-  /// Secret-storage name (E2EE account-data) the stable companion password lives
-  /// under, so a recovery-key rotation re-encrypts it (not re-derives it).
-  static const _companionSecret = 'io.tokens2.pin.companion';
-
-  /// Resolve [_companionPw] from the user's E2EE secret storage — STABLE across
-  /// recovery-key rotation (the value is re-encrypted under the new key, not
-  /// recomputed). On an account that predates this, the secret isn't there yet,
-  /// so derive the legacy HMAC password (which still matches the existing `_pin`
-  /// account — provided this is the same recovery key it was made with) and
-  /// store it as the seed, migrating the account to the rotation-safe scheme.
-  /// [userRecoveryKey] is the 4S secret-storage key (must be unlocked/recovered).
-  Future<void> _resolveCompanionPw(String userRecoveryKey) async {
-    if (_userPassword != null || userRecoveryKey.isEmpty) return;
-    try {
-      final stored = await rust.secretGet(
-          role: 'user', recoveryKey: userRecoveryKey, name: _companionSecret);
-      if (stored != null && stored.isNotEmpty) {
-        // New format is a {u,p} blob (username + password). Old format was a bare
-        // password string — treat that as the password with the default name.
-        try {
-          final j = jsonDecode(stored) as Map<String, dynamic>;
-          _companionUser = '${j['u']}';
-          _companionPw = '${j['p']}';
-        } catch (_) {
-          _companionPw = stored;
-        }
-        return; // rotation-safe value wins
-      }
-    } catch (e) {
-      debugPrint('[sso] 4S fetch failed: $e');
-      /* secret storage not ready → fall through to legacy + migrate */
-    }
-    final derived = _deriveCompanionPw(userRecoveryKey);
-    if (derived == null) return;
-    _companionPw = derived; // _companionUser stays null → default {user}_pin
-    // Persist so the NEXT recovery-key rotation keeps this same password.
-    await _putCompanionSecret(userRecoveryKey);
-  }
-
-  /// Write the current companion identity ({username, password}) to the user's
-  /// E2EE secret storage, so every device brings up the SAME ปิ่น account.
-  Future<void> _putCompanionSecret(String userRecoveryKey) async {
-    final uid = userId;
-    final pw = _companionPw;
-    if (uid == null || pw == null || userRecoveryKey.isEmpty) return;
-    final u = _companionUser ?? '${uid.substring(1).split(':').first}_pin';
-    try {
-      await rust
-          .secretPut(
-              role: 'user',
-              recoveryKey: userRecoveryKey,
-              name: _companionSecret,
-              value: jsonEncode({'u': u, 'p': pw}))
-          .timeout(const Duration(seconds: 45));
-    } catch (e) {
-      // Best-effort: a slow/failed secret-storage open must not hang or abort
-      // the recreate — the companion still comes up from the in-memory pw; the
-      // secret just isn't rotation-persisted until the next successful write.
-      debugPrint('[sso] _putCompanionSecret failed: $e');
-    }
-  }
-
-  /// Start a FRESH ปิ่น companion. Used when the original `{user}_pin` is locked
-  /// (the recovery key it was made with is lost) and the user chose to start
-  /// over: register a brand-new companion under a unique localpart with a fresh
-  /// random password, record it in secret storage, and drop the old DM cache so
-  /// a new ปิ่น DM is created. The old ปิ่น chat is abandoned (its E2EE history
-  /// stays unreadable). [userRecoveryKey] must be a usable (just reset/recovered)
-  /// recovery key so the new identity can be saved to secret storage.
-  Future<void> recreateCompanion(String userRecoveryKey) async {
-    final uid = userId;
-    if (uid == null) throw Exception('ยังไม่ได้เข้าสู่ระบบ');
-    final userLocal = uid.substring(1).split(':').first;
-    final suffix = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
-    _companionUser = '${userLocal}_pin_$suffix';
-    final rnd = Random.secure();
-    _companionPw =
-        base64Url.encode(List<int>.generate(32, (_) => rnd.nextInt(256)));
-    debugPrint('[recreate] new companion=$_companionUser');
-    // Forget the half-up old companion + its DM so a fresh DM is created.
-    pinUserId = null;
-    const storage = FlutterSecureStorage();
-    await storage.delete(key: _pinRoomKey);
-    await storage.delete(key: '$_pinCredsPrefix$uid'); // stale token of old ปิ่น
-    debugPrint('[recreate] storing companion secret …');
-    await _putCompanionSecret(userRecoveryKey);
-    debugPrint('[recreate] secret stored → ensurePinSession');
-    await ensurePinSession();
-    debugPrint('[recreate] ensurePinSession returned companionReady=$companionReady');
-    if (!companionReady) {
-      throw 'สร้างบัญชี ปิ่น ใหม่ไม่สำเร็จ — ลองอีกครั้ง';
-    }
-  }
-
-  /// "เริ่ม ปิ่น ใหม่": reset the recovery key (fresh secret storage) and register
-  /// a brand-new companion under it. Returns the new recovery key to save. Use
-  /// when the old ปิ่น can't be recovered (lost its original key).
-  ///
-  /// Each network step is bounded so a stalled homeserver surfaces an error
-  /// instead of an infinite spinner (the recovery enable + secret-storage open
-  /// are the slow ones).
+  /// "เริ่ม ปิ่น ใหม่" from settings: rotate the recovery key (caller shows the new
+  /// QR) AND start a fresh self-room. Bounded so a stall surfaces an error.
   Future<String> resetAndRecreateCompanion() async {
-    debugPrint('[recreate] resetRecoveryKey …');
     final key = await rust.resetRecoveryKey().timeout(
         const Duration(seconds: 90),
         onTimeout: () =>
             throw 'รีเซ็ตกุญแจกู้คืนนานเกินไป — ตรวจสอบเน็ตแล้วลองใหม่');
-    debugPrint('[recreate] resetRecoveryKey OK → recreateCompanion');
-    await recreateCompanion(key);
+    await recreateCompanion();
     return key;
   }
 
-  /// Whether the ปิ่น companion failed to come up this session (so the UI can
-  /// offer "start a new ปิ่น"). True when we have a user but no companion.
-  bool get companionLocked => userId != null && pinUserId == null;
+  /// No second account → never locked. Kept so the UI's "ปิ่น locked" branches
+  /// compile (they're now dead).
+  bool get companionLocked => false;
 
-  /// Bring up the companion ปิ่น session, starting its sync. Idempotent.
-  ///
-  /// The ปิ่น account is `<user-localpart>_pin` and reuses the USER's password,
-  /// so any device the user logs into can bring it up. Paths:
-  /// - fresh login ([_userPassword] in memory): register-if-needed + login pin
-  ///   with that password, cache its token for fast relaunch.
-  /// - relaunch (token-restore, no password): restore pin from the cached token.
-  Future<void> ensurePinSession() async {
-    final uid = userId;
-    if (uid == null || pinUserId != null) {
-      debugPrint('[sso] ensurePinSession skip (uid=$uid pinUp=${pinUserId != null})');
-      return; // not ready / already up
+  /// Get-or-create the ปิ่น self-room (single-member encrypted). The id lives in
+  /// account data (server-side, cross-device) — NOT a device cache — so every
+  /// device/relogin resolves the SAME room deterministically. No id yet → migrate
+  /// a legacy 'ปิ่น' room if one exists, else create; then persist to account data.
+  Future<String> getOrCreatePinDm() async {
+    if (userId == null) throw Exception('not logged in');
+    final adId = await _selfRoomFromAd();
+    if (adId != null) {
+      unawaited(_leaveDuplicatePinRooms(adId));
+      return adId;
     }
-    final homeserver = (await _store.read())?.homeserver;
-    if (homeserver == null) {
-      debugPrint('[sso] ensurePinSession: no homeserver');
-      return;
-    }
-    debugPrint('[sso] ensurePinSession start (pw=${_userPassword != null ? "user" : (_companionPw != null ? "companion" : "NONE")})');
-    final storage = const FlutterSecureStorage();
-    final pinPath = await _dbPathFor('pin_$uid');
-    final userLocal = uid.substring(1).split(':').first; // @local:server → local
-    final pinUser = _companionUser ?? '${userLocal}_pin';
-    // Password users reuse their own password; SSO users have none, so fall back
-    // to the password derived from their recovery key.
-    final pw = _userPassword ?? _companionPw;
-    if (pw != null) {
-      try {
-        // Same password as the user → no separate secret to recover cross-device.
-        debugPrint('[sso] pin.register …');
-        await timed(
-            'pin.register',
-            () => AuthService().registerCompanion(
-                homeserver: homeserver, username: pinUser, password: pw));
-        debugPrint('[sso] pin.register done → pin.login …');
-        final session = await timed(
-            'pin.login',
-            () => rust.login(
-                  role: 'pin',
-                  homeserver: homeserver,
-                  dbPath: pinPath,
-                  username: pinUser,
-                  password: pw,
-                ));
-        pinUserId = session.userId;
-        debugPrint('[sso] pin.login OK → pin=${session.userId}');
-        await storage.write(
-          key: '$_pinCredsPrefix$uid',
-          value: jsonEncode({
-            'homeserver': session.homeserver,
-            'userId': session.userId,
-            'deviceId': session.deviceId,
-            'accessToken': session.accessToken,
-          }),
-        );
-      } catch (e) {
-        // Password login failed (e.g. the user changed their password since the
-        // ปิ่น account was made → they diverged). Fall back to the cached token
-        // so the pin chat keeps working instead of bricking.
-        debugPrint('[sso] pin register/login FAILED: $e → try cache');
-        if (!await _restorePinFromCache(uid, pinPath, storage)) {
-          debugPrint('[sso] no pin cache → companion NOT up');
-          return;
+    final legacy = await findPinRoomId(); // legacy name-match (pre-account-data)
+    final String roomId =
+        legacy ?? await timed('createSelfRoom', () => rust.createSelfRoom());
+    await _saveSelfRoomToAd(roomId);
+    unawaited(_leaveDuplicatePinRooms(roomId)); // GC old dup self-rooms
+    return roomId;
+  }
+
+  /// GC duplicate self-rooms left by the old create-on-cache-miss bug: leave every
+  /// OTHER room named 'ปิ่น' so it loses its last member and the server prunes it.
+  /// Never touches the admin room (different name). Best-effort, fire-and-forget.
+  Future<void> _leaveDuplicatePinRooms(String keep) async {
+    try {
+      for (final r in await listRooms()) {
+        if (r.id != keep && r.name == 'ปิ่น') {
+          try {
+            await rust.leaveRoom(role: 'user', roomId: r.id);
+          } catch (_) {/* best-effort */}
         }
       }
-    } else {
-      // Relaunch with no password in memory → restore pin from its cached token.
-      debugPrint('[sso] no pw → restore pin from cache');
-      if (!await _restorePinFromCache(uid, pinPath, storage)) {
-        debugPrint('[sso] no pin cache → companion NOT up');
-        return;
-      }
-    }
-    debugPrint('[sso] pin.startSync …');
-    await timed('pin.startSync', () => rust.startSyncRole(role: 'pin'));
-    debugPrint('[sso] ensurePinSession DONE → companion up');
-    // Label the companion so the admin UI can pair it with its owner.
-    final em = _userEmail;
-    if (em != null && em.isNotEmpty) {
-      try {
-        await timed('pin.setName',
-            () => rust.setDisplayName(role: 'pin', name: 'ปิ่น · $em'));
-      } catch (_) {/* non-fatal */}
-    }
-  }
-
-  /// Restore the pin session from its cached token. Returns false if no cache.
-  Future<bool> _restorePinFromCache(
-      String uid, String pinPath, FlutterSecureStorage storage) async {
-    final raw = await storage.read(key: '$_pinCredsPrefix$uid');
-    if (raw == null) return false;
-    final c = jsonDecode(raw) as Map<String, dynamic>;
-    pinUserId = '${c['userId']}';
-    await rust.restore(
-      role: 'pin',
-      homeserver: '${c['homeserver']}',
-      dbPath: pinPath,
-      userId: '${c['userId']}',
-      deviceId: '${c['deviceId']}',
-      accessToken: '${c['accessToken']}',
-    );
-    return true;
-  }
-
-  /// Get-or-create the encrypted DM with the ปิ่น account, cache its id, and make
-  /// the pin session join it. Requires [ensurePinSession] first.
-  Future<String> getOrCreatePinDm() async {
-    final pin = pinUserId;
-    if (pin == null) throw Exception('pin session not ready');
-    const storage = FlutterSecureStorage();
-    // Fast path: reuse the cached room id so boot doesn't pay a full sync_once
-    // (+ pin join sync) on every launch — that was the main chat-open lag. But
-    // VALIDATE it belongs to this account's client first: the cache is global,
-    // so a stale id from a previous account makes every room read fail "room
-    // not found" (→ persona defaults, empty history). Valid → keep the fast
-    // path; stale → drop it and re-resolve below.
-    final cached = await storage.read(key: _pinRoomKey);
-    if (cached != null && cached.isNotEmpty) {
-      if (await rust.roomInStore(roomId: cached)) return cached;
-      await storage.delete(key: _pinRoomKey);
-    }
-    final roomId = await timed(
-        'getOrCreatePinDm.syncOnce', () => rust.getOrCreatePinDm(pinUid: pin));
-    await storage.write(key: _pinRoomKey, value: roomId);
-    try {
-      await timed('joinRoom[pin]', () => rust.joinRoom(role: 'pin', roomId: roomId));
-    } catch (_) {/* already joined */}
-    return roomId;
+    } catch (_) {/* best-effort */}
   }
 
   /// Post a turn into the DM. `role` = 'user' (human) or 'pin' (assistant).

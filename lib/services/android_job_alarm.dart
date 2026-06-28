@@ -72,9 +72,9 @@ Future<void> _alarmCallback(int alarmId) async {
     await PrefsController.instance.load();
     await AiSettings.instance.load();
     await AndroidAlarmManager.initialize(); // so the re-arm below can schedule
-    await MatrixService.instance.ensurePinSession();
+    if (!await MatrixService.instance.tryRestore()) return; // bring up user session
     final rid = await MatrixService.instance.pinRoomId();
-    if (rid == null) return; // not provisioned — runs on next app open
+    if (rid == null) return; // no self-room — runs on next app open
     final session = AgentSession(room: rid, proxy: devProxy());
     await runDueAgenticJobs(rid, session);
     await AndroidJobAlarm.armAll(rid); // re-arm next daily fire

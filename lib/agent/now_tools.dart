@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../services/android_job_alarm.dart';
 import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
+import '../services/now_controllers.dart';
 import '../services/push_service.dart';
 import '../services/tasks_controller.dart';
 import 'agent_config.dart';
@@ -139,6 +140,20 @@ Future<(bool, String)> _scheduleEntry(
 
 /// Resolve the ปิ่น DM room id; null when there's no room yet.
 Future<String?> _room() => MatrixService.instance.pinRoomId();
+
+/// The instruction a watch's daily agentic job runs. It must look, compare with
+/// memory, update the watch, and stay SILENT unless there's something new —
+/// pinging the chat only when it's actually worth the user's attention. (The
+/// job runner drops an empty reply, so "no message" = no interruption.)
+String _watchPrompt(String id, String topic) =>
+    'นี่คืองานเฝ้าติดตามหัวข้อ "$topic" (watch id: $id). ทำตามนี้:\n'
+    '1) ค้นข้อมูล/ข่าวล่าสุดเรื่องนี้ (เช่น web_search หรือเครื่องมือข่าว).\n'
+    '2) recall_knowledge ด้วยคำค้น "watch $topic" เพื่อดูว่ารอบก่อนเจออะไรไปแล้ว.\n'
+    '3) ถ้า "ไม่มีอะไรใหม่" เทียบกับที่จำไว้ — อย่าตอบอะไรเลย (เงียบ) แล้วจบงาน.\n'
+    '4) ถ้ามีเรื่องใหม่จริง: เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ") '
+    'และ save_knowledge หัวข้อ "watch $topic" เก็บสิ่งที่เจอกันซ้ำรอบหน้า.\n'
+    '5) เฉพาะเรื่องที่ "สำคัญพอจะรบกวน" เท่านั้น ค่อยตอบผู้ใช้สั้น ๆ เป็นข่าว '
+    '(คำเรียกผู้ใช้ตามเปอร์โซนา). ถ้าใหม่แต่ไม่ด่วน อัปเดต watch อย่างเดียว ไม่ต้องตอบ.';
 
 /// A confirmation card for things that land in the "ตอนนี้" drawer. Its footer
 /// is tappable → `open:now`, which the chat scaffold turns into openDrawer().
@@ -466,6 +481,149 @@ List<AgentTool> nowTools() => [
               ? 'บันทึกคำขอ "$cap" ไว้แล้ว — บอกผู้ใช้ว่าตอนนี้ยังทำไม่ได้ '
                   'แต่บันทึกคำขอไว้ให้ทีมพัฒนาแล้ว'
               : 'ยังบันทึกคำขอไม่สำเร็จ ลองอีกครั้งนะ';
+        },
+      ),
+
+      // 10. add a watch — keep an eye on a topic, ping only on something new ---
+      _nowTool(
+        fnDecl(
+          'add_watch',
+          'ให้ปิ่นคอยเฝ้าติดตามหัวข้อที่ผู้ใช้สนใจ แล้วบอกเฉพาะตอนมีอะไรใหม่จริง. '
+          'ใช้เมื่อจับได้ว่าผู้ใช้สนใจ/ตามเรื่องไหนต่อเนื่อง (เช่น ข่าว AI, ราคาเหรียญ, '
+          'หุ้น, ทีมบอล). อย่าสร้างซ้ำหัวข้อเดิม',
+          properties: {
+            'topic': {
+              'type': 'string',
+              'description': 'เรื่องที่จะเฝ้า เช่น "ข่าว AI", "ราคา BTC"',
+            },
+            'time': {
+              'type': 'string',
+              'description': 'เวลาเช็คต่อวัน "HH:MM" (ดีฟอลต์ 09:00)',
+            },
+          },
+          required: ['topic'],
+        ),
+        (args) async {
+          final topic = '${args['topic'] ?? ''}'.trim();
+          if (topic.isEmpty) return (false, 'ขอหัวข้อที่จะเฝ้าด้วยนะ');
+          final rid = await _room();
+          if (rid == null) return (false, 'ยังไม่พร้อม');
+          final list = await MatrixService.instance
+              .loadListFromRoom(rid, 'io.tokens2.watches');
+          if (list.any(
+              (w) => '${w['topic']}'.toLowerCase() == topic.toLowerCase())) {
+            return (false, 'เฝ้าเรื่อง "$topic" อยู่แล้วนะ');
+          }
+          final id = DateTime.now().millisecondsSinceEpoch.toString();
+          list.add({
+            'id': id,
+            'topic': topic,
+            'last_seen': '',
+            'last_seen_at': 0,
+            'has_new': false,
+            'created': DateTime.now().millisecondsSinceEpoch,
+          });
+          final ok = await MatrixService.instance
+              .saveListToRoom(rid, 'io.tokens2.watches', list);
+          if (!ok) return (false, 'ยังบันทึกไม่สำเร็จ ลองอีกครั้งนะ');
+          WatchesController.instance.updateFromJson(jsonEncode(list));
+
+          // The checker = a daily agentic job (id == watch id) whose prompt tells
+          // ปิ่น to look, compare with memory, and speak only on something new.
+          final when = _parseWhen('${args['time'] ?? ''}'.trim().isEmpty
+                  ? '09:00'
+                  : '${args['time']}') ??
+              _parseWhen('09:00')!;
+          final store = AgentStore();
+          await store.load();
+          await store.addReminder({
+            'id': id,
+            'time': _hhmm(when),
+            'text': _watchPrompt(id, topic),
+            'repeat': 'daily',
+            'kind': 'agentic',
+            'at': when.millisecondsSinceEpoch,
+          });
+          await devProxy().scheduleRegister(
+            jobId: id,
+            nextDue: when.millisecondsSinceEpoch / 1000,
+            repeat: 'daily',
+            device: PushService.instance.deviceToken,
+          );
+          await AndroidJobAlarm.armAll(rid);
+          return (true, "จะคอยเฝ้าเรื่อง '$topic' ให้ — มีอะไรใหม่จะบอกในแชต");
+        },
+      ),
+
+      // 11. update a watch — called BY the checker job when it finds something --
+      feedbackTool(
+        fnDecl(
+          'update_watch',
+          'บันทึกผลการเฝ้าติดตามล่าสุด (เรียกจากงานเฝ้าเมื่อเจอเรื่องใหม่) — '
+          'อัปเดตสิ่งที่เจอไว้ให้แสดงใน "ตอนนี้"',
+          properties: {
+            'id': {'type': 'string', 'description': 'id ของ watch'},
+            'finding': {
+              'type': 'string',
+              'description': 'สรุปสั้น ๆ สิ่งที่เจอล่าสุด',
+            },
+          },
+          required: ['id', 'finding'],
+        ),
+        (args) async {
+          final id = '${args['id'] ?? ''}'.trim();
+          final finding = '${args['finding'] ?? ''}'.trim();
+          if (id.isEmpty || finding.isEmpty) return 'ขอ id กับ finding ด้วยนะ';
+          final rid = await _room();
+          if (rid == null) return 'ยังไม่พร้อม';
+          final list = await MatrixService.instance
+              .loadListFromRoom(rid, 'io.tokens2.watches');
+          final i = list.indexWhere((w) => '${w['id']}' == id);
+          if (i < 0) return 'ไม่พบ watch id $id';
+          list[i]['last_seen'] = finding;
+          list[i]['last_seen_at'] = DateTime.now().millisecondsSinceEpoch;
+          list[i]['has_new'] = true;
+          final ok = await MatrixService.instance
+              .saveListToRoom(rid, 'io.tokens2.watches', list);
+          WatchesController.instance.updateFromJson(jsonEncode(list));
+          return ok ? 'อัปเดต watch แล้ว' : 'อัปเดตไม่สำเร็จ';
+        },
+      ),
+
+      // 12. remove a watch ---------------------------------------------------
+      feedbackTool(
+        fnDecl(
+          'remove_watch',
+          'เลิกเฝ้าติดตามหัวข้อ ด้วย id หรือชื่อหัวข้อ',
+          properties: {
+            'id': {'type': 'string', 'description': 'id หรือชื่อหัวข้อที่จะเลิกเฝ้า'},
+          },
+          required: ['id'],
+        ),
+        (args) async {
+          final key = '${args['id'] ?? ''}'.trim();
+          if (key.isEmpty) return 'ขอ id หรือชื่อเรื่องที่จะเลิกเฝ้าด้วยนะ';
+          final rid = await _room();
+          if (rid == null) return 'ยังไม่พร้อม';
+          final list = await MatrixService.instance
+              .loadListFromRoom(rid, 'io.tokens2.watches');
+          final i = list.indexWhere((w) =>
+              '${w['id']}' == key ||
+              '${w['topic']}'.toLowerCase() == key.toLowerCase());
+          if (i < 0) return 'ไม่พบเรื่องที่เฝ้าชื่อ/id "$key"';
+          final wid = '${list[i]['id']}';
+          final topic = '${list[i]['topic']}';
+          list.removeAt(i);
+          await MatrixService.instance
+              .saveListToRoom(rid, 'io.tokens2.watches', list);
+          WatchesController.instance.updateFromJson(jsonEncode(list));
+          // Cancel the checker job that shares the watch id.
+          final store = AgentStore();
+          await store.load();
+          await store.removeReminder(wid);
+          await devProxy().scheduleCancel(wid);
+          await AndroidJobAlarm.cancel(wid);
+          return 'เลิกเฝ้าเรื่อง "$topic" แล้ว';
         },
       ),
     ];

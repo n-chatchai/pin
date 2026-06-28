@@ -89,7 +89,11 @@ class _ChatScaffoldState extends State<ChatScaffold> {
     // slides from right) via the Scaffold's drawer / endDrawer.
     return Scaffold(
       key: _scaffoldKey,
-      drawer: const Drawer(width: 320, child: NowView()),
+      drawer: Drawer(
+        width: 332,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        child: const NowView(),
+      ),
       // bottom:false → chat fills to the screen edge so it blurs through the
       // glass composer all the way down (no solid bar under it). The composer
       // adds its own bottom inset to float above the home indicator.

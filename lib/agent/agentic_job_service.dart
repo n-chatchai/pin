@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/matrix_service.dart';
 import '../services/now_controllers.dart';
+import '../services/pin_meta.dart';
 import 'agent_config.dart';
 import 'agent_session.dart';
 import 'job_runner.dart';
@@ -39,15 +40,18 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session) async {
       final job = jobs.firstWhere((j) => '${j['id']}' == id);
       try {
         final r = await session.send('${job['text'] ?? ''}', persistUser: false);
-        final body = (r.text?.isNotEmpty ?? false)
-            ? r.text!
-            : (r.flex != null ? '(ส่งการ์ดให้แล้ว)' : '');
-        // Post as ปิ่น; the live DM subscription renders it (no optimistic
-        // bubble to dedup, so don't mark it seen).
-        await MatrixService.instance.sendText(rid, body,
-            role: 'pin',
-            flex: r.flex,
-            meta: r.usedTools.isEmpty ? null : {'used': r.usedTools});
+        // A watch job that finds nothing new returns an empty reply → stay
+        // silent (don't post). Only ping when ปิ่น actually has something.
+        final hasReply = (r.text?.trim().isNotEmpty ?? false) || r.flex != null;
+        if (hasReply) {
+          final body = (r.text?.isNotEmpty ?? false)
+              ? r.text!
+              : '(ส่งการ์ดให้แล้ว)';
+          // Post as ปิ่น; the live DM subscription renders it (no optimistic
+          // bubble to dedup, so don't mark it seen).
+          await MatrixService.instance.sendText(rid, body,
+              role: 'user', flex: r.flex, meta: pinMeta(r.usedTools));
+        }
       } catch (e) {
         debugPrint('run job $id failed (retry next wake): $e');
         continue; // leave it in place

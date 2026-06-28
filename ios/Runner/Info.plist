@@ -4,6 +4,8 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>ถ่ายรูปเพื่อส่งในแชต</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>บันทึกกุญแจกู้คืนลงรูปภาพ</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>เลือกรูป/วิดีโอเพื่อส่งในแชต</string>
 	<key>NSMicrophoneUsageDescription</key>

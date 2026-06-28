@@ -351,6 +351,9 @@ pub fn login_token(
 pub fn list_rooms() -> Result<Vec<RoomSummary>, String> {
     block(async move {
         let client = current_client().await?;
+        // A sync is required to discover rooms on a cold/post-login store (the
+        // local store is empty until the first sync lands). Callers bound this in
+        // Dart so a slow first sync degrades to a timeout, not an infinite wait.
         client
             .sync_once(SyncSettings::default())
             .await
@@ -972,6 +975,34 @@ pub fn get_or_create_pin_dm(pin_uid: String) -> Result<String, String> {
     })
 }
 
+/// Create a single-member ENCRYPTED room — the ปิ่น self-DM. No second account:
+/// the human and the on-device agent both post here as the USER, told apart by an
+/// event meta flag. E2EE is to the user's own (cross-signed) devices only.
+///
+/// ponytail: caller caches the room id (validated via `room_in_store`); a cache
+/// loss creates a fresh room and abandons the old one. Fine for a personal chat —
+/// add a "find my existing ปิ่น room" scan only if orphans actually pile up.
+pub fn create_self_room() -> Result<String, String> {
+    use matrix_sdk::ruma::api::client::room::create_room::v3::Request as CreateRoom;
+    use matrix_sdk::ruma::events::room::encryption::RoomEncryptionEventContent;
+    use matrix_sdk::ruma::events::{EmptyStateKey, InitialStateEvent};
+    use matrix_sdk::ruma::EventEncryptionAlgorithm;
+    block(async move {
+        let client = current_client().await?;
+        let enc = InitialStateEvent::new(
+            EmptyStateKey,
+            RoomEncryptionEventContent::new(EventEncryptionAlgorithm::MegolmV1AesSha2),
+        )
+        .to_raw_any();
+        let mut req = CreateRoom::new();
+        req.name = Some("ปิ่น".to_string());
+        req.is_direct = false;
+        req.initial_state = vec![enc];
+        let room = client.create_room(req).await.map_err(|e| e.to_string())?;
+        Ok(room.room_id().to_string())
+    })
+}
+
 /// Accept a pending invite to `room_id` on the `role` client (the pin client
 /// joins the DM the user created).
 pub fn join_room(role: String, room_id: String) -> Result<(), String> {
@@ -984,6 +1015,17 @@ pub fn join_room(role: String, room_id: String) -> Result<(), String> {
         // sync loop picks up the membership afterwards.
         let rid = RoomId::parse(&room_id).map_err(|_| "bad room id".to_string())?;
         client.join_room_by_id(&rid).await.map_err(|e| e.to_string())?;
+        Ok(())
+    })
+}
+
+/// Leave + forget a room (used to GC duplicate self-rooms). After every local
+/// member leaves, the room has no joined users → the server can prune it.
+pub fn leave_room(role: String, room_id: String) -> Result<(), String> {
+    block(async move {
+        let room = room_by_id_role(&role, &room_id).await?;
+        room.leave().await.map_err(|e| e.to_string())?;
+        let _ = room.forget().await;
         Ok(())
     })
 }
@@ -1148,9 +1190,14 @@ pub fn reset_recovery_key() -> Result<String, String> {
 
         // Bootstrap cross-signing too (passwordless, MSC3967 no-UIA first upload),
         // so an SSO user who resets their key gets a COMPLETE E2EE identity rather
-        // than backup-only / "recovery incomplete". Best-effort: errors (e.g. keys
-        // already exist → UIA required) are ignored and we fall back to backup.
-        let _ = client.encryption().bootstrap_cross_signing(None).await;
+        // than backup-only / "recovery incomplete". Best-effort + BOUNDED: errors
+        // (e.g. keys already exist → UIA required) are ignored, and a stalled
+        // upload times out instead of hanging the reset.
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            client.encryption().bootstrap_cross_signing(None),
+        )
+        .await;
 
         // Delete whatever backup version currently exists on the server. Ignore
         // errors: a missing backup (M_NOT_FOUND) just means there's nothing to
@@ -1161,12 +1208,15 @@ pub fn reset_recovery_key() -> Result<String, String> {
                 .await;
         }
 
-        client
-            .encryption()
-            .recovery()
-            .enable()
-            .await
-            .map_err(|e| e.to_string())
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(45),
+            client.encryption().recovery().enable(),
+        )
+        .await
+        {
+            Ok(r) => r.map_err(|e| e.to_string()),
+            Err(_) => Err("recovery enable timed out".to_string()),
+        }
     })
 }
 
@@ -1248,28 +1298,45 @@ pub fn ensure_recovery_for(role: String) -> Result<String, String> {
         // the keys already exist → the server demands UIA and this errors, which
         // we ignore and fall through to backup-only (the prior behaviour). So it
         // upgrades fresh accounts to full cross-signing without regressing reset.
-        let _ = client.encryption().bootstrap_cross_signing(None).await;
+        // BOUNDED: this is a network op with no internal deadline — without the
+        // timeout a stalled key upload hangs the whole onboarding "create" step
+        // ("กำลังสร้างกุญแจ…" forever). On timeout we fall through to backup-only.
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            client.encryption().bootstrap_cross_signing(None),
+        )
+        .await;
 
         let mut attempts = 0;
         let mut last_err = String::new();
-        
+
         while attempts < 5 {
             if let Ok(info) = client.send(get_latest_backup_info::v3::Request::new()).await {
                 let _ = client
                     .send(delete_backup_version::v3::Request::new(info.version))
                     .await;
             }
-            
-            match client.encryption().recovery().enable().await {
-                Ok(key) => return Ok(key),
-                Err(e) => {
+
+            // Per-attempt deadline so a hung enable() can't wedge the step.
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(45),
+                client.encryption().recovery().enable(),
+            )
+            .await
+            {
+                Ok(Ok(key)) => return Ok(key),
+                Ok(Err(e)) => {
                     last_err = e.to_string();
                     attempts += 1;
                     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 }
+                Err(_) => {
+                    last_err = "enable timed out".to_string();
+                    attempts += 1;
+                }
             }
         }
-        
+
         Err(format!("Failed after 5 attempts: {}", last_err))
     })
 }
@@ -1373,6 +1440,50 @@ pub fn secret_put(
             .put_secret(SecretName::from(name), &value)
             .await
             .map_err(|e| e.to_string())
+    })
+}
+
+/// Read a GLOBAL account-data event (UNENCRYPTED, server-side) for `role`,
+/// returning its raw JSON string or None if unset (M_NOT_FOUND). Server-
+/// authoritative (direct GET, no sync wait) so it's reliable right after login.
+///
+/// Used for the STABLE companion identity `{u,p}`: unlike 4S secret storage, plain
+/// account data is NOT tied to — nor wiped by — the recovery key, so a key
+/// reset/rotation never changes the companion password and thus never strands it.
+pub fn account_data_get(role: String, name: String) -> Result<Option<String>, String> {
+    block(async move {
+        use matrix_sdk::ruma::api::client::config::get_global_account_data;
+        let client = client_for(&role).await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+        let req = get_global_account_data::v3::Request::new(uid, name.into());
+        match client.send(req).await {
+            Ok(resp) => Ok(Some(resp.account_data.json().get().to_string())),
+            Err(e) => {
+                let s = e.to_string();
+                if s.contains("M_NOT_FOUND") || s.to_lowercase().contains("not found") {
+                    Ok(None) // never set yet
+                } else {
+                    Err(s)
+                }
+            }
+        }
+    })
+}
+
+/// Write a GLOBAL account-data event (UNENCRYPTED, server-side) for `role` from a
+/// raw JSON string. See [`account_data_get`].
+pub fn account_data_put(role: String, name: String, value: String) -> Result<(), String> {
+    block(async move {
+        use matrix_sdk::ruma::api::client::config::set_global_account_data;
+        use matrix_sdk::ruma::events::AnyGlobalAccountDataEventContent;
+        use matrix_sdk::ruma::serde::Raw;
+        let client = client_for(&role).await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+        let rawval = serde_json::value::RawValue::from_string(value).map_err(|e| e.to_string())?;
+        let raw: Raw<AnyGlobalAccountDataEventContent> = Raw::from_json(rawval);
+        let req = set_global_account_data::v3::Request::new_raw(uid, name.into(), raw);
+        client.send(req).await.map_err(|e| e.to_string())?;
+        Ok(())
     })
 }
 

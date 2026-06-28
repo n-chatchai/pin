@@ -76,7 +76,7 @@
   /* cards */
   .cards{padding:14px 0 clamp(60px,8vw,90px)}
   .crow{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
-  .cap{margin-top:11px;font-size:13px;color:var(--ink2);text-align:center;line-height:1.4;text-wrap:pretty}
+  .cap{margin-top:11px;font-size:13.5px;color:var(--ink);font-weight:500;text-align:center;line-height:1.4;text-wrap:pretty}
   .card{position:relative;aspect-ratio:3/4;border-radius:22px;overflow:hidden;box-shadow:var(--cardsh);transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s}
   .card:hover{transform:translateY(-6px);box-shadow:var(--liftsh)}
   .card img{width:100%;height:100%;object-fit:cover;display:block}
@@ -86,13 +86,100 @@
 
   /* highlight (= Pi's voice/app section): image + statement + waitlist */
   .pad{padding:clamp(56px,8vw,100px) 0}
-  .split{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(30px,5vw,64px);align-items:center}
+  .split{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(30px,5vw,64px);align-items:start}
   .shot{border-radius:26px;overflow:hidden;box-shadow:var(--liftsh);aspect-ratio:4/3;position:relative}
   .shot img{width:100%;height:100%;object-fit:cover;display:block}
-  .chatcard{position:absolute;right:14px;bottom:14px;width:min(280px,78%);background:var(--white);border-radius:18px;box-shadow:var(--liftsh);padding:13px}
+  /* demo = an iPhone mockup: dark bezel, dynamic island, status bar, cream chat screen */
+  .demo{align-self:center;min-width:0}
+  .phone{width:min(300px,80%);margin:0 auto;background:#0d0d0d;border-radius:48px;padding:11px;
+    box-shadow:0 30px 60px rgba(60,40,15,.22),0 8px 20px rgba(60,40,15,.12)}
+  .screen{position:relative;background:var(--blush);border-radius:38px;overflow:hidden;
+    aspect-ratio:9/19;display:flex;flex-direction:column}
+  /* centered day chip at the top of the conversation */
+  .daydiv{align-self:center;margin:2px 0 8px;background:rgba(255,255,255,.92);box-shadow:0 1px 4px rgba(60,40,15,.06);
+    color:var(--ink2);font-size:11px;font-weight:600;padding:4px 12px;border-radius:14px}
+  .island{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:86px;height:25px;background:#000;border-radius:999px;z-index:6}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;padding:12px 22px 2px;font-size:13px;font-weight:700;color:var(--ink);z-index:4}
+  .statusbar .sb-r{display:inline-flex;align-items:center;gap:5px}
+  .statusbar .sb-r i{font-size:15px;display:block}
+  /* floating round buttons (matches app: no header bar, just two fabs) */
+  .dfab{position:absolute;top:46px;width:36px;height:36px;border-radius:50%;background:var(--white);
+    border:1px solid var(--line);box-shadow:0 2px 8px rgba(60,40,15,.10);display:grid;place-items:center;color:var(--forest);z-index:5}
+  .dfab i{font-size:18px;display:block}
+  .dfab-l{left:14px} .dfab-r{right:14px}
+  /* compose bar mockup (non-functional) */
+  .democompose{display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--line);
+    border-radius:24px;box-shadow:0 2px 10px rgba(60,40,15,.07);padding:7px 9px;margin:10px 12px 14px}
+  .democompose .dc-ic{color:var(--green);width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto}
+  .democompose .dc-ic i{font-size:18px;display:block}
+  .democompose .dc-field{flex:1;color:var(--ink3);font-size:13.5px;min-width:0}
+  .democompose .dc-mic{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center}
+  .democompose .dc-mic i{font-size:17px;display:block}
+  .demohead{display:flex;align-items:center;gap:10px;padding:2px 2px 12px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .demohead .dav{width:36px;height:36px;border-radius:50%;background:var(--green-2);color:#fff;display:grid;place-items:center;font-family:var(--serif);font-weight:600;font-size:16px}
+  .demohead b{font-family:var(--serif);color:var(--forest);font-size:18px;font-weight:600}
+  .demohead .ds{font-size:12px;color:var(--green);font-weight:600;margin-left:auto;display:inline-flex;align-items:center;gap:5px}
+  .demohead .ds::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green-2)}
+  .chatcard{flex:1;display:flex;flex-direction:column;justify-content:flex-start;min-width:0;overflow:hidden;padding:44px 14px 0}
   .bub{font-size:13.5px;line-height:1.5;border-radius:15px;padding:9px 13px;margin:5px 0;max-width:90%}
   .bub.me{background:var(--green);color:#fff;margin-left:auto;border-bottom-right-radius:5px}
-  .bub.pin{background:var(--blush);color:var(--ink);border-bottom-left-radius:5px}
+  .bub.me .t{display:block;text-align:right;font-size:9.5px;color:rgba(255,255,255,.65);margin-top:2px}
+  /* ปิ่น replies = no bubble, bare text on the cream surface (matches app) */
+  .bub.pin{background:transparent;color:var(--ink);border-radius:0;padding:2px 0;margin:4px 0;font-size:14px;line-height:1.55;max-width:96%}
+  /* ปิ่น footer below the reply/card: time left, "✨ ใช้: …" hint right */
+  .pinfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:7px;padding:0 2px}
+  .pinfoot .ft{font-size:10px;color:var(--ink3)}
+  .pinfoot .hint{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink2);font-weight:500;text-align:right}
+  .pinfoot .hint i{font-size:13px;color:var(--green);display:block;flex:0 0 auto}
+  /* quiet "coming soon" tag on aspirational feature mockups */
+  /* "coming soon" label that breaks the chip row before the not-yet chips */
+  .ucsoon-hd{flex-basis:100%;margin-top:10px;font-size:12px;font-weight:600;color:var(--ink2)}
+  .soonnote i{font-size:13px;color:var(--green-2);display:block;flex:0 0 auto}
+  /* branch sales carousel — mirrors app wcard (strip header + big number body) */
+  .brc{display:flex;gap:8px;overflow-x:auto;margin-top:8px;padding-bottom:4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .brc::-webkit-scrollbar{height:0}
+  .brc-card{flex:0 0 132px;scroll-snap-align:start;background:var(--white);border-radius:15px;overflow:hidden;box-shadow:0 1px 4px rgba(60,40,15,.06)}
+  .brc-strip{display:flex;align-items:center;gap:6px;background:var(--blush);padding:8px 11px;font-size:12px;font-weight:600;color:var(--forest)}
+  .brc-strip i{font-size:14px;display:block;color:var(--green)}
+  .brc-body{padding:11px}
+  .brc-num{font-family:var(--serif);font-weight:600;font-size:22px;color:var(--forest);line-height:1}
+  .brc-d{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;margin-top:6px}
+  .brc-d i{font-size:13px;display:block}
+  .brc-d.up{color:var(--green)} .brc-d.dn{color:#C0492F}
+  .toolbadge{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink2);font-weight:600;margin-top:8px}
+  .toolbadge i{font-size:14px;display:block;color:var(--green)}
+  /* generic sample card (list / reminder demos) */
+  .scard{background:var(--white);border-radius:15px;overflow:hidden;box-shadow:0 1px 4px rgba(60,40,15,.06);margin-top:8px}
+  .scard-strip{display:flex;align-items:center;gap:6px;background:var(--blush);padding:8px 11px;font-size:12px;font-weight:600;color:var(--forest)}
+  .scard-strip i{font-size:14px;display:block;color:var(--green)}
+  .scard-body{padding:4px 11px 9px}
+  .srow{display:flex;gap:8px;align-items:flex-start;padding:7px 0;font-size:12.5px;color:var(--ink);border-top:1px solid var(--line);line-height:1.4}
+  .srow:first-child{border-top:none}
+  .srow i{font-size:14px;color:var(--green);flex:0 0 auto;margin-top:1px;display:block}
+  /* suggestion chips inside a reply (creative / customer replies) */
+  .sugg{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .sugg span{background:var(--white);border:1px solid var(--line);border-radius:13px;padding:8px 12px;font-size:12.5px;color:var(--ink);line-height:1.4;box-shadow:0 1px 3px rgba(60,40,15,.04)}
+  /* use-case chip selector */
+  .ucchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .ucchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;background:var(--blush-2);border:1.5px solid var(--line);border-radius:999px;padding:8px 16px;font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--forest);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+  .ucchip i{font-size:15px;display:block}
+  .ucchip:hover{border-color:var(--green)}
+  .ucchip.sel{background:var(--green);color:#fff;border-color:var(--green)}
+  .ucchip .soon{font-size:9.5px;font-weight:700;line-height:1;background:var(--yellow);color:var(--forest);padding:3px 6px;border-radius:999px;margin-left:1px}
+  /* waitlist register form */
+  .wl-form{margin:20px auto 0;display:grid;gap:10px;max-width:380px;text-align:left}
+  .wl-form input,.wl-form select{font-family:var(--sans);font-size:15px;color:var(--ink);background:var(--white);border:1.5px solid var(--line);border-radius:12px;padding:13px 15px;width:100%}
+  .wl-form input::placeholder{color:var(--ink2)}
+  .wl-form input:focus,.wl-form select:focus{border-color:var(--green);outline:none}
+  .wl-form .pill{justify-content:center;width:100%}
+  .wl-form .pill:disabled{opacity:.6;cursor:default}
+  .wl-form.hide,.hide{display:none}
+  @keyframes wlflash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--green) 30%,transparent)}}
+  .wl-form select.flash{animation:wlflash 1.2s ease}
+  .wl-status{margin:14px auto 0;max-width:380px;text-align:center;font-size:14.5px;color:var(--ink2)}
+  .wl-status:empty{display:none}
+  .wl-status.ok{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--green);font-weight:600;font-size:16px}
+  .wl-status.ok i{font-size:22px;display:block}
   .hl-body h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(28px,4.4vw,46px);line-height:1.22;text-wrap:balance}
   .hl-body p{color:var(--ink2);font-size:16px;margin-top:16px;max-width:46ch}
   .trust-line{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px 9px;margin-top:18px;color:var(--forest);font-weight:600;font-size:14.5px}
@@ -166,7 +253,7 @@
     <h1 class="h1">ผู้ช่วยส่วนตัว ที่<em>รู้ใจ</em>คุณจริง ๆ</h1>
     <p class="lede">ถามปิ่นได้ทุกเรื่อง คุยได้ทั้งวัน ปิ่นพร้อมช่วยคุณคิด วางแผน และดูแลเรื่องต่าง ๆ ในชีวิต — บนเครื่องคุณ เปิดอ่านได้แค่คุณ</p>
     <div class="hero-cta">
-      <a class="pill lg" href="#join">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
+      <a class="pill lg" href="#cta">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
       <a class="ghost" href="#uses">ดูวิธีใช้</a>
     </div>
     <div class="hero-note">เปิดตัวเร็ว ๆ นี้ · ใช้ฟรี ไม่มีโฆษณา</div>
@@ -176,9 +263,13 @@
 <!-- USE-CASE CARDS -->
 <section class="cards" id="uses">
   <div class="wrap">
+    <div class="center rv" style="margin-bottom:clamp(24px,4vw,40px)">
+      <h2 class="sec-title">ปิ่นอยู่ข้างคุณ ทุกเรื่องในแต่ละวัน</h2>
+      <p class="sec-sub">เรื่องเล็ก ๆ ที่กินเวลา ปิ่นช่วยให้จบเร็วขึ้น</p>
+    </div>
     <div class="crow rv">
       <div class="uc"><div class="card"><img src="assets/cards/work.jpg" alt="ช่วยจัดการงาน" loading="lazy"><span class="chip"><i class="ph ph-briefcase"></i> จัดการงาน</span></div><p class="cap">สรุปอีเมล นัดประชุม ทวงงานให้</p></div>
-      <div class="uc"><div class="card"><img src="assets/cards/student.jpg" alt="ติวและทบทวนบทเรียน" loading="lazy"><span class="chip"><i class="ph ph-books"></i> ติว & ทบทวน</span></div><p class="cap">อธิบายทีละขั้น สรุปโน้ต เตือนส่งงาน</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/student.jpg" alt="ติวและทบทวนบทเรียน" loading="lazy"><span class="chip"><i class="ph ph-books"></i> ติวและทบทวน</span></div><p class="cap">อธิบายทีละขั้น สรุปโน้ต เตือนส่งงาน</p></div>
       <div class="uc"><div class="card"><img src="assets/cards/family.jpg" alt="ดูแลเรื่องในบ้าน" loading="lazy"><span class="chip"><i class="ph ph-house"></i> ดูแลเรื่องบ้าน</span></div><p class="cap">เตือนกินยา จดของซื้อ เช็กอากาศ</p></div>
       <div class="uc"><div class="card"><img src="assets/cards/freelance.jpg" alt="ช่วยงานครีเอทีฟ" loading="lazy"><span class="chip"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</span></div><p class="cap">ร่างแคปชัน คิดไอเดีย วาดภาพประกอบ</p></div>
       <div class="uc"><div class="card"><img src="assets/cards/owner.jpg" alt="ช่วยดูแลร้านค้า" loading="lazy"><span class="chip"><i class="ph ph-storefront"></i> ดูแลร้านค้า</span></div><p class="cap">สรุปยอด เช็กค่าเงิน ตอบแชตลูกค้า</p></div>
@@ -190,21 +281,57 @@
 <section class="pad" id="join" style="background:var(--blush-2);border-block:1px solid var(--line)">
   <div class="wrap">
     <div class="split">
-      <div class="shot rv">
-        <img src="assets/cards/ask.jpg" alt="คุยกับปิ่นจากที่ไหนก็ได้" loading="lazy">
-        <div class="chatcard">
-          <div class="bub me">เตือนกินยา 9 โมงทุกวันด้วย</div>
-          <div class="bub pin">ตั้งให้แล้วค่ะ ⏰ เตือนทุกวัน 09:00 น.</div>
+      <div class="demo rv">
+       <div class="phone">
+        <div class="screen">
+         <div class="island"></div>
+         <div class="statusbar"><span>9:41</span><span class="sb-r"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+         <button class="dfab dfab-l" aria-hidden="true" tabindex="-1"><i class="ph ph-text-align-left"></i></button>
+         <button class="dfab dfab-r" aria-hidden="true" tabindex="-1"><i class="ph ph-dots-three"></i></button>
+         <div class="chatcard" id="demoCard">
+          <div class="daydiv">วันนี้</div>
+          <div class="bub pin">สวัสดีค่ะ 👋 วันนี้ให้ปิ่นช่วยอะไรดีคะ</div>
+          <div class="bub me">สรุปยอดขายแต่ละสาขาวันนี้<span class="t">07:18</span></div>
+          <div class="bub pin">ดึงจากทุก OA ให้แล้วค่ะ — ปัดดูแต่ละสาขาได้เลย</div>
+          <div class="brc">
+            <div class="brc-card">
+              <div class="brc-strip"><i class="ph ph-storefront"></i> สาขาสยาม</div>
+              <div class="brc-body"><div class="brc-num">฿42,800</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +12% จากเมื่อวาน</div></div>
+            </div>
+            <div class="brc-card">
+              <div class="brc-strip"><i class="ph ph-storefront"></i> สาขาอโศก</div>
+              <div class="brc-body"><div class="brc-num">฿31,200</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +5% จากเมื่อวาน</div></div>
+            </div>
+            <div class="brc-card">
+              <div class="brc-strip"><i class="ph ph-storefront"></i> สาขาเชียงใหม่</div>
+              <div class="brc-body"><div class="brc-num">฿18,600</div><div class="brc-d dn"><i class="ph ph-trend-down"></i> −3% จากเมื่อวาน</div></div>
+            </div>
+          </div>
+          <div class="pinfoot"><span class="ft">07:18</span><span class="hint"><i class="ph ph-sparkle"></i> ใช้: เชื่อมต่อ LINE OA</span></div>
         </div>
+         <div class="democompose" aria-hidden="true">
+          <span class="dc-ic"><i class="ph ph-plus"></i></span>
+          <span class="dc-ic"><i class="ph ph-camera"></i></span>
+          <span class="dc-ic"><i class="ph ph-image"></i></span>
+          <span class="dc-field">พิมพ์ข้อความ…</span>
+          <span class="dc-mic"><i class="ph ph-microphone"></i></span>
+         </div>
+        </div>
+       </div>
       </div>
       <div class="hl-body rv">
         <h2>คุยกับปิ่นได้ทุกที่<br>บนเครื่องของคุณ</h2>
         <p>พิมพ์หรือพูดได้เลย ปิ่นช่วยจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
-        <a class="trust-line" href="privacy.html"><i class="ph-fill ph-lock-key"></i> เปิดอ่านได้แค่คุณ เข้ารหัสลับทั้งหมด <span class="more">ดูวิธีที่เราดูแลข้อมูล ›</span></a>
-        <div class="join-cta">
-          <a class="pill lg" id="joinMail" href="#join">ส่งอีเมลขอรับสิทธิ์ <span class="ar">→</span></a>
+        <p style="font-size:14px;color:var(--ink2);margin-top:6px">แตะดูตัวอย่าง — ปิ่นช่วยอะไรคุณได้บ้าง</p>
+        <div class="ucchips" id="ucChips">
+          <button type="button" class="ucchip" data-uc="study" data-label="ติวและทบทวน"><i class="ph ph-books"></i> ติว &amp; ทบทวน</button>
+          <button type="button" class="ucchip" data-uc="home" data-label="เรื่องในบ้าน"><i class="ph ph-house"></i> เรื่องในบ้าน</button>
+          <button type="button" class="ucchip" data-uc="creative" data-label="งานครีเอทีฟ"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</button>
+          <div class="ucsoon-hd">เร็วๆนี้</div>
+          <button type="button" class="ucchip" data-uc="sme" data-label="ดูแลร้านค้า"><i class="ph ph-storefront"></i> ดูแลร้านค้า</button>
+          <button type="button" class="ucchip" data-uc="work" data-label="จัดการงาน"><i class="ph ph-briefcase"></i> จัดการงาน</button>
         </div>
-        <p class="wl-note">กำลังเปิดตัวเร็ว ๆ นี้ · ส่งอีเมลมาบอกเรา เดี๋ยวส่งลิงก์ดาวน์โหลดให้คุณก่อนใคร · ฟรี ไม่มีโฆษณา</p>
+        <a class="pill lg" id="joinBridge" href="#cta" style="margin-top:20px">เลือกแล้ว ลงชื่อรับสิทธิ์ <span class="ar">→</span></a>
       </div>
     </div>
   </div>
@@ -224,12 +351,27 @@
 </section>
 
 <!-- CREATOR + final CTA echo (peak-end) -->
-<section class="creator">
+<section class="creator" id="cta">
   <div class="wrap">
     <img class="mk" src="assets/pin-icon.png" alt="ปิ่น">
     <h2>พร้อมให้ปิ่นดูแล<br>เรื่องเล็ก ๆ ของคุณ</h2>
-    <p>สร้างโดย tokens2.io · กำลังเปิดตัวเร็ว ๆ นี้ ใช้ฟรี ไม่มีโฆษณา</p>
-    <a class="pill" href="#join" style="margin-top:22px">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
+    <p>กรอกอีเมล บอกเราว่าอยากใช้ปิ่นช่วยเรื่องอะไร เดี๋ยวส่งลิงก์ให้ก่อนใคร</p>
+    <form class="wl-form" id="joinForm">
+      <input type="email" id="wlEmail" name="email" required placeholder="อีเมลของคุณ" autocomplete="email">
+      <select id="wlUse" name="use" required>
+        <option value=""  selected>อยากใช้ปิ่นช่วยเรื่องอะไรมากที่สุด?</option>
+        <option value="study">ติว &amp; ทบทวนบทเรียน</option>
+        <option value="home">ดูแลเรื่องในบ้าน · เตือนความจำ</option>
+        <option value="creative">งานครีเอทีฟ · ร่างแคปชัน คิดไอเดีย</option>
+        <option value="sme">ดูแลร้านค้า · ยอดขาย + ตอบแชต (เร็วๆนี้)</option>
+        <option value="work">จัดการงาน · สรุปอีเมล (เร็วๆนี้)</option>
+        <option value="__custom__">อื่น ๆ (พิมพ์เอง)</option>
+      </select>
+      <input type="text" id="wlCustom" class="hide" placeholder="บอกเราหน่อยว่าอยากใช้ทำอะไร">
+      <button type="submit" class="pill lg">รับสิทธิ์ก่อนใคร <span class="ar">→</span></button>
+    </form>
+    <p class="wl-status" id="wlStatus" role="status" aria-live="polite"></p>
+    <p class="wl-note" style="margin-inline:auto;text-align:center">กำลังเปิดตัวเร็ว ๆ นี้ · ฟรี ไม่มีโฆษณา</p>
   </div>
 </section>
 
@@ -254,16 +396,113 @@
   burger&&burger.addEventListener('click',()=>{const o=mnav.classList.toggle('open');burger.setAttribute('aria-expanded',o);});
   mnav&&mnav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{mnav.classList.remove('open');burger.setAttribute('aria-expanded','false');}));
 
-  // waitlist = plain mailto (no backend, no form-spam). Build it in JS so the
-  // address isn't sitting in the static HTML for scrapers, and so the prefilled
-  // body can ask which platform → we send the right store link at launch.
-  // ponytail: change PIN_INBOX if the address changes.
+  // waitlist register form — no backend: on submit we compose a mailto so the
+  // signup lands in the inbox. Address built in JS so scrapers don't see it.
+  // ponytail: change PIN_INBOX if the address changes; swap submit handler for a
+  // real POST endpoint when one exists.
   const PIN_INBOX='hello'+'@'+'tokens2.io';
-  const mailEl=document.getElementById('joinMail');
-  if(mailEl){
-    const subj='ขอรับสิทธิ์ใช้ปิ่นก่อนใคร';
-    const body='สวัสดีค่ะ อยากลองใช้ปิ่นก่อนใคร ช่วยส่งลิงก์ดาวน์โหลดตอนเปิดตัวให้ด้วยนะคะ\n\nอุปกรณ์ของฉัน: (เลือก) iPhone / Android';
-    mailEl.href='mailto:'+PIN_INBOX+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+  const form=document.getElementById('joinForm');
+  const useSel=document.getElementById('wlUse');
+  const customIn=document.getElementById('wlCustom');
+
+  // use-case demos — each swaps the chat sample card. Keys match dropdown/chip values.
+  const DEMOS={
+    sme:{q:'สรุปยอดขายแต่ละสาขาวันนี้',a:'ดึงยอดจากทุกสาขา + ตอบแชตลูกค้าให้ ผ่าน LINE OA ได้เลยค่ะ',tool:'เชื่อมต่อ LINE OA',soon:true,card:
+      '<div class="brc">'+
+      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สาขาสยาม</div><div class="brc-body"><div class="brc-num">฿42,800</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +12% จากเมื่อวาน</div></div></div>'+
+      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สาขาอโศก</div><div class="brc-body"><div class="brc-num">฿31,200</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +5% จากเมื่อวาน</div></div></div>'+
+      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สาขาเชียงใหม่</div><div class="brc-body"><div class="brc-num">฿18,600</div><div class="brc-d dn"><i class="ph ph-trend-down"></i> −3% จากเมื่อวาน</div></div></div>'+
+      '</div>'},
+    work:{q:'สรุปอีเมลเช้านี้ให้หน่อย',a:'มา 12 ฉบับ สำคัญ 3 ค่ะ',tool:'อ่านกล่องอีเมล',soon:true,card:
+      '<div class="scard"><div class="scard-strip"><i class="ph ph-envelope-open"></i> อีเมลสำคัญเช้านี้</div><div class="scard-body">'+
+      '<div class="srow"><i class="ph-fill ph-circle"></i> ลูกค้า A ขอใบเสนอราคา — ด่วน</div>'+
+      '<div class="srow"><i class="ph ph-clock"></i> นัดประชุมทีม 14:00</div>'+
+      '<div class="srow"><i class="ph ph-receipt"></i> บิลค่าบริการครบกำหนดศุกร์นี้</div>'+
+      '</div></div>'},
+    study:{q:'อธิบายการสังเคราะห์แสงแบบเข้าใจง่าย',a:'ย่อยเป็น 3 ขั้นให้ค่ะ',tool:'ติวเตอร์',card:
+      '<div class="scard"><div class="scard-strip"><i class="ph ph-books"></i> สังเคราะห์แสง · 3 ขั้น</div><div class="scard-body">'+
+      '<div class="srow"><i class="ph ph-caret-right"></i> ใบจับแสง + คลอโรฟิลล์เก็บพลังงาน</div>'+
+      '<div class="srow"><i class="ph ph-caret-right"></i> เปลี่ยน CO₂ + น้ำ → น้ำตาล</div>'+
+      '<div class="srow"><i class="ph ph-caret-right"></i> คายออกซิเจนออกมา</div>'+
+      '</div></div>'},
+    home:{q:'เตือนกินยา 9 โมงทุกวันด้วย',a:'ตั้งให้แล้วค่ะ',tool:'ตั้งเตือน',card:
+      '<div class="scard"><div class="scard-strip"><i class="ph ph-alarm"></i> ตั้งเตือนแล้ว</div><div class="scard-body">'+
+      '<div class="srow"><i class="ph ph-clock"></i> ทุกวัน 09:00 น.</div>'+
+      '<div class="srow"><i class="ph ph-pill"></i> กินยา</div>'+
+      '</div></div>'},
+    creative:{q:'คิดแคปชันโพสต์ร้านกาแฟหน่อย',a:'ลองดู 3 แบบนะคะ',tool:'ช่วยเขียน',card:
+      '<div class="sugg">'+
+      '<span>เช้านี้ขอเริ่มด้วยกาแฟอุ่น ๆ ☕</span>'+
+      '<span>กลิ่นกาแฟ = ปุ่มรีสตาร์ตของวัน</span>'+
+      '<span>หอมกรุ่น คั่วสดทุกแก้ว รับวันใหม่</span>'+
+      '</div>'}
+  };
+
+  const demoCard=document.getElementById('demoCard');
+  const chips=document.getElementById('ucChips');
+  const bridge=document.getElementById('joinBridge');
+  function renderDemo(id){
+    const d=DEMOS[id]; if(!d||!demoCard) return;
+    demoCard.innerHTML='<div class="daydiv">วันนี้</div>'+
+      '<div class="bub pin">สวัสดีค่ะ 👋 วันนี้ให้ปิ่นช่วยอะไรดีคะ</div>'+
+      '<div class="bub me">'+d.q+'<span class="t">07:18</span></div>'+
+      '<div class="bub pin">'+d.a+'</div>'+d.card+
+      '<div class="pinfoot"><span class="ft">07:18</span>'+
+      '<span class="hint"><i class="ph ph-sparkle"></i> ใช้: '+d.tool+'</span></div>';
+  }
+  function chipLabel(id){const c=chips&&chips.querySelector('.ucchip[data-uc="'+id+'"]');return c?(c.dataset.label||c.textContent.trim()):'';}
+  function selectUC(id,fromChip){
+    if(chips) chips.querySelectorAll('.ucchip').forEach(c=>c.classList.toggle('sel',c.dataset.uc===id));
+    if(DEMOS[id]) renderDemo(id);
+    if(fromChip&&useSel){ useSel.value=id; customIn&&customIn.classList.add('hide'); }
+    // make the choice felt: the button right under the chips reflects it
+    if(fromChip&&bridge&&DEMOS[id]) bridge.innerHTML='ลงชื่อรับสิทธิ์: '+chipLabel(id)+' <span class="ar">→</span>';
+  }
+  chips&&chips.querySelectorAll('.ucchip').forEach(c=>c.addEventListener('click',()=>selectUC(c.dataset.uc,true)));
+  // arriving at the form via the bridge, flash the matching dropdown so the synced choice is visible
+  bridge&&bridge.addEventListener('click',()=>{if(useSel){useSel.classList.remove('flash');void useSel.offsetWidth;useSel.classList.add('flash');}});
+
+  if(useSel&&customIn){
+    useSel.addEventListener('change',()=>{
+      const isCustom=useSel.value==='__custom__';
+      customIn.classList.toggle('hide',!isCustom);
+      customIn.required=isCustom;
+      if(isCustom){customIn.focus(); chips&&chips.querySelectorAll('.ucchip').forEach(c=>c.classList.remove('sel'));}
+      else selectUC(useSel.value,false);
+    });
+  }
+  selectUC('sme',false); // demo teaser only; dropdown stays on placeholder so the pick is intentional
+
+  // Submit to our own backend (pin-proxy /waitlist). Stores {email,use} for the
+  // launch list. On any failure, fall back to mailto. Either way the user sees a
+  // confirmation. ponytail: endpoint follows the app's proxy base.
+  const FORM_ENDPOINT='https://pin-gateway.tokens2.io/waitlist';
+  const statusEl=document.getElementById('wlStatus');
+  if(form){
+    const submitBtn=form.querySelector('button[type=submit]');
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const email=document.getElementById('wlEmail').value.trim();
+      const use=useSel.value==='__custom__'?customIn.value.trim():(useSel.selectedOptions[0]?useSel.selectedOptions[0].text:useSel.value);
+      if(!email||!use) return; // native required normally blocks; guard anyway
+      const ok=()=>{form.classList.add('hide');statusEl.className='wl-status ok';
+        statusEl.innerHTML='<i class="ph-fill ph-check-circle"></i> ลงชื่อแล้ว เดี๋ยวส่งลิงก์ดาวน์โหลดให้ก่อนใครค่ะ';};
+      const orig=submitBtn.innerHTML; submitBtn.disabled=true; submitBtn.textContent='กำลังส่ง…';
+      statusEl.className='wl-status'; statusEl.textContent='';
+      try{
+        const r=await fetch(FORM_ENDPOINT,{method:'POST',
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({email,use})});
+        if(r.ok){ ok(); return; }
+        throw new Error('http '+r.status);
+      }catch(_){/* fall through to mailto */}
+      // fallback: open the user's mail client, still confirm on-page
+      const subj='ขอรับสิทธิ์ใช้ปิ่นก่อนใคร';
+      const body='อีเมล: '+email+'\nอยากใช้ปิ่นช่วยเรื่อง: '+use+'\n\nช่วยส่งลิงก์ดาวน์โหลดตอนเปิดตัวให้ด้วยนะคะ';
+      location.href='mailto:'+PIN_INBOX+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+      submitBtn.disabled=false; submitBtn.innerHTML=orig;
+      statusEl.className='wl-status'; statusEl.textContent='เปิดแอปอีเมลให้แล้ว — กดส่งเพื่อยืนยันการรับสิทธิ์ได้เลยค่ะ';
+    });
   }
 
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});

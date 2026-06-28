@@ -16,11 +16,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
+import re
 import time
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -39,6 +41,16 @@ EMBED_DIM = int(os.environ.get("PIN_EMBED_DIM", "256"))
 _IPV4 = httpx.AsyncHTTPTransport(local_address="0.0.0.0")
 
 app = FastAPI(title="pin-proxy")
+
+# Browser requests only come from the marketing site (public /waitlist). The
+# app's authed endpoints are called natively (no Origin header, CORS n/a).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://pin.tokens2.io"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["POST"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
@@ -90,6 +102,23 @@ def _check_token(authorization: str | None) -> str:
 
 @app.get("/health")
 def health() -> dict:
+    return {"ok": True}
+
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@app.post("/waitlist")
+async def waitlist(request: Request) -> dict:
+    """Public pre-launch signup from the marketing site. No auth. Stores
+    {email, use} for the launch list — no conversation content."""
+    from . import store
+
+    b = await request.json()
+    email = str(b.get("email", "")).strip()
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="invalid email")
+    store.add_waitlist(email, str(b.get("use", ""))[:200])
     return {"ok": True}
 
 

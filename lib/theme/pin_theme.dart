@@ -24,12 +24,13 @@ class PinPalette {
     required this.dd,
   });
 
-  // Mature neutrals: cleaner paper, deeper ink, hairline divider.
-  static const cream = Color(0xFFFBFAF6);
-  static const ink = Color(0xFF22221E);
-  static const ink2 = Color(0xFF5F5E57);
-  static const ink3 = Color(0xFFA6A49A);
-  static const line = Color(0xFFEAE6DC);
+  // Warm "Pi" neutrals: cream paper, warm-brown ink, warm hairline (matches the
+  // marketing site tokens — design/now-pi.html, site/index.html).
+  static const cream = Color(0xFFFBF6EE);
+  static const ink = Color(0xFF2E2A24);
+  static const ink2 = Color(0xFF6E6457);
+  static const ink3 = Color(0xFF9A8F7E);
+  static const line = Color(0xFFE7DCCB);
   static const neg = Color(0xFFB0432F);
 
   static const all = <PinPalette>[
@@ -125,15 +126,15 @@ class PinPalette {
     return base.copyWith(
       scaffoldBackgroundColor: bg,
       textTheme: textTheme,
-      // Brand / headlines use IBM Plex Sans Thai.
-      primaryTextTheme: GoogleFonts.ibmPlexSansThaiTextTheme(base.textTheme),
+      // Brand / headlines use Trirong (warm Thai serif) — the Pi voice.
+      primaryTextTheme: GoogleFonts.trirongTextTheme(base.textTheme),
       appBarTheme: AppBarTheme(
         backgroundColor: bg,
         foregroundColor: ink,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-        titleTextStyle: GoogleFonts.ibmPlexSansThai(
-          fontSize: 18,
+        titleTextStyle: GoogleFonts.trirong(
+          fontSize: 19,
           fontWeight: FontWeight.w600,
           color: ink,
         ),
@@ -152,9 +153,9 @@ class PinPalette {
     );
   }
 
-  /// Headline/brand style helper (IBM Plex Sans Thai).
+  /// Headline/brand style helper (Trirong — warm Thai serif, the Pi voice).
   static TextStyle brand({double size = 28, Color? color}) =>
-      GoogleFonts.ibmPlexSansThai(
+      GoogleFonts.trirong(
         fontSize: size,
         fontWeight: FontWeight.w600,
         color: color ?? ink,

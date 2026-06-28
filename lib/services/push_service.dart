@@ -52,12 +52,12 @@ class PushService {
 
   Future<void> _runDue() async {
     try {
-      // Cold wake: bring up the ปิ่น companion so the reply can post as 'pin'.
-      // Best-effort — if it can't come up in the background window the job is
-      // left in place and runs on next app open.
-      await MatrixService.instance.ensurePinSession();
+      // Cold wake: restore the user session so the reply can post into the
+      // self-DM. Best-effort — if it can't come up in the background window the
+      // job is left in place and runs on next app open.
+      if (!await MatrixService.instance.tryRestore()) return;
       final rid = await MatrixService.instance.pinRoomId();
-      if (rid == null) return; // not up yet — runs on next open instead
+      if (rid == null) return; // no self-room yet — runs on next open instead
       final session = AgentSession(room: rid, proxy: devProxy());
       await runDueAgenticJobs(rid, session);
     } catch (e) {

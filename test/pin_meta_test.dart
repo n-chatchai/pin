@@ -1,0 +1,54 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pin/services/pin_meta.dart';
+
+void main() {
+  group('isPinMeta', () {
+    test('true when meta.pin == true', () {
+      expect(isPinMeta(jsonEncode({'pin': true})), isTrue);
+      expect(isPinMeta(jsonEncode({'pin': true, 'used': ['search']})), isTrue);
+    });
+    test('false for human turns / missing flag', () {
+      expect(isPinMeta(null), isFalse);
+      expect(isPinMeta(''), isFalse);
+      expect(isPinMeta(jsonEncode({})), isFalse);
+      expect(isPinMeta(jsonEncode({'used': ['x']})), isFalse);
+      expect(isPinMeta(jsonEncode({'pin': false})), isFalse);
+    });
+    test('false on malformed / non-map json (never throws)', () {
+      expect(isPinMeta('not json'), isFalse);
+      expect(isPinMeta('[1,2,3]'), isFalse);
+      expect(isPinMeta('"pin"'), isFalse);
+    });
+  });
+
+  group('pinMeta', () {
+    test('always carries pin flag; omits empty used', () {
+      expect(pinMeta([]), {'pin': true});
+      expect(pinMeta(['search', 'card']), {
+        'pin': true,
+        'used': ['search', 'card'],
+      });
+    });
+    test('round-trips through isPinMeta', () {
+      expect(isPinMeta(jsonEncode(pinMeta([]))), isTrue);
+      expect(isPinMeta(jsonEncode(pinMeta(['a']))), isTrue);
+    });
+  });
+
+  group('self-room account-data pointer', () {
+    test('encode → decode round-trip', () {
+      const rid = '!abc123:pin-chat.tokens2.io';
+      expect(selfRoomId(selfRoomPointer(rid)), rid);
+    });
+    test('null/absent/malformed → null (never throws)', () {
+      expect(selfRoomId(null), isNull);
+      expect(selfRoomId(''), isNull);
+      expect(selfRoomId(jsonEncode({})), isNull);
+      expect(selfRoomId(jsonEncode({'room': ''})), isNull);
+      expect(selfRoomId(jsonEncode({'room': 42})), isNull);
+      expect(selfRoomId('garbage'), isNull);
+    });
+  });
+}

@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../main.dart';
 import '../services/matrix_service.dart';
-import '../theme/pin_theme.dart';
+import 'pin_button.dart';
 import 'pin_route.dart';
 import 'pin_toast.dart';
 
@@ -42,22 +42,11 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: _busy ? null : _go,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
-        side: const BorderSide(color: PinPalette.line),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        foregroundColor: PinPalette.ink,
-      ),
-      icon: _busy
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2))
-          : SvgPicture.asset('assets/google-g.svg', width: 20, height: 20),
-      label: const Text('เข้าสู่ระบบด้วย Google',
-          style: TextStyle(fontWeight: FontWeight.w600)),
+    return PinButton.outlined(
+      'เข้าสู่ระบบด้วย Google',
+      busy: _busy,
+      onTap: _go,
+      icon: SvgPicture.asset('assets/google-g.svg', width: 20, height: 20),
     );
   }
 }
