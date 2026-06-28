@@ -33,3 +33,21 @@ String? selfRoomId(String? accountDataJson) {
 
 /// Encode the self-room pointer for account data.
 String selfRoomPointer(String roomId) => jsonEncode({'room': roomId});
+
+/// Display name of the self-room (used to match legacy rooms predating the
+/// account-data pointer).
+const selfRoomName = 'ปิ่น';
+
+/// Pick the canonical self-room id: the account-data pointer wins; otherwise the
+/// first joined room named [selfRoomName] (legacy fallback). Null = none yet →
+/// onboarding. Pure decision logic; the I/O (read pointer, sync, create) lives in
+/// MatrixService.findPinRoomId/getOrCreatePinDm.
+String? resolveSelfRoom(
+    String? adPointerJson, Iterable<({String id, String name})> rooms) {
+  final ad = selfRoomId(adPointerJson);
+  if (ad != null) return ad;
+  for (final r in rooms) {
+    if (r.name == selfRoomName) return r.id;
+  }
+  return null;
+}

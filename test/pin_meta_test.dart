@@ -51,4 +51,27 @@ void main() {
       expect(selfRoomId('garbage'), isNull);
     });
   });
+
+  group('resolveSelfRoom', () {
+    final rooms = [
+      (id: '!admin:s', name: 'pin-chat.tokens2.io Admin Room'),
+      (id: '!a:s', name: 'ปิ่น'),
+      (id: '!b:s', name: 'ปิ่น'),
+    ];
+    test('account-data pointer wins over name-match', () {
+      expect(resolveSelfRoom(selfRoomPointer('!ptr:s'), rooms), '!ptr:s');
+    });
+    test('no pointer → first room named ปิ่น (never the admin room)', () {
+      expect(resolveSelfRoom(null, rooms), '!a:s');
+    });
+    test('no pointer + no ปิ่น room → null (→ onboarding)', () {
+      expect(resolveSelfRoom(null, [
+        (id: '!admin:s', name: 'pin-chat.tokens2.io Admin Room'),
+      ]), isNull);
+      expect(resolveSelfRoom(null, const []), isNull);
+    });
+    test('malformed pointer falls back to name-match', () {
+      expect(resolveSelfRoom('garbage', rooms), '!a:s');
+    });
+  });
 }

@@ -216,10 +216,18 @@ class MatrixService {
   /// a legacy room (named 'ปิ่น', pre-account-data) is the only fallback.
   Future<String?> findPinRoomId() async {
     final adId = await _selfRoomFromAd();
-    if (adId != null) return adId;
+    if (adId != null) {
+      // The pointer alone doesn't load the room into the local store. On a cold
+      // relogin the room isn't synced yet, so a later getPrefsState/roomMessages
+      // read would miss (→ spurious in-chat onboarding + empty history). Sync it
+      // in first when absent.
+      if (!await rust.roomInStore(roomId: adId)) {
+        await listRooms(); // sync_once → loads joined rooms + state
+      }
+      return adId;
+    }
     final rooms = await listRooms();
-    final existing = rooms.where((r) => r.name == 'ปิ่น');
-    return existing.isEmpty ? null : existing.first.id;
+    return resolveSelfRoom(null, rooms.map((r) => (id: r.id, name: r.name)));
   }
 
   final _mediaCache = <String, Future<String>>{};
@@ -434,12 +442,22 @@ class MatrixService {
   /// a legacy 'ปิ่น' room if one exists, else create; then persist to account data.
   Future<String> getOrCreatePinDm() async {
     if (userId == null) throw Exception('not logged in');
-    final adId = await _selfRoomFromAd();
+    // Read the pointer DIRECTLY (not via _selfRoomFromAd, which swallows errors):
+    // a thrown read error must propagate, NOT fall through to create — creating
+    // would overwrite the pointer and spawn a duplicate room. Only a definitively
+    // -absent pointer (null) proceeds.
+    final adId = selfRoomId(
+        await rust.accountDataGet(role: 'user', name: _selfRoomAd));
     if (adId != null) {
       unawaited(_leaveDuplicatePinRooms(adId));
       return adId;
     }
-    final legacy = await findPinRoomId(); // legacy name-match (pre-account-data)
+    // No pointer yet → SYNC rooms first so a real existing room isn't missed on a
+    // cold store (which would create a duplicate). Migrate a legacy 'ปิ่น' room if
+    // present, else create; then persist the pointer.
+    final rooms = await listRooms();
+    final legacy =
+        resolveSelfRoom(null, rooms.map((r) => (id: r.id, name: r.name)));
     final String roomId =
         legacy ?? await timed('createSelfRoom', () => rust.createSelfRoom());
     await _saveSelfRoomToAd(roomId);
