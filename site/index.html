@@ -83,6 +83,7 @@
   .chip{position:absolute;left:11px;bottom:11px;display:inline-flex;align-items:center;gap:7px;background:rgba(27,58,41,.80);backdrop-filter:blur(4px);
         color:#fff;font-weight:600;font-size:13px;padding:7px 13px;border-radius:999px}
   .chip i{font-size:15px;display:block}
+  .card .soon-tag{position:absolute;top:11px;right:11px;background:var(--yellow);color:var(--forest);font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;z-index:1}
 
   /* highlight (= Pi's voice/app section): image + statement + waitlist */
   .pad{padding:clamp(56px,8vw,100px) 0}
@@ -94,7 +95,7 @@
   .phone{width:min(300px,80%);margin:0 auto;background:#0d0d0d;border-radius:48px;padding:11px;
     box-shadow:0 30px 60px rgba(60,40,15,.22),0 8px 20px rgba(60,40,15,.12)}
   .screen{position:relative;background:var(--blush);border-radius:38px;overflow:hidden;
-    aspect-ratio:9/19;display:flex;flex-direction:column}
+    aspect-ratio:9/20.5;display:flex;flex-direction:column}
   /* centered day chip at the top of the conversation */
   .daydiv{align-self:center;margin:2px 0 8px;background:rgba(255,255,255,.92);box-shadow:0 1px 4px rgba(60,40,15,.06);
     color:var(--ink2);font-size:11px;font-weight:600;padding:4px 12px;border-radius:14px}
@@ -134,6 +135,21 @@
   /* quiet "coming soon" tag on aspirational feature mockups */
   /* "coming soon" label that breaks the chip row before the not-yet chips */
   .ucsoon-hd{flex-basis:100%;margin-top:10px;font-size:12px;font-weight:600;color:var(--ink2)}
+  /* LINE OA reply mockup (ดูแลร้านค้า demo) */
+  .linecard{background:var(--white);border-radius:13px;overflow:hidden;box-shadow:0 1px 4px rgba(60,40,15,.06);margin-top:8px}
+  .line-hd{display:flex;align-items:center;gap:6px;background:#06C755;color:#fff;font-size:11px;font-weight:700;padding:6px 11px}
+  .line-hd i{font-size:15px;display:block}
+  .lchat{display:flex;flex-direction:column;gap:6px;padding:10px 11px}
+  .lbub{font-size:12px;line-height:1.4;padding:7px 10px;border-radius:13px;max-width:86%}
+  .lbub.cust{background:var(--blush);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}
+  .lbub.shop{background:#06C755;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .lbub.shop .tag{display:block;font-size:9px;opacity:.85;margin-top:3px}
+  /* generated image/video thumbnails (creative demo) */
+  .genrow{display:flex;gap:8px;margin-top:8px}
+  .genthumb{position:relative;flex:1;aspect-ratio:1;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(60,40,15,.06)}
+  .genthumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .genthumb .play{position:absolute;inset:0;display:grid;place-items:center;background:rgba(20,20,16,.28);color:#fff}
+  .genthumb .play i{font-size:24px;display:block}
   .soonnote i{font-size:13px;color:var(--green-2);display:block;flex:0 0 auto}
   /* branch sales carousel — mirrors app wcard (strip header + big number body) */
   .brc{display:flex;gap:8px;overflow-x:auto;margin-top:8px;padding-bottom:4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
@@ -170,6 +186,9 @@
   .wl-form{margin:20px auto 0;display:grid;gap:10px;max-width:380px;text-align:left}
   .wl-form input,.wl-form select{font-family:var(--sans);font-size:15px;color:var(--ink);background:var(--white);border:1.5px solid var(--line);border-radius:12px;padding:13px 15px;width:100%}
   .wl-form input::placeholder{color:var(--ink2)}
+  .wl-form select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:42px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6457' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 15px center;background-size:16px}
   .wl-form input:focus,.wl-form select:focus{border-color:var(--green);outline:none}
   .wl-form .pill{justify-content:center;width:100%}
   .wl-form .pill:disabled{opacity:.6;cursor:default}
@@ -256,7 +275,7 @@
       <a class="pill lg" href="#cta">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
       <a class="ghost" href="#uses">ดูวิธีใช้</a>
     </div>
-    <div class="hero-note">เปิดตัวเร็ว ๆ นี้ · ใช้ฟรี ไม่มีโฆษณา</div>
+    <div class="hero-note">เปิดตัวเร็ว ๆ นี้ · มีแพลนฟรี ไม่มีโฆษณา</div>
   </div>
 </section>
 
@@ -268,11 +287,11 @@
       <p class="sec-sub">เรื่องเล็ก ๆ ที่กินเวลา ปิ่นช่วยให้จบเร็วขึ้น</p>
     </div>
     <div class="crow rv">
-      <div class="uc"><div class="card"><img src="assets/cards/work.jpg" alt="ช่วยจัดการงาน" loading="lazy"><span class="chip"><i class="ph ph-briefcase"></i> จัดการงาน</span></div><p class="cap">สรุปอีเมล นัดประชุม ทวงงานให้</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/work.jpg" alt="ช่วยจัดการงาน" loading="lazy"><span class="soon-tag">เร็วๆนี้</span><span class="chip"><i class="ph ph-briefcase"></i> จัดการงาน</span></div><p class="cap">สรุปอีเมล นัดประชุม ทวงงานให้</p></div>
       <div class="uc"><div class="card"><img src="assets/cards/student.jpg" alt="ติวและทบทวนบทเรียน" loading="lazy"><span class="chip"><i class="ph ph-books"></i> ติวและทบทวน</span></div><p class="cap">อธิบายทีละขั้น สรุปโน้ต เตือนส่งงาน</p></div>
       <div class="uc"><div class="card"><img src="assets/cards/family.jpg" alt="ดูแลเรื่องในบ้าน" loading="lazy"><span class="chip"><i class="ph ph-house"></i> ดูแลเรื่องบ้าน</span></div><p class="cap">เตือนกินยา จดของซื้อ เช็กอากาศ</p></div>
-      <div class="uc"><div class="card"><img src="assets/cards/freelance.jpg" alt="ช่วยงานครีเอทีฟ" loading="lazy"><span class="chip"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</span></div><p class="cap">ร่างแคปชัน คิดไอเดีย วาดภาพประกอบ</p></div>
-      <div class="uc"><div class="card"><img src="assets/cards/owner.jpg" alt="ช่วยดูแลร้านค้า" loading="lazy"><span class="chip"><i class="ph ph-storefront"></i> ดูแลร้านค้า</span></div><p class="cap">สรุปยอด เช็กค่าเงิน ตอบแชตลูกค้า</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/freelance.jpg" alt="ช่วยงานครีเอทีฟ" loading="lazy"><span class="chip"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</span></div><p class="cap">ร่างแคปชัน วาดรูป คิดไอเดีย</p></div>
+      <div class="uc"><div class="card"><img src="assets/cards/owner.jpg" alt="ช่วยดูแลร้านค้า" loading="lazy"><span class="soon-tag">เร็วๆนี้</span><span class="chip"><i class="ph ph-storefront"></i> ดูแลร้านค้า</span></div><p class="cap">สรุปยอด เช็กค่าเงิน ตอบแชตลูกค้า</p></div>
     </div>
   </div>
 </section>
@@ -290,24 +309,17 @@
          <button class="dfab dfab-r" aria-hidden="true" tabindex="-1"><i class="ph ph-dots-three"></i></button>
          <div class="chatcard" id="demoCard">
           <div class="daydiv">วันนี้</div>
-          <div class="bub pin">สวัสดีค่ะ 👋 วันนี้ให้ปิ่นช่วยอะไรดีคะ</div>
-          <div class="bub me">สรุปยอดขายแต่ละสาขาวันนี้<span class="t">07:18</span></div>
-          <div class="bub pin">ดึงจากทุก OA ให้แล้วค่ะ — ปัดดูแต่ละสาขาได้เลย</div>
+          <div class="bub me">สรุปยอดขายวันนี้<span class="t">07:18</span></div>
+          <div class="bub pin">ดึงทุกสาขาให้แล้วค่ะ</div>
           <div class="brc">
-            <div class="brc-card">
-              <div class="brc-strip"><i class="ph ph-storefront"></i> สาขาสยาม</div>
-              <div class="brc-body"><div class="brc-num">฿42,800</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +12% จากเมื่อวาน</div></div>
-            </div>
-            <div class="brc-card">
-              <div class="brc-strip"><i class="ph ph-storefront"></i> สาขาอโศก</div>
-              <div class="brc-body"><div class="brc-num">฿31,200</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +5% จากเมื่อวาน</div></div>
-            </div>
-            <div class="brc-card">
-              <div class="brc-strip"><i class="ph ph-storefront"></i> สาขาเชียงใหม่</div>
-              <div class="brc-body"><div class="brc-num">฿18,600</div><div class="brc-d dn"><i class="ph ph-trend-down"></i> −3% จากเมื่อวาน</div></div>
-            </div>
+            <div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สยาม</div><div class="brc-body"><div class="brc-num">฿42,800</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +12%</div></div></div>
+            <div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> อโศก</div><div class="brc-body"><div class="brc-num">฿31,200</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +5%</div></div></div>
+            <div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> เชียงใหม่</div><div class="brc-body"><div class="brc-num">฿18,600</div><div class="brc-d dn"><i class="ph ph-trend-down"></i> −3%</div></div></div>
           </div>
-          <div class="pinfoot"><span class="ft">07:18</span><span class="hint"><i class="ph ph-sparkle"></i> ใช้: เชื่อมต่อ LINE OA</span></div>
+          <div class="bub pin">ลูกค้าสาขาเชียงใหม่ถามว่า “สินค้าคืนได้ไหม” อยากตอบว่ายังไงดีคะ</div>
+          <div class="bub me">คืนได้ค่ะ ภายในเจ็ดวันนะคะ<span class="t">07:20</span></div>
+          <div class="bub pin">ตอบไลน์เรียบร้อยแล้วค่ะ ✓</div>
+          <div class="pinfoot"><span class="ft">07:20</span><span class="hint"><i class="ph ph-sparkle"></i> ใช้: เชื่อมต่อ LINE OA</span></div>
         </div>
          <div class="democompose" aria-hidden="true">
           <span class="dc-ic"><i class="ph ph-plus"></i></span>
@@ -324,7 +336,7 @@
         <p>พิมพ์หรือพูดได้เลย ปิ่นช่วยจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
         <p style="font-size:14px;color:var(--ink2);margin-top:6px">แตะดูตัวอย่าง — ปิ่นช่วยอะไรคุณได้บ้าง</p>
         <div class="ucchips" id="ucChips">
-          <button type="button" class="ucchip" data-uc="study" data-label="ติวและทบทวน"><i class="ph ph-books"></i> ติว &amp; ทบทวน</button>
+          <button type="button" class="ucchip" data-uc="study" data-label="ติวและทบทวน"><i class="ph ph-books"></i> ติวและทบทวน</button>
           <button type="button" class="ucchip" data-uc="home" data-label="เรื่องในบ้าน"><i class="ph ph-house"></i> เรื่องในบ้าน</button>
           <button type="button" class="ucchip" data-uc="creative" data-label="งานครีเอทีฟ"><i class="ph ph-pen-nib"></i> งานครีเอทีฟ</button>
           <div class="ucsoon-hd">เร็วๆนี้</div>
@@ -362,7 +374,7 @@
         <option value=""  selected>อยากใช้ปิ่นช่วยเรื่องอะไรมากที่สุด?</option>
         <option value="study">ติว &amp; ทบทวนบทเรียน</option>
         <option value="home">ดูแลเรื่องในบ้าน · เตือนความจำ</option>
-        <option value="creative">งานครีเอทีฟ · ร่างแคปชัน คิดไอเดีย</option>
+        <option value="creative">งานครีเอทีฟ · วาดรูป แคปชัน ไอเดีย</option>
         <option value="sme">ดูแลร้านค้า · ยอดขาย + ตอบแชต (เร็วๆนี้)</option>
         <option value="work">จัดการงาน · สรุปอีเมล (เร็วๆนี้)</option>
         <option value="__custom__">อื่น ๆ (พิมพ์เอง)</option>
@@ -371,7 +383,7 @@
       <button type="submit" class="pill lg">รับสิทธิ์ก่อนใคร <span class="ar">→</span></button>
     </form>
     <p class="wl-status" id="wlStatus" role="status" aria-live="polite"></p>
-    <p class="wl-note" style="margin-inline:auto;text-align:center">กำลังเปิดตัวเร็ว ๆ นี้ · ฟรี ไม่มีโฆษณา</p>
+    <p class="wl-note" style="margin-inline:auto;text-align:center">กำลังเปิดตัวเร็ว ๆ นี้ · มีแพลนฟรี ไม่มีโฆษณา</p>
   </div>
 </section>
 
@@ -382,9 +394,8 @@
       <a href="#uses">วิธีใช้</a>
       <a href="privacy.html">ความเป็นส่วนตัว</a>
       <a href="#join">เริ่มต้น</a>
-      <a href="/developers/">นักพัฒนา</a>
     </nav>
-    <span>© 2026 ปิ่น · tokens2.io</span>
+    <span>© 2026 ปิ่น · https://pin.tokens2.io</span>
   </div>
 </footer>
 
@@ -407,12 +418,17 @@
 
   // use-case demos — each swaps the chat sample card. Keys match dropdown/chip values.
   const DEMOS={
-    sme:{q:'สรุปยอดขายแต่ละสาขาวันนี้',a:'ดึงยอดจากทุกสาขา + ตอบแชตลูกค้าให้ ผ่าน LINE OA ได้เลยค่ะ',tool:'เชื่อมต่อ LINE OA',soon:true,card:
+    sme:{tool:'เชื่อมต่อ LINE OA',soon:true,html:
+      '<div class="bub me">สรุปยอดขายวันนี้<span class="t">07:18</span></div>'+
+      '<div class="bub pin">ดึงทุกสาขาให้แล้วค่ะ</div>'+
       '<div class="brc">'+
-      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สาขาสยาม</div><div class="brc-body"><div class="brc-num">฿42,800</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +12% จากเมื่อวาน</div></div></div>'+
-      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สาขาอโศก</div><div class="brc-body"><div class="brc-num">฿31,200</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +5% จากเมื่อวาน</div></div></div>'+
-      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สาขาเชียงใหม่</div><div class="brc-body"><div class="brc-num">฿18,600</div><div class="brc-d dn"><i class="ph ph-trend-down"></i> −3% จากเมื่อวาน</div></div></div>'+
-      '</div>'},
+      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> สยาม</div><div class="brc-body"><div class="brc-num">฿42,800</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +12%</div></div></div>'+
+      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> อโศก</div><div class="brc-body"><div class="brc-num">฿31,200</div><div class="brc-d up"><i class="ph ph-trend-up"></i> +5%</div></div></div>'+
+      '<div class="brc-card"><div class="brc-strip"><i class="ph ph-storefront"></i> เชียงใหม่</div><div class="brc-body"><div class="brc-num">฿18,600</div><div class="brc-d dn"><i class="ph ph-trend-down"></i> −3%</div></div></div>'+
+      '</div>'+
+      '<div class="bub pin">ลูกค้าสาขาเชียงใหม่ถามว่า “สินค้าคืนได้ไหม” อยากตอบว่ายังไงดีคะ</div>'+
+      '<div class="bub me">คืนได้ค่ะ ภายในเจ็ดวันนะคะ<span class="t">07:20</span></div>'+
+      '<div class="bub pin">ตอบไลน์เรียบร้อยแล้วค่ะ ✓</div>'},
     work:{q:'สรุปอีเมลเช้านี้ให้หน่อย',a:'มา 12 ฉบับ สำคัญ 3 ค่ะ',tool:'อ่านกล่องอีเมล',soon:true,card:
       '<div class="scard"><div class="scard-strip"><i class="ph ph-envelope-open"></i> อีเมลสำคัญเช้านี้</div><div class="scard-body">'+
       '<div class="srow"><i class="ph-fill ph-circle"></i> ลูกค้า A ขอใบเสนอราคา — ด่วน</div>'+
@@ -425,17 +441,20 @@
       '<div class="srow"><i class="ph ph-caret-right"></i> เปลี่ยน CO₂ + น้ำ → น้ำตาล</div>'+
       '<div class="srow"><i class="ph ph-caret-right"></i> คายออกซิเจนออกมา</div>'+
       '</div></div>'},
-    home:{q:'เตือนกินยา 9 โมงทุกวันด้วย',a:'ตั้งให้แล้วค่ะ',tool:'ตั้งเตือน',card:
-      '<div class="scard"><div class="scard-strip"><i class="ph ph-alarm"></i> ตั้งเตือนแล้ว</div><div class="scard-body">'+
-      '<div class="srow"><i class="ph ph-clock"></i> ทุกวัน 09:00 น.</div>'+
-      '<div class="srow"><i class="ph ph-pill"></i> กินยา</div>'+
+    home:{q:'ช่วยดูเรื่องบ้านวันนี้ให้หน่อย',a:'จัดให้แล้วค่ะ วันนี้มี 4 เรื่องต้องดู',tool:'ดูแลบ้าน',card:
+      '<div class="scard"><div class="scard-strip"><i class="ph ph-house"></i> บ้านวันนี้</div><div class="scard-body">'+
+      '<div class="srow"><i class="ph ph-cloud-sun"></i> กรุงเทพ 32° · ฝน 60% — พกร่มด้วยนะคะ</div>'+
+      '<div class="srow"><i class="ph ph-pill"></i> เตือนกินยา 09:00 ทุกวัน ✓</div>'+
+      '<div class="srow"><i class="ph ph-lightning"></i> ค่าไฟครบกำหนดศุกร์นี้ ฿850</div>'+
+      '<div class="srow"><i class="ph ph-shopping-cart-simple"></i> ของต้องซื้อ: นม ไข่ ผงซักฟอก</div>'+
       '</div></div>'},
-    creative:{q:'คิดแคปชันโพสต์ร้านกาแฟหน่อย',a:'ลองดู 3 แบบนะคะ',tool:'ช่วยเขียน',card:
-      '<div class="sugg">'+
-      '<span>เช้านี้ขอเริ่มด้วยกาแฟอุ่น ๆ ☕</span>'+
-      '<span>กลิ่นกาแฟ = ปุ่มรีสตาร์ตของวัน</span>'+
-      '<span>หอมกรุ่น คั่วสดทุกแก้ว รับวันใหม่</span>'+
-      '</div>'}
+    creative:{q:'วาดรูปโปรโมทร้านกาแฟ + แคปชันหน่อย',a:'วาดให้ 3 แบบ + แคปชันเลยค่ะ',tool:'วาดรูป + เขียน',card:
+      '<div class="genrow">'+
+      '<div class="genthumb"><img src="assets/cards/freelance.jpg" alt="รูปที่ปิ่นวาดให้" loading="lazy"></div>'+
+      '<div class="genthumb"><img src="assets/cards/student.jpg" alt="รูปที่ปิ่นวาดให้" loading="lazy"></div>'+
+      '<div class="genthumb"><img src="assets/cards/owner.jpg" alt="รูปที่ปิ่นวาดให้" loading="lazy"></div>'+
+      '</div>'+
+      '<div class="sugg"><span>แคปชัน: เช้านี้ขอเริ่มด้วยกาแฟอุ่น ๆ ☕</span></div>'}
   };
 
   const demoCard=document.getElementById('demoCard');
@@ -443,11 +462,12 @@
   const bridge=document.getElementById('joinBridge');
   function renderDemo(id){
     const d=DEMOS[id]; if(!d||!demoCard) return;
-    demoCard.innerHTML='<div class="daydiv">วันนี้</div>'+
+    const body=d.html ? d.html :
       '<div class="bub pin">สวัสดีค่ะ 👋 วันนี้ให้ปิ่นช่วยอะไรดีคะ</div>'+
       '<div class="bub me">'+d.q+'<span class="t">07:18</span></div>'+
-      '<div class="bub pin">'+d.a+'</div>'+d.card+
-      '<div class="pinfoot"><span class="ft">07:18</span>'+
+      '<div class="bub pin">'+d.a+'</div>'+d.card;
+    demoCard.innerHTML='<div class="daydiv">วันนี้</div>'+body+
+      '<div class="pinfoot"><span class="ft">07:20</span>'+
       '<span class="hint"><i class="ph ph-sparkle"></i> ใช้: '+d.tool+'</span></div>';
   }
   function chipLabel(id){const c=chips&&chips.querySelector('.ucchip[data-uc="'+id+'"]');return c?(c.dataset.label||c.textContent.trim()):'';}
