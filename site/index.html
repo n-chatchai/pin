@@ -233,7 +233,14 @@
   .rv.in{opacity:1;transform:none}
 
   @media(max-width:880px){
-    .split{grid-template-columns:1fr;gap:30px}
+    /* Stack the highlight tighter on mobile: smaller phone, smaller gap, centered
+       copy so the chips sit right under the mockup instead of floating far below. */
+    .split{grid-template-columns:1fr;gap:18px}
+    .phone{width:min(236px,62%)}
+    .hl-body{text-align:center}
+    .hl-body h2{font-size:clamp(26px,7vw,34px)}
+    .hl-body p{margin-top:10px;font-size:15px;margin-inline:auto}
+    .ucchips{justify-content:center}
     /* All 5 cards in one horizontal-scroll row (no hiding, no cramped grid). */
     .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px;-webkit-overflow-scrolling:touch}
     .uc{scroll-snap-align:center}
