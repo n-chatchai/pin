@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/pin_theme.dart';
@@ -171,13 +172,34 @@ class FlexCardView extends StatelessWidget {
       _ => TextStyle(fontSize: 14, color: color),
     };
     final maxLines = c['maxLines'] as int?;
+    final text = '${c['text'] ?? ''}';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Text('${c['text'] ?? ''}', style: ts,
-          maxLines: maxLines,
-          overflow: maxLines == null ? null : TextOverflow.ellipsis),
+      // Render markdown (**bold**, lists, links) like the chat bubble. A truncated
+      // block (maxLines set) stays plain Text — GptMarkdown can't ellipsis.
+      child: maxLines != null
+          ? Text(text,
+              style: ts, maxLines: maxLines, overflow: TextOverflow.ellipsis)
+          : _markdown(text, ts),
     );
   }
+
+  /// GptMarkdown with heading sizes CAPPED near the card typography, so a `#`/`##`
+  /// in the body doesn't dwarf the card's own title.
+  Widget _markdown(String text, TextStyle ts) => GptMarkdownTheme(
+        // Markdown headings stay BELOW the card title (brand 15.5) — the card
+        // title is the dominant heading; in-body headings are subordinate.
+        gptThemeData: GptMarkdownThemeData(
+          brightness: Brightness.light,
+          h1: ts.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+          h2: ts.copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+          h3: ts.copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+          h4: ts.copyWith(fontWeight: FontWeight.w700),
+          h5: ts.copyWith(fontWeight: FontWeight.w700),
+          h6: ts.copyWith(fontWeight: FontWeight.w700),
+        ),
+        child: GptMarkdown(text, style: ts),
+      );
 
   Widget _task(Map<String, dynamic> c, ColorScheme scheme) {
     return Padding(
