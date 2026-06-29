@@ -48,7 +48,9 @@ import VisionKit
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
     let jobId = userInfo["pin_job"] as? String ?? ""
-    pushChannel?.invokeMethod("onPush", arguments: jobId)
+    // force == "1" (admin force-wake) → Dart runs ALL watchers, ignoring schedule.
+    let force = userInfo["force"] as? String ?? ""
+    pushChannel?.invokeMethod("onPush", arguments: ["pin_job": jobId, "force": force])
     completionHandler(.newData)
   }
 
