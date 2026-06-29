@@ -5,6 +5,7 @@ import '../agent/agent_session.dart';
 import '../agent/agentic_job_service.dart';
 import '../agent/job_runner.dart';
 import '../services/matrix_service.dart';
+import '../services/push_service.dart';
 import '../theme/pin_theme.dart';
 import '../widgets/pin_toast.dart';
 
@@ -122,6 +123,30 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
                     Text('${_watches.length} watch · ${_due.length} ถึงเวลา',
                         style: const TextStyle(
                             fontSize: 13, color: PinPalette.ink2)),
+                    const SizedBox(height: 8),
+                    // Push channel diagnostic — a watch only gets a server wake
+                    // if this token is non-null (else on-open/AlarmManager only).
+                    Builder(builder: (_) {
+                      final tok = PushService.instance.deviceToken;
+                      final plat = PushService.instance.platform;
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: tok == null
+                              ? const Color(0xFFC0392B).withValues(alpha: 0.10)
+                              : const Color(0xFF2E9E63).withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          tok == null
+                              ? 'push: $plat — ยังไม่มี token (จะใช้ on-open/alarm เท่านั้น)'
+                              : 'push: $plat — ${tok.substring(0, tok.length.clamp(0, 22))}…',
+                          style: const TextStyle(
+                              fontSize: 12, color: PinPalette.ink2),
+                        ),
+                      );
+                    }),
                     const SizedBox(height: 12),
                     if (_watches.isEmpty)
                       const Padding(
