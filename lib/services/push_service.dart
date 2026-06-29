@@ -52,7 +52,11 @@ class PushService {
       await m.requestPermission(); // Android 13+ POST_NOTIFICATIONS (data msgs work regardless)
       deviceToken = await m.getToken();
       debugPrint('fcm token: ${deviceToken?.substring(0, 8)}…');
-      m.onTokenRefresh.listen((t) => deviceToken = t);
+      await registerWithServer();
+      m.onTokenRefresh.listen((t) {
+        deviceToken = t;
+        registerWithServer();
+      });
       // App in foreground/opened when the wake arrives → run inline. An admin
       // force-wake carries data.force == "1" → run every watcher, ignore due.
       FirebaseMessaging.onMessage
@@ -69,6 +73,9 @@ class PushService {
       case 'onToken':
         deviceToken = call.arguments as String?;
         debugPrint('apns token: ${deviceToken?.substring(0, 8)}…');
+        // The APNs token arrives async (after boot), so register here too —
+        // boot's registerWithServer often runs before the token exists.
+        await registerWithServer();
         return null;
       case 'onPush':
         // iOS native forwards the APNs payload; force-wake sets force == "1".
