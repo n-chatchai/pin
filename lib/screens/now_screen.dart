@@ -106,10 +106,7 @@ class NowView extends StatelessWidget {
               children: [
                 Text(_greet(), style: _serif(27)),
                 const SizedBox(height: 7),
-                if (overdue.isEmpty &&
-                    pending.isEmpty &&
-                    timedCount == 0 &&
-                    watches.isEmpty) ...[
+                if (overdue.isEmpty && pending.isEmpty && timedCount == 0) ...[
                   const SizedBox(height: 28),
                   _emptyState(PhosphorIconsRegular.coffee,
                       'วันนี้โล่ง ๆ ไม่มีอะไรด่วน', 'พักได้เลย'),
