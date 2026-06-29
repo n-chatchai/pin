@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("com.google.gms.google-services") // FCM (firebase_messaging) — reads google-services.json
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -37,6 +38,12 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Adding firebase pulled R8 into the release build, which then choked
+            // on flutter_local_notifications' optional classes. We don't ship a
+            // shrunk build (the embed model dominates size anyway), so keep R8 off
+            // — matches the prior working release.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

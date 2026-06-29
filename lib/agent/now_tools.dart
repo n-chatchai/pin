@@ -94,6 +94,7 @@ Future<(bool, String)> _scheduleEntry(
       nextDue: when.millisecondsSinceEpoch / 1000,
       repeat: repeat,
       device: PushService.instance.deviceToken,
+      platform: PushService.instance.platform,
     );
     final rid = await _room();
     if (rid != null) await AndroidJobAlarm.armAll(rid);
@@ -518,6 +519,7 @@ List<AgentTool> nowTools() => [
             nextDue: when.millisecondsSinceEpoch / 1000,
             repeat: 'daily',
             device: PushService.instance.deviceToken,
+            platform: PushService.instance.platform,
           );
           await AndroidJobAlarm.armAll(rid);
           return (true, "จะคอยเฝ้าเรื่อง '$topic' ให้ — มีอะไรใหม่จะบอกในแชต");

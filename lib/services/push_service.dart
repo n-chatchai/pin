@@ -1,37 +1,64 @@
+import 'dart:io';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../agent/agent_config.dart';
 import '../agent/agent_session.dart';
 import '../agent/agentic_job_service.dart';
+import '../src/rust/frb_generated.dart';
 import 'matrix_service.dart';
+import 'prefs.dart';
 
-/// Bridges native APNs to the agentic-job runner so jobs fire when the app is
-/// CLOSED (the on-open path is in local_chat_screen). The server (proxy
-/// scheduler.py) holds only {job_id, device_token, next_due} and, at due time,
-/// sends an APNs *background* push (`content-available:1`, `pin_job`). iOS wakes
-/// the app, native forwards the push here, and we run the job on-device — the
-/// server never sees the prompt or the result.
-///
-/// iOS only: the server pushes via APNs directly (no FCM), so Android jobs run
-/// on next app open/resume via the same [runDueAgenticJobs].
+/// Closed-app wake bridge for agentic jobs. The server (proxy scheduler.py)
+/// stores only {job_id, device_token, next_due} and at due time sends a *blind*
+/// push — never the prompt or result, which live/run on the phone.
+///   • iOS   → native APNs background push (content-available) → [_onNativeCall].
+///   • Android → FCM data message → [fcmBackgroundHandler] (closed) / onMessage
+///     (foreground). Android also keeps the exact-AlarmManager path as fallback.
+/// Either way the wake just triggers [runDueAgenticJobs] on-device.
 class PushService {
   PushService._();
   static final PushService instance = PushService._();
 
   static const _ch = MethodChannel('io.tokens2.pin/push');
 
-  /// Latest hex APNs device token, or null until native registers one. Read by
-  /// the job-create path to register the wake with the server.
+  /// Latest push token (APNs hex on iOS, FCM token on Android), or null until
+  /// registered. Read by the job-create path to register the wake with the server.
   String? deviceToken;
 
-  /// Wire the native→Dart handler + ask native to register for remote pushes.
-  /// Safe no-op on platforms with no native side (the channel just never calls).
+  /// "apns" or "fcm" — so the server knows which channel to push the token on.
+  String get platform => Platform.isIOS ? 'apns' : 'fcm';
+
   Future<void> init() async {
+    if (Platform.isAndroid) {
+      await _initFcm();
+      return;
+    }
+    // iOS: native APNs.
     _ch.setMethodCallHandler(_onNativeCall);
     try {
       await _ch.invokeMethod('registerForPush');
-    } catch (_) {/* no native impl (e.g. Android) → on-open runner still works */}
+    } catch (_) {/* no native impl → on-open runner still works */}
+  }
+
+  Future<void> _initFcm() async {
+    try {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(fcmBackgroundHandler);
+      final m = FirebaseMessaging.instance;
+      await m.requestPermission(); // Android 13+ POST_NOTIFICATIONS (data msgs work regardless)
+      deviceToken = await m.getToken();
+      debugPrint('fcm token: ${deviceToken?.substring(0, 8)}…');
+      m.onTokenRefresh.listen((t) => deviceToken = t);
+      // App in foreground/opened when the wake arrives → run inline.
+      FirebaseMessaging.onMessage.listen((_) => _runDue());
+      FirebaseMessaging.onMessageOpenedApp.listen((_) => _runDue());
+    } catch (e) {
+      debugPrint('fcm init failed: $e'); // falls back to AlarmManager / on-open
+    }
   }
 
   Future<dynamic> _onNativeCall(MethodCall call) async {
@@ -41,8 +68,6 @@ class PushService {
         debugPrint('apns token: ${deviceToken?.substring(0, 8)}…');
         return null;
       case 'onPush':
-        // A wake arrived (we ignore the specific job_id and just run everything
-        // due — simpler and self-heals if a push was missed). iOS gives ~30s.
         await _runDue();
         return null;
       default:
@@ -52,16 +77,32 @@ class PushService {
 
   Future<void> _runDue() async {
     try {
-      // Cold wake: restore the user session so the reply can post into the
-      // self-DM. Best-effort — if it can't come up in the background window the
-      // job is left in place and runs on next app open.
       if (!await MatrixService.instance.tryRestore()) return;
       final rid = await MatrixService.instance.pinRoomId();
-      if (rid == null) return; // no self-room yet — runs on next open instead
+      if (rid == null) return;
       final session = AgentSession(room: rid, proxy: devProxy());
       await runDueAgenticJobs(rid, session);
     } catch (e) {
       debugPrint('push run-due failed: $e');
     }
+  }
+}
+
+/// FCM background handler — runs in a SEPARATE isolate with no app state, so it
+/// brings up the runtime from scratch before running due jobs. Must be a
+/// top-level/static function annotated for AOT entry.
+@pragma('vm:entry-point')
+Future<void> fcmBackgroundHandler(RemoteMessage message) async {
+  try {
+    await Firebase.initializeApp();
+    await RustLib.init();
+    await PrefsController.instance.load();
+    if (!await MatrixService.instance.tryRestore()) return;
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid == null) return;
+    final session = AgentSession(room: rid, proxy: devProxy());
+    await runDueAgenticJobs(rid, session);
+  } catch (e) {
+    debugPrint('fcm bg run-due failed: $e');
   }
 }

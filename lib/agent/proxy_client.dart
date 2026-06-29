@@ -197,6 +197,7 @@ class ProxyClient {
     required double nextDue,
     required String repeat,
     String? device,
+    String platform = 'apns', // 'apns' (iOS) | 'fcm' (Android) → server routes
   }) async {
     if (device == null || device.isEmpty) return; // no push channel → on-open only
     try {
@@ -209,6 +210,7 @@ class ProxyClient {
               body: jsonEncode({
                 'job_id': jobId,
                 'device': device,
+                'platform': platform,
                 'next_due': nextDue,
                 'repeat': repeat,
               }))
