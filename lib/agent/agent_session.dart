@@ -122,12 +122,9 @@ class AgentSession {
         'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
         '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
         '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
-        'แต่บันทึกคำขอไว้ให้แล้ว.\n'
-        // Proactively capture interests as watches — but ask the first time so
-        // ปิ่น doesn't create them unprompted.
-        'ถ้าจับได้ว่าผู้ใช้สนใจ/พูดถึงเรื่องไหนซ้ำ ๆ ชวนสั้น ๆ ว่าจะให้ "เฝ้าให้" ไหม '
-        'ถ้าตกลงค่อยเรียก add_watch — ปิ่นจะคอยดูให้เงียบ ๆ แล้วบอกเฉพาะตอนมีอะไรใหม่จริง '
-        '(ครั้งแรกถามก่อนเสมอ อย่าสร้างเองพร่ำเพรื่อ).\n\n$persona';
+        'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
+    // The proactive watch-offer policy now lives in the admin-managed "watch"
+    // skill (injected via _catalogSkills below) — toggleable, no rebuild.
     // Remembered facts about the user — always in context so ปิ่น uses them
     // (e.g. ชื่อ/สิ่งที่ชอบ) without being asked to recall.
     if (_facts.isNotEmpty) {
