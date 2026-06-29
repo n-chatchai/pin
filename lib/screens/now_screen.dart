@@ -24,10 +24,6 @@ const _ink = PinPalette.ink;
 const _ink2 = PinPalette.ink2;
 const _ink3 = PinPalette.ink3;
 const _neg = PinPalette.neg;
-const _cardSh = <BoxShadow>[
-  BoxShadow(color: Color(0x143C280F), blurRadius: 30, offset: Offset(0, 10)),
-  BoxShadow(color: Color(0x0D3C280F), blurRadius: 2, offset: Offset(0, 1)),
-];
 
 /// "ตอนนี้" content (fab-now) — a Pi-style glance: warm greeting in ปิ่น's
 /// voice, today's tasks/events/reminders merged into one card, what ปิ่น is
@@ -160,8 +156,7 @@ class NowView extends StatelessWidget {
     );
   }
 
-  /// One soft card holding the section rows, hairline-separated (same surface as
-  /// the file/list cards elsewhere).
+  /// Bare section rows, hairline-separated — no card (matches the files row).
   Widget _menuCard(List<Widget> rows) {
     final children = <Widget>[];
     for (var i = 0; i < rows.length; i++) {
@@ -170,14 +165,7 @@ class NowView extends StatelessWidget {
         children.add(const Divider(height: 1, thickness: 1, color: _line));
       }
     }
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: _cardSh,
-      ),
-      child: Column(children: children),
-    );
+    return Column(children: children);
   }
 
   /// A uniform section row — icon · label · optional count hint · chevron. Same
@@ -193,7 +181,7 @@ class NowView extends StatelessWidget {
       InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 17),
           child: Row(
             children: [
               Icon(icon, size: 20, color: iconColor),
@@ -721,6 +709,25 @@ Widget _listCard({required Widget child}) => Container(
 TextStyle _trirong(double s, {Color c = _ink, FontWeight w = FontWeight.w600}) =>
     GoogleFonts.trirong(fontSize: s, fontWeight: w, color: c);
 
+/// Shared empty state — a big centered line icon over a serif line + a soft hint.
+Widget _emptyState(IconData icon, String title, String sub) => Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: _ink3),
+            const SizedBox(height: 20),
+            Text(title, textAlign: TextAlign.center, style: _trirong(18)),
+            const SizedBox(height: 8),
+            Text(sub,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14, color: _ink2, height: 1.5)),
+          ],
+        ),
+      ),
+    );
+
 /// "งานวันนี้" full screen — reminders + schedule + tasks merged, newest-urgent
 /// first, each swipe-to-delete. Opened from the collapsed row in "ตอนนี้".
 class _DayScreen extends StatelessWidget {
@@ -767,18 +774,8 @@ class _DayScreen extends StatelessWidget {
             ];
 
             if (tiles.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(PhosphorIconsRegular.checkCircle,
-                        size: 38, color: _ink2),
-                    SizedBox(height: 12),
-                    Text('วันนี้โล่ง ๆ ไม่มีอะไรด่วน',
-                        style: TextStyle(fontSize: 16, color: _ink)),
-                  ]),
-                ),
-              );
+              return _emptyState(PhosphorIconsRegular.coffee,
+                  'วันนี้โล่ง ๆ ไม่มีอะไรด่วน', 'พักได้เลย');
             }
             return ListView(
               padding: EdgeInsets.fromLTRB(
@@ -895,21 +892,8 @@ class _WatchScreen extends StatelessWidget {
           builder: (context, _) {
             final watches = WatchesController.instance.value;
             if (watches.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(PhosphorIconsRegular.eye, size: 38, color: _ink2),
-                    SizedBox(height: 12),
-                    Text('ยังไม่มีเรื่องที่เฝ้า',
-                        style: TextStyle(fontSize: 16, color: _ink)),
-                    SizedBox(height: 6),
-                    Text('บอกปิ่นในแชตว่าสนใจเรื่องไหน เดี๋ยวคอยดูให้',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: _ink2, height: 1.5)),
-                  ]),
-                ),
-              );
+              return _emptyState(PhosphorIconsRegular.eye, 'ยังไม่มีเรื่องที่เฝ้า',
+                  'บอกปิ่นในแชตว่าสนใจเรื่องไหน เดี๋ยวคอยดูให้');
             }
             return ListView(
               padding: EdgeInsets.fromLTRB(
