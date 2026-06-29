@@ -39,8 +39,14 @@ def _save() -> None:
     _STORE.write_text(json.dumps(_jobs))
 
 
-def register(job_id: str, device: str, next_due: float, repeat: str) -> None:
-    _jobs[job_id] = {"device": device, "next_due": next_due, "repeat": repeat}
+def register(
+    job_id: str, device: str, next_due: float, repeat: str,
+    platform: str = "apns",
+) -> None:
+    _jobs[job_id] = {
+        "device": device, "next_due": next_due, "repeat": repeat,
+        "platform": platform,
+    }
     _save()
 
 
@@ -75,7 +81,59 @@ def _apns_jwt() -> str | None:
     return token
 
 
-async def _push(device: str, job_id: str) -> None:
+# --- FCM (Android) HTTP v1 -------------------------------------------------
+_fcm_creds = None
+
+
+def _fcm_access_token() -> str | None:
+    """OAuth2 bearer for FCM v1, from the Firebase service-account JSON. Cached +
+    auto-refreshed by google-auth. Blocking (network on refresh) — call via a
+    thread from async. None if no creds configured."""
+    global _fcm_creds
+    sa = os.environ.get("FCM_SA_PATH")
+    if not (sa and Path(sa).exists()):
+        return None
+    from google.oauth2 import service_account
+    import google.auth.transport.requests as gar
+
+    if _fcm_creds is None:
+        _fcm_creds = service_account.Credentials.from_service_account_file(
+            sa, scopes=["https://www.googleapis.com/auth/firebase.messaging"],
+        )
+    if not _fcm_creds.valid:
+        _fcm_creds.refresh(gar.Request())
+    return _fcm_creds.token
+
+
+async def _push_fcm(device: str, job_id: str) -> None:
+    token = await asyncio.to_thread(_fcm_access_token)
+    if not token:
+        log.warning("[sched] would FCM push job=%s device=%s (no SA creds)",
+                    job_id, device[:8])
+        return
+    project = os.environ.get("FCM_PROJECT_ID", "pin-ai-b9d8a")
+    # Data-only, high-priority message → wakes the app's background isolate
+    # (fcmBackgroundHandler) even when closed; no user-facing notification.
+    msg = {
+        "message": {
+            "token": device,
+            "data": {"pin_job": job_id},
+            "android": {"priority": "high"},
+        }
+    }
+    async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.post(
+            f"https://fcm.googleapis.com/v1/projects/{project}/messages:send",
+            headers={"Authorization": f"Bearer {token}"},
+            json=msg,
+        )
+    log.info("[sched] fcm job=%s status=%s", job_id, r.status_code)
+
+
+async def _push(device: str, job_id: str, platform: str = "apns") -> None:
+    if platform == "fcm":
+        await _push_fcm(device, job_id)
+        return
     jwt_token = _apns_jwt()
     topic = os.environ.get("APNS_TOPIC", "io.tokens2.pin")
     host = (
@@ -109,7 +167,7 @@ async def _fire_due(now: float) -> None:
     for jid, j in list(_jobs.items()):
         if j["next_due"] <= now:
             try:
-                await _push(j["device"], jid)
+                await _push(j["device"], jid, j.get("platform", "apns"))
             except Exception:  # noqa: BLE001
                 log.exception("[sched] push failed %s", jid)
             if j["repeat"] == "daily":

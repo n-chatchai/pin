@@ -151,7 +151,7 @@ async def schedule_register(
     b = await request.json()
     scheduler.register(
         b["job_id"], b["device"], float(b["next_due"]),
-        b.get("repeat", "once"),
+        b.get("repeat", "once"), b.get("platform", "apns"),
     )
     return {"ok": True}
 
