@@ -266,6 +266,14 @@ pub fn restore(
     access_token: String,
 ) -> Result<(), String> {
     block(async move {
+        // Idempotent at the PROCESS level. CLIENTS is a process-global shared by
+        // all isolates (the .so loads once). If the main isolate already restored
+        // this role, the FCM background isolate must REUSE that client — building
+        // a second Client on the same SQLite crypto store gives two OlmMachines /
+        // a shared sync token, which corrupts megolm state and drops chat history.
+        if CLIENTS.read().await.contains_key(&role) {
+            return Ok(());
+        }
         let client = build_client(&homeserver, &db_path).await?;
         let session = MatrixSession {
             meta: SessionMeta {
