@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,7 +7,11 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../agent/agent_config.dart';
+import '../agent/agent_store.dart';
+import '../services/android_job_alarm.dart';
 import '../services/files_store.dart';
+import '../services/matrix_service.dart';
 import '../widgets/pin_toast.dart';
 import '../services/now_controllers.dart';
 import '../services/tasks_controller.dart';
@@ -23,16 +28,6 @@ const _cardSh = <BoxShadow>[
   BoxShadow(color: Color(0x143C280F), blurRadius: 30, offset: Offset(0, 10)),
   BoxShadow(color: Color(0x0D3C280F), blurRadius: 2, offset: Offset(0, 1)),
 ];
-
-/// One row in the merged "วันนี้" card — a today event or a one-time reminder.
-class _DayItem {
-  final String time;
-  final String title;
-  final bool remind;
-  final bool isReminder;
-  _DayItem(this.time, this.title,
-      {this.remind = false, this.isReminder = false});
-}
 
 /// "ตอนนี้" content (fab-now) — a Pi-style glance: warm greeting in ปิ่น's
 /// voice, today's tasks/events/reminders merged into one card, what ปิ่น is
@@ -105,20 +100,9 @@ class NowView extends StatelessWidget {
             // Accent follows the active palette (green/clay/slate/…).
             final accent = Theme.of(context).colorScheme.primary;
 
-            // Timed items (today's events + one-time reminders), by the clock.
-            final timed = <_DayItem>[
-              for (final e in events)
-                _DayItem(e.time, e.title, remind: e.remind),
-              for (final r in reminders)
-                _DayItem(r.time, r.text, isReminder: true),
-            ]..sort((a, b) => a.time.compareTo(b.time));
-
-            // One merged "วันนี้" card: overdue first, then timed, then the rest.
-            final dayRows = <Widget>[
-              for (final t in overdue) _taskRow(t, accent),
-              for (final d in timed) _timedRow(d, accent),
-              for (final t in pending) _taskRow(t, accent),
-            ];
+            // Timed items = today's events + one-time reminders (count only —
+            // the full list lives in the _DayScreen the collapsed row opens).
+            final timedCount = events.length + reminders.length;
 
             return ListView(
               padding: EdgeInsets.fromLTRB(
@@ -126,14 +110,13 @@ class NowView extends StatelessWidget {
               children: [
                 Text(_greet(), style: _serif(27)),
                 const SizedBox(height: 7),
-                Text(_summary(overdue.length, timed.length),
+                Text(_summary(overdue.length, timedCount),
                     style: const TextStyle(
                         fontSize: 14, color: _ink2, height: 1.5)),
-                if (dayRows.isNotEmpty) ...[
-                  const SizedBox(height: 22),
-                  _dayCard(dayRows),
-                ],
-                const SizedBox(height: 14),
+                const SizedBox(height: 22),
+                _dayLink(context, accent, overdue.length,
+                    timedCount, pending.length),
+                const SizedBox(height: 12),
                 _watchBlock(context, watches, accent),
                 const SizedBox(height: 2),
                 _filesLink(context, accent),
@@ -145,85 +128,53 @@ class NowView extends StatelessWidget {
     );
   }
 
-  /// The merged "วันนี้" card — rows hairline-separated inside one soft card.
-  Widget _dayCard(List<Widget> rows) {
-    final children = <Widget>[];
-    for (var i = 0; i < rows.length; i++) {
-      children.add(rows[i]);
-      if (i != rows.length - 1) {
-        children.add(const Divider(height: 1, thickness: 1, color: _line));
-      }
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: _cardSh,
+  /// Collapsed "งานวันนี้" row → opens the full day list (like the files row).
+  Widget _dayLink(BuildContext context, Color accent, int overdue, int timed,
+      int pending) {
+    final total = overdue + timed + pending;
+    final sub = total == 0
+        ? 'ไม่มีอะไรวันนี้ — แตะดูทั้งหมด'
+        : [
+            if (overdue > 0) 'เลยกำหนด $overdue',
+            if (timed > 0) 'มีเวลา $timed',
+            if (pending > 0) 'ค้าง $pending',
+          ].join(' · ');
+    return _softCard(
+      onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const _DayScreen())),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(PhosphorIconsRegular.calendarCheck,
+                size: 19, color: overdue > 0 ? _neg : accent),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('งานวันนี้', style: _serif(15.5)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(sub,
+                      style: const TextStyle(
+                          fontSize: 13, color: _ink2, height: 1.45)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(PhosphorIconsRegular.caretRight, size: 17, color: _ink3),
+        ],
       ),
-      child: Column(children: children),
     );
   }
-
-  Widget _gridRow({
-    required String time,
-    required String name,
-    required Color accent,
-    Color nameColor = _ink,
-    FontWeight nameWeight = FontWeight.w400,
-    Widget? trailing,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 48,
-              child: Text(time,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: accent)),
-            ),
-            Expanded(
-              child: Text(name,
-                  style: TextStyle(
-                      fontSize: 15,
-                      height: 1.35,
-                      color: nameColor,
-                      fontWeight: nameWeight)),
-            ),
-            if (trailing != null) ...[const SizedBox(width: 10), trailing],
-          ],
-        ),
-      );
-
-  Widget _taskRow(PinTask t, Color accent) => _gridRow(
-        time: '',
-        accent: accent,
-        name: t.text,
-        nameColor: t.overdue ? _neg : _ink,
-        nameWeight: t.overdue ? FontWeight.w600 : FontWeight.w400,
-        trailing: (t.due ?? '').isEmpty
-            ? null
-            : Text(t.due!,
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: t.overdue ? _neg : _ink3)),
-      );
-
-  Widget _timedRow(_DayItem d, Color accent) => _gridRow(
-        time: d.time,
-        accent: accent,
-        name: d.title,
-        trailing: d.remind
-            ? const Icon(PhosphorIconsRegular.bell, size: 15, color: _ink3)
-            : d.isReminder
-                ? const Text('เตือน',
-                    style: TextStyle(fontSize: 12.5, color: _ink3))
-                : null,
-      );
 
   /// "ปิ่นเฝ้าให้อยู่" — a glance at the watches; the findings live in chat.
   /// Empty → a gentle invitation to start one.
@@ -231,7 +182,8 @@ class NowView extends StatelessWidget {
       BuildContext context, List<PinWatch> watches, Color accent) {
     if (watches.isEmpty) {
       return _softCard(
-        onTap: () => Navigator.of(context).maybePop(),
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const _WatchScreen())),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -260,7 +212,8 @@ class NowView extends StatelessWidget {
     return _softCard(
       onTap: () {
         WatchesController.instance.markAllSeen();
-        Navigator.of(context).maybePop();
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const _WatchScreen()));
       },
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,6 +749,305 @@ class _FilesScreen extends StatelessWidget {
         title: const Text('ไฟล์'),
       ),
       body: const SafeArea(child: FilesTab()),
+    );
+  }
+}
+
+// ── delete helpers (room state = source of truth) ──────────────────────────
+Future<void> _removeReminder(String id) async {
+  final s = AgentStore();
+  await s.load();
+  await s.removeReminder(id);
+}
+
+Future<void> _removeRoomItem(String type, bool Function(Map<String, dynamic>) drop,
+    void Function(String) refresh) async {
+  final rid = await MatrixService.instance.pinRoomId();
+  if (rid == null) return;
+  final list = await MatrixService.instance.loadListFromRoom(rid, type);
+  list.removeWhere(drop);
+  await MatrixService.instance.saveListToRoom(rid, type, list);
+  refresh(jsonEncode(list));
+}
+
+Future<void> _removeWatch(String id) async {
+  await _removeRoomItem('io.tokens2.watches', (w) => '${w['id']}' == id,
+      WatchesController.instance.updateFromJson);
+  await _removeReminder(id); // the watch's checker job shares the id
+  await devProxy().scheduleCancel(id);
+  await AndroidJobAlarm.cancel(id);
+}
+
+Widget _swipeBg() => Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: PinPalette.neg.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Icon(PhosphorIconsRegular.trash, size: 18, color: PinPalette.neg),
+    );
+
+Widget _listCard({required Widget child}) => Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Color(0x0A282822), blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: child,
+    );
+
+TextStyle _trirong(double s, {Color c = _ink, FontWeight w = FontWeight.w600}) =>
+    GoogleFonts.trirong(fontSize: s, fontWeight: w, color: c);
+
+/// "งานวันนี้" full screen — reminders + schedule + tasks merged, newest-urgent
+/// first, each swipe-to-delete. Opened from the collapsed row in "ตอนนี้".
+class _DayScreen extends StatelessWidget {
+  const _DayScreen();
+
+  static const _hints = ['วันนี้', 'พรุ่งนี้', 'เช้า', 'บ่าย', 'เย็น', 'คืนนี้'];
+  static bool _isNow(PinTask t) =>
+      t.overdue || t.today || t.group == 'เดดไลน์' ||
+      _hints.any((t.due ?? '').contains);
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        surfaceTintColor: bg,
+        elevation: 0,
+        title: const Text('งานวันนี้'),
+      ),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            TasksController.instance,
+            EventsController.instance,
+            JobsController.instance,
+          ]),
+          builder: (context, _) {
+            final now = TasksController.instance.value.where(_isNow).toList();
+            final overdue = now.where((t) => t.overdue).toList();
+            final pending = now.where((t) => !t.overdue).toList();
+            final events = EventsController.instance.value;
+            final reminders = JobsController.instance.value
+                .where((j) => !j.isAgentic && j.repeat != 'daily')
+                .toList();
+
+            final tiles = <Widget>[
+              for (final t in overdue) _taskTile(t, accent),
+              for (final e in events) _eventTile(e, accent),
+              for (final r in reminders) _reminderTile(r, accent),
+              for (final t in pending) _taskTile(t, accent),
+            ];
+
+            if (tiles.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(PhosphorIconsRegular.checkCircle,
+                        size: 38, color: _ink2),
+                    SizedBox(height: 12),
+                    Text('วันนี้โล่ง ๆ ไม่มีอะไรด่วน',
+                        style: TextStyle(fontSize: 16, color: _ink)),
+                  ]),
+                ),
+              );
+            }
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                  16, 12, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
+              children: tiles,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _reminderTile(PinJob r, Color accent) => Dismissible(
+        key: ValueKey('rem_${r.id}'),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => _removeReminder(r.id),
+        background: _swipeBg(),
+        child: _listCard(
+          child: Row(children: [
+            SizedBox(
+                width: 52,
+                child: Text(r.time,
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: accent))),
+            Expanded(
+                child: Text(r.text,
+                    style: const TextStyle(fontSize: 15, color: _ink))),
+            const Text('เตือน',
+                style: TextStyle(fontSize: 12, color: _ink3)),
+          ]),
+        ),
+      );
+
+  Widget _eventTile(PinEvent e, Color accent) => Dismissible(
+        key: ValueKey('evt_${e.id}'),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => _removeRoomItem('io.tokens2.events',
+            (m) => '${m['id']}' == e.id, EventsController.instance.updateFromJson),
+        background: _swipeBg(),
+        child: _listCard(
+          child: Row(children: [
+            SizedBox(
+                width: 52,
+                child: Text(e.time,
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: accent))),
+            Expanded(
+                child: Text(e.title,
+                    style: const TextStyle(fontSize: 15, color: _ink))),
+            if (e.remind)
+              const Icon(PhosphorIconsRegular.bell, size: 15, color: _ink3),
+          ]),
+        ),
+      );
+
+  Widget _taskTile(PinTask t, Color accent) => Dismissible(
+        key: ValueKey('task_${t.group}_${t.text}'),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => _removeRoomItem(
+            'io.tokens2.tasks',
+            (m) => '${m['text']}' == t.text && '${m['group']}' == t.group,
+            TasksController.instance.updateFromJson),
+        background: _swipeBg(),
+        child: _listCard(
+          child: Row(children: [
+            Expanded(
+                child: Text(t.text,
+                    style: TextStyle(
+                        fontSize: 15,
+                        color: t.overdue ? _neg : _ink,
+                        fontWeight:
+                            t.overdue ? FontWeight.w600 : FontWeight.w400))),
+            if ((t.due ?? '').isNotEmpty)
+              Text(t.due!,
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: t.overdue ? _neg : _ink3)),
+          ]),
+        ),
+      );
+}
+
+/// "ปิ่นเฝ้าให้อยู่" full screen — every watch with its last finding + check time,
+/// swipe-to-delete (also cancels the checker job). Opened from the watch glance.
+class _WatchScreen extends StatelessWidget {
+  const _WatchScreen();
+
+  static String _ago(int ms) {
+    if (ms == 0) return 'ยังไม่เคยเช็ค';
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    final now = DateTime.now();
+    final sameDay = d.year == now.year && d.month == now.month && d.day == now.day;
+    final hm =
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return sameDay ? 'เช็คล่าสุดวันนี้ $hm' : 'เช็คล่าสุด ${d.day}/${d.month} $hm';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        surfaceTintColor: bg,
+        elevation: 0,
+        title: const Text('ปิ่นเฝ้าให้อยู่'),
+      ),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: WatchesController.instance,
+          builder: (context, _) {
+            final watches = WatchesController.instance.value;
+            if (watches.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(PhosphorIconsRegular.eye, size: 38, color: _ink2),
+                    SizedBox(height: 12),
+                    Text('ยังไม่มีเรื่องที่เฝ้า',
+                        style: TextStyle(fontSize: 16, color: _ink)),
+                    SizedBox(height: 6),
+                    Text('บอกปิ่นในแชตว่าสนใจเรื่องไหน เดี๋ยวคอยดูให้',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: _ink2, height: 1.5)),
+                  ]),
+                ),
+              );
+            }
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                  16, 12, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
+              children: [
+                for (final w in watches)
+                  Dismissible(
+                    key: ValueKey('watch_${w.id}'),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (_) => _removeWatch(w.id),
+                    background: _swipeBg(),
+                    child: _listCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Expanded(child: Text(w.topic, style: _trirong(15.5))),
+                            if (w.hasNew)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text('ใหม่',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: accent)),
+                              ),
+                          ]),
+                          if (w.lastSeen.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 5),
+                              child: Text(w.lastSeen,
+                                  style: const TextStyle(
+                                      fontSize: 13, color: _ink2, height: 1.4)),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text(_ago(w.lastSeenAt),
+                                style: const TextStyle(
+                                    fontSize: 11.5, color: _ink3)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }
