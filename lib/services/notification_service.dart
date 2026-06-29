@@ -3,6 +3,7 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'matrix_service.dart';
+import 'pin_meta.dart';
 
 /// Local notifications for incoming ปิ่น messages. Fires while the app is open
 /// or backgrounded (not killed). True closed-app delivery needs a push gateway
@@ -13,6 +14,7 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _started = false;
+  bool _inited = false;
 
   /// Notification ids must fit a 32-bit int, but reminder ids are
   /// millisecondsSinceEpoch (~13 digits). Mask to 31 bits so schedule/cancel
@@ -20,6 +22,8 @@ class NotificationService {
   int _nid(int id) => id & 0x7fffffff;
 
   Future<void> init() async {
+    if (_inited) return;
+    _inited = true;
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Bangkok'));
     const settings = InitializationSettings(
@@ -42,7 +46,11 @@ class NotificationService {
     if (_started) return;
     _started = true;
     MatrixService.instance.messages.listen((m) {
-      if (m.isMe || m.kind == 'reaction' || m.kind == 'tasks') return;
+      if (m.kind == 'reaction' || m.kind == 'tasks') return;
+      // Self-DM: ปิ่น's turns post under the user's OWN account (isMe=true) but
+      // carry meta.pin — those MUST notify (e.g. a watch finding). Only the
+      // user's own plain typing (isMe && not pin) is skipped.
+      if (m.isMe && !isPinMeta(m.metaJson)) return;
       final body = switch (m.kind) {
         'flex' => 'ส่งการ์ดมาให้',
         'image' => 'ส่งรูปมา',
@@ -140,6 +148,15 @@ class NotificationService {
       if (!daily && when.isBefore(now)) continue; // past one-shot — skip
       await scheduleReminder(id: id, body: text, when: when, daily: daily);
     }
+  }
+
+  /// Public immediate notification for agentic-job output (watch findings,
+  /// reminders that fire). Called from runDueAgenticJobs in ANY isolate — incl.
+  /// the FCM/APNs background isolate, where the message-stream listener isn't
+  /// running — so it lazy-inits the plugin first.
+  Future<void> showNow(String roomId, String body) async {
+    await init(); // idempotent
+    await _show(roomId, body);
   }
 
   Future<void> _show(String roomId, String body) async {

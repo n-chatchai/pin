@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/notification_service.dart';
+
 import '../services/matrix_service.dart';
 import '../services/now_controllers.dart';
 import '../services/pin_meta.dart';
@@ -51,6 +53,11 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session) async {
           // bubble to dedup, so don't mark it seen).
           await MatrixService.instance.sendText(rid, body,
               role: 'user', flex: r.flex, meta: pinMeta(r.usedTools));
+          // Notify so a watch finding / fired reminder is visible even when the
+          // app is closed (this runs in the FCM/APNs bg isolate too). The chat
+          // screen dedups its own optimistic render, so this only adds the OS
+          // notification, not a duplicate bubble.
+          await NotificationService.instance.showNow(rid, body);
         }
       } catch (e) {
         debugPrint('run job $id failed (retry next wake): $e');
