@@ -81,13 +81,52 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
     return res;
   }
 
+  /// All possible data sections in display order. Only the non-empty ones become
+  /// tabs (ทั่วไป always shows); the label carries the row count so you see at a
+  /// glance what's there. Tabs follow the data instead of a fixed list of 8.
+  List<({String label, List<dynamic>? items})> _dataSections() => [
+        (label: 'Reminders', items: _storeRaw['io.tokens2.reminders']),
+        (label: 'Tasks', items: _storeRaw['io.tokens2.tasks']),
+        (label: 'Events', items: _storeRaw['io.tokens2.events']),
+        (label: 'Files', items: _storeRaw['io.tokens2.files']),
+        (
+          label: 'Capabilities',
+          items: _storeRaw['io.tokens2.capability_requests']
+        ),
+        (label: 'Facts', items: _memFacts),
+        (label: 'Knowledge', items: _memKnow),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final m = MatrixService.instance;
     final p = PrefsController.instance.value;
-    
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('ข้อมูล / debug'),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // ทั่วไป always present; data tabs only when they hold rows.
+    final sections =
+        _dataSections().where((s) => (s.items?.isNotEmpty ?? false)).toList();
+    final tabs = <Tab>[
+      const Tab(text: 'ทั่วไป'),
+      for (final s in sections) Tab(text: '${s.label} (${s.items!.length})'),
+    ];
+    final views = <Widget>[
+      _buildOverviewTab(m, p),
+      for (final s in sections) _buildDataTable(s.items),
+    ];
+
     return DefaultTabController(
-      length: 8,
+      length: tabs.length,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
@@ -99,35 +138,13 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
               onPressed: _loading ? null : _load,
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: 'ทั่วไป'),
-              Tab(text: 'Reminders'),
-              Tab(text: 'Tasks'),
-              Tab(text: 'Events'),
-              Tab(text: 'Files'),
-              Tab(text: 'Capabilities'),
-              Tab(text: 'Facts (Memory)'),
-              Tab(text: 'Knowledge (Memory)'),
-            ],
+            tabs: tabs,
           ),
         ),
-        body: _loading 
-            ? const Center(child: CircularProgressIndicator()) 
-            : TabBarView(
-                children: [
-                  _buildOverviewTab(m, p),
-                  _buildDataTable(_storeRaw['io.tokens2.reminders']),
-                  _buildDataTable(_storeRaw['io.tokens2.tasks']),
-                  _buildDataTable(_storeRaw['io.tokens2.events']),
-                  _buildDataTable(_storeRaw['io.tokens2.files']),
-                  _buildDataTable(_storeRaw['io.tokens2.capability_requests']),
-                  _buildDataTable(_memFacts),
-                  _buildDataTable(_memKnow),
-                ],
-              ),
+        body: TabBarView(children: views),
       ),
     );
   }

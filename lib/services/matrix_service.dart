@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
+import '../agent/token_cost.dart';
 import '../config.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import 'api_log.dart';
@@ -209,6 +210,60 @@ class MatrixService {
       await rust.accountDataPut(
           role: 'user', name: _selfRoomAd, value: selfRoomPointer(id));
     } catch (_) {/* best-effort */}
+  }
+
+  /// Account-data key for the token-usage ledger (server-side, cross-device — no
+  /// local state). Shape: {"days":{"YYYY-MM-DD":{"in","out","cost","n"}},
+  /// "last":{"in","out","cost","model","ts"}}. Daily buckets keep the panel
+  /// (latest/daily/weekly/monthly) cheap; old days are pruned on write.
+  static const _usageAd = 'io.tokens2.usage';
+
+  Future<Map<String, dynamic>> loadUsageLedger() async {
+    try {
+      final raw = await rust.accountDataGet(role: 'user', name: _usageAd);
+      if (raw == null || raw.isEmpty) return {};
+      final v = jsonDecode(raw);
+      return v is Map<String, dynamic> ? v : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Add one turn's [usage] to the ledger. Read-modify-write account data.
+  /// ponytail: last-writer-wins across devices — fine for a cost estimate.
+  Future<void> recordUsage(TokenUsage usage) async {
+    if (usage.isEmpty) return;
+    try {
+      final led = await loadUsageLedger();
+      final days = (led['days'] as Map?)?.cast<String, dynamic>() ?? {};
+      final now = DateTime.now();
+      final key = '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+      final d = (days[key] as Map?)?.cast<String, dynamic>() ??
+          {'in': 0, 'out': 0, 'cost': 0.0, 'n': 0};
+      d['in'] = (d['in'] as num) + usage.inputTokens;
+      d['out'] = (d['out'] as num) + usage.outputTokens;
+      d['cost'] = (d['cost'] as num) + usage.costThb;
+      d['n'] = (d['n'] as num) + 1;
+      days[key] = d;
+      // Prune > 40 days so the blob stays small (monthly view needs ~30).
+      final cutoff = now.subtract(const Duration(days: 40));
+      days.removeWhere((k, _) {
+        final p = DateTime.tryParse(k);
+        return p != null && p.isBefore(cutoff);
+      });
+      led['days'] = days;
+      led['last'] = {
+        'in': usage.inputTokens,
+        'out': usage.outputTokens,
+        'cost': usage.costThb,
+        if (usage.model != null) 'model': usage.model,
+        'ts': now.millisecondsSinceEpoch,
+      };
+      await rust.accountDataPut(
+          role: 'user', name: _usageAd, value: jsonEncode(led));
+    } catch (_) {/* best-effort — a dev stat, never blocks a turn */}
   }
 
   /// Find the existing ปิ่น room id WITHOUT creating one. Returns null on a

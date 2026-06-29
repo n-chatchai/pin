@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'agent_reply.dart';
 import 'proxy_client.dart';
+import 'token_cost.dart';
 import 'tools.dart';
 
 /// On-device agent loop. Owns orchestration; all state stays on the phone and
@@ -52,12 +53,14 @@ class DeviceBrain {
 
     final used = <String>[]; // tool names called this turn (for the UI hint)
     final trace = <String>[]; // debug-bot: every step of the agent loop
+    var usage = const TokenUsage(); // tokens summed over every model call
     Map<String, dynamic>? pendingFlex; // a card shown; ปิ่น still adds a caption
     for (var step = 0; step < maxSteps; step++) {
       final resp = await proxy.infer(
         messages: messages,
         tools: tools.declarations(),
       );
+      usage = usage + TokenUsage.fromResponse(resp);
       final choice =
           (resp['choices'] as List).first['message'] as Map<String, dynamic>;
       final calls = choice['tool_calls'] as List?;
@@ -79,7 +82,8 @@ class DeviceBrain {
                   text: _stripJson(content),
                   flex: res.reply!.flex,
                   usedTools: used,
-                  trace: trace);
+                  trace: trace,
+                  usage: usage);
             }
           }
         }
@@ -97,7 +101,8 @@ class DeviceBrain {
             text: shown,
             flex: pendingFlex,
             usedTools: used,
-            trace: trace);
+            trace: trace,
+            usage: usage);
       }
 
       // Record the assistant turn (with tool_calls) then each tool result.
@@ -133,7 +138,11 @@ class DeviceBrain {
           // Non-card terminal (e.g. plain reply) → done.
           trace.add('← $name: ผลลัพธ์ ✓');
           return AgentReply(
-              text: r.text, flex: r.flex, usedTools: used, trace: trace);
+              text: r.text,
+              flex: r.flex,
+              usedTools: used,
+              trace: trace,
+              usage: usage);
         }
         trace.add('← $name: ${_short(result.feedback ?? "done")}');
         messages.add({
@@ -148,7 +157,8 @@ class DeviceBrain {
     return AgentReply(
         text: 'ขอโทษค่ะ ตอนนี้ตอบไม่ได้ ลองใหม่อีกที',
         usedTools: used,
-        trace: trace);
+        trace: trace,
+        usage: usage);
   }
 
   static String _short(String s) =>

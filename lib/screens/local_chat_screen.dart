@@ -17,6 +17,7 @@ import '../agent/agent_reply.dart';
 import '../agent/agent_session.dart';
 import '../agent/agent_store.dart';
 import '../agent/agentic_job_service.dart';
+import '../agent/token_cost.dart';
 import '../services/android_job_alarm.dart';
 import '../services/pin_meta.dart';
 import '../agent/abilities.dart';
@@ -297,6 +298,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     final t = DateTime.fromMillisecondsSinceEpoch(
         tsMs == 0 ? DateTime.now().millisecondsSinceEpoch : tsMs);
     String? hint;
+    String? cost;
     if (m.metaJson != null) {
       try {
         final mm = jsonDecode(m.metaJson!) as Map<String, dynamic>;
@@ -304,6 +306,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         if (used != null && used.isNotEmpty) {
           hint = 'ใช้: ${used.map(abilityLabel).join(', ')}';
         }
+        final u = TokenUsage.fromJson(mm['usage']);
+        if (u != null && !u.isEmpty) cost = u.label;
       } catch (_) {}
     }
     if (m.kind == 'flex' && m.flexJson != null) {
@@ -313,7 +317,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       } catch (_) {}
       return ChatViewMessage(
           eventId: m.eventId, sender: sender, body: '', time: t,
-          isMe: !isPin, kind: 'flex', flex: flex, hint: hint);
+          isMe: !isPin, kind: 'flex', flex: flex, hint: hint, cost: cost);
     }
     if (m.kind == 'image' || m.kind == 'file' ||
         m.kind == 'audio' || m.kind == 'video') {
@@ -328,7 +332,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     final body = isPin ? _splitTag(m.body).$1 : m.body;
     return ChatViewMessage(
         eventId: m.eventId, sender: sender, body: body, time: t,
-        isMe: !isPin, hint: hint);
+        isMe: !isPin, hint: hint, cost: cost);
   }
 
   /// A new live DM event arrived (from this or another device) → render it.
@@ -765,6 +769,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       kind: r.flex != null ? 'flex' : 'text',
       flex: r.flex,
       hint: hint,
+      cost: (r.usage?.isEmpty ?? true) ? null : r.usage!.label,
       addedToNow: r.usedTools.any(_nowTools.contains),
       debug: (PrefsController.instance.value.debugBot || kDebugMode) &&
               r.trace.isNotEmpty
@@ -795,6 +800,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           recordText: recordText,
           imageRecordPath: imageRecordPath);
       setState(() => _addReply(r));
+      if (r.usage != null) MatrixService.instance.recordUsage(r.usage!);
       _maybeDebugLog(text, r);
       await _maybeRecordCreation(r);
       // Mirror the turn into the encrypted DM (durable + cross-device): an image
@@ -836,7 +842,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         final pe = await MatrixService.instance.sendText(rid, body,
             role: 'user',
             flex: r.flex,
-            meta: pinMeta(r.usedTools));
+            meta: pinMeta(r.usedTools, usage: r.usage?.toJson()));
         _seenEvents.add(pe);
       }
     } catch (e) {
@@ -865,7 +871,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         final pe = await MatrixService.instance.sendText(rid, body,
             role: 'user',
             flex: r.flex,
-            meta: pinMeta(r.usedTools));
+            meta: pinMeta(r.usedTools, usage: r.usage?.toJson()));
         _seenEvents.add(pe);
       }
     } catch (e) {
@@ -892,7 +898,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         final pe = await MatrixService.instance.sendText(rid, body,
             role: 'user',
             flex: r.flex,
-            meta: pinMeta(r.usedTools));
+            meta: pinMeta(r.usedTools, usage: r.usage?.toJson()));
         _seenEvents.add(pe);
       }
     } catch (e) {

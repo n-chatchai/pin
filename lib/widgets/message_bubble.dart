@@ -217,8 +217,17 @@ class MessageBubble extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(_hhmm(msg.time),
-                style: const TextStyle(fontSize: 10, color: PinPalette.ink3)),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(_hhmm(msg.time),
+                  style: const TextStyle(fontSize: 10, color: PinPalette.ink3)),
+              if (msg.cost != null) ...[
+                const SizedBox(width: 6),
+                Icon(PhosphorIconsRegular.coins, size: 11, color: PinPalette.ink3),
+                const SizedBox(width: 3),
+                Text(msg.cost!,
+                    style: const TextStyle(fontSize: 10, color: PinPalette.ink3)),
+              ],
+            ]),
             if (msg.addedToNow || msg.hint != null)
               Row(
                 mainAxisSize: MainAxisSize.min,

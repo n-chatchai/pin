@@ -35,6 +35,12 @@ void main() {
       expect(isPinMeta(jsonEncode(pinMeta([]))), isTrue);
       expect(isPinMeta(jsonEncode(pinMeta(['a']))), isTrue);
     });
+    test('carries usage when given, omits when empty/null', () {
+      expect(pinMeta([], usage: {'in': 5, 'out': 2}),
+          {'pin': true, 'usage': {'in': 5, 'out': 2}});
+      expect(pinMeta([], usage: {}), {'pin': true});
+      expect(pinMeta([], usage: null), {'pin': true});
+    });
   });
 
   group('self-room account-data pointer', () {

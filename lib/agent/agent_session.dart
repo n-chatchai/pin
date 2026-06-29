@@ -309,7 +309,8 @@ class AgentSession {
             text: cleaned,
             flex: reply.flex,
             usedTools: reply.usedTools,
-            trace: reply.trace);
+            trace: reply.trace,
+            usage: reply.usage);
       }
     }
     // (b) credit a skill when one of its required tools fired this turn.

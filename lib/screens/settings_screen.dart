@@ -25,6 +25,7 @@ import 'abilities_screen.dart';
 import 'openrouter_screen.dart';
 import '../services/ai_settings.dart';
 import 'device_data_screen.dart';
+import 'usage_screen.dart';
 import 'local_chat_screen.dart' show debugForcePersonaSetup;
 import 'personality_screen.dart';
 import 'special_personas_screen.dart';
@@ -641,6 +642,14 @@ class _E2eeDebugState extends State<_E2eeDebug> {
             },
           ),
           ],
+          _div(),
+          _tile(
+            PhosphorIconsRegular.coins,
+            'การใช้งาน · ค่าใช้จ่าย',
+            'โทเค็น + ค่าใช้จ่าย (บาท) · ล่าสุด/วันนี้/7วัน/30วัน',
+            nav: true,
+            onTap: () => push(const UsageScreen()),
+          ),
           _div(),
           _tile(
             PhosphorIconsRegular.database,

@@ -39,6 +39,9 @@ class ChatViewMessage {
   /// "ใช้ความสามารถ" hint under a ปิ่น reply, e.g. "ใช้: พยากรณ์อากาศ".
   final String? hint;
 
+  /// Token cost line under a ปิ่น reply, e.g. "1,234 โทเค็น · ฿0.0021".
+  final String? cost;
+
   /// This reply added something to the "ตอนนี้" panel (reminder/job/knowledge).
   final bool addedToNow;
 
@@ -62,6 +65,7 @@ class ChatViewMessage {
     this.replyToSender,
     this.replyToBody,
     this.hint,
+    this.cost,
     this.addedToNow = false,
     this.debug,
   });
@@ -111,6 +115,7 @@ class ChatViewMessage {
         replyToSender: replyToSender ?? this.replyToSender,
         replyToBody: replyToBody ?? this.replyToBody,
         hint: hint,
+        cost: cost,
         addedToNow: addedToNow,
       );
 

@@ -1,3 +1,5 @@
+import 'token_cost.dart';
+
 /// What the on-device agent produces for a turn: plain (markdown) text and/or a
 /// rich flex card — mirrors the server Reply contract so the same FlexCardView
 /// renders it.
@@ -6,16 +8,18 @@ class AgentReply {
   final Map<String, dynamic>? flex;
   final List<String> usedTools; // tool names the agent called this turn
   final List<String> trace; // debug-bot: step-by-step tool calls + results
+  final TokenUsage? usage; // tokens + cost summed over the turn's model calls
   const AgentReply(
       {this.text,
       this.flex,
       this.usedTools = const [],
-      this.trace = const []});
+      this.trace = const [],
+      this.usage});
 
   bool get isEmpty => (text == null || text!.isEmpty) && flex == null;
 
-  AgentReply withTools(List<String> tools) =>
-      AgentReply(text: text, flex: flex, usedTools: tools, trace: trace);
+  AgentReply withTools(List<String> tools) => AgentReply(
+      text: text, flex: flex, usedTools: tools, trace: trace, usage: usage);
 }
 
 /// A tool's outcome: either `feedback` text fed back to the model to continue

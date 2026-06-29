@@ -16,9 +16,16 @@ bool isPinMeta(String? metaJson) {
   }
 }
 
-/// Meta map for a ปิ่น turn: the pin flag + optional used-tools (omitted if none).
-Map<String, dynamic> pinMeta(List<String> usedTools) =>
-    {'pin': true, if (usedTools.isNotEmpty) 'used': usedTools};
+/// Meta map for a ปิ่น turn: the pin flag + optional used-tools + optional token
+/// usage (each omitted when empty). [usage] is a `TokenUsage.toJson()` map; kept
+/// untyped here so this file stays Flutter/rust-free for fast unit tests.
+Map<String, dynamic> pinMeta(List<String> usedTools,
+        {Map<String, dynamic>? usage}) =>
+    {
+      'pin': true,
+      if (usedTools.isNotEmpty) 'used': usedTools,
+      if (usage != null && usage.isNotEmpty) 'usage': usage,
+    };
 
 /// Room id from the self-room account-data pointer JSON (null if absent/malformed).
 String? selfRoomId(String? accountDataJson) {
