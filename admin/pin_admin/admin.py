@@ -245,8 +245,7 @@ def tab_backlog(request: Request, admin: str = Depends(owner)):
     return templates.TemplateResponse(request, "_backlog.html", {"rows": rows})
 
 
-@router.get("/tab/push", response_class=HTMLResponse)
-def tab_push(request: Request, admin: str = Depends(owner)):
+def _push_rows() -> list[dict]:
     import time as _t
 
     rows = store.list_push_devices()
@@ -259,7 +258,36 @@ def tab_push(request: Request, admin: str = Depends(owner)):
             else f"{int(age // 86400)} วันก่อน"
         )
         r["device_short"] = (r.get("device") or "")[:16] + "…"
-    return templates.TemplateResponse(request, "_push.html", {"rows": rows})
+    return rows
+
+
+@router.get("/tab/push", response_class=HTMLResponse)
+def tab_push(request: Request, admin: str = Depends(owner)):
+    return templates.TemplateResponse(
+        request, "_push.html", {"rows": _push_rows()})
+
+
+@router.post("/push/wake", response_class=HTMLResponse)
+async def push_wake(request: Request, user_id: str = Form(...),
+                    admin: str = Depends(owner)):
+    """Force-wake a user's device — sends a blind FCM/APNs wake with force=1 so
+    the on-device agent runs ALL its watchers/jobs NOW, ignoring the schedule.
+    Ops/test trigger; no content travels (the prompt/result stay on the phone)."""
+    from pin_proxy import scheduler
+
+    dev = next((d for d in store.list_push_devices()
+                if d["user_id"] == user_id), None)
+    msg = "ไม่พบอุปกรณ์"
+    if dev and dev.get("device"):
+        try:
+            await scheduler._push(
+                dev["device"], "admin-wake", dev.get("platform", "apns"),
+                force=True)
+            msg = f"ปลุก {user_id} แล้ว ({dev.get('platform')})"
+        except Exception as e:  # noqa: BLE001
+            msg = f"ปลุกไม่สำเร็จ: {e}"
+    return templates.TemplateResponse(
+        request, "_push.html", {"rows": _push_rows(), "flash": msg})
 
 
 @router.post("/capability/{req_id}/status/{status}", response_class=HTMLResponse)

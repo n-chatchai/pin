@@ -53,9 +53,12 @@ class PushService {
       deviceToken = await m.getToken();
       debugPrint('fcm token: ${deviceToken?.substring(0, 8)}…');
       m.onTokenRefresh.listen((t) => deviceToken = t);
-      // App in foreground/opened when the wake arrives → run inline.
-      FirebaseMessaging.onMessage.listen((_) => _runDue());
-      FirebaseMessaging.onMessageOpenedApp.listen((_) => _runDue());
+      // App in foreground/opened when the wake arrives → run inline. An admin
+      // force-wake carries data.force == "1" → run every watcher, ignore due.
+      FirebaseMessaging.onMessage
+          .listen((msg) => _runDue(force: msg.data['force'] == '1'));
+      FirebaseMessaging.onMessageOpenedApp
+          .listen((msg) => _runDue(force: msg.data['force'] == '1'));
     } catch (e) {
       debugPrint('fcm init failed: $e'); // falls back to AlarmManager / on-open
     }
@@ -68,7 +71,10 @@ class PushService {
         debugPrint('apns token: ${deviceToken?.substring(0, 8)}…');
         return null;
       case 'onPush':
-        await _runDue();
+        // iOS native forwards the APNs payload; force-wake sets force == "1".
+        final force = (call.arguments is Map) &&
+            ('${(call.arguments as Map)['force']}' == '1');
+        await _runDue(force: force);
         return null;
       default:
         return null;
@@ -83,13 +89,13 @@ class PushService {
     await devProxy().pushRegister(tok, platform);
   }
 
-  Future<void> _runDue() async {
+  Future<void> _runDue({bool force = false}) async {
     try {
       if (!await MatrixService.instance.tryRestore()) return;
       final rid = await MatrixService.instance.pinRoomId();
       if (rid == null) return;
       final session = AgentSession(room: rid, proxy: devProxy());
-      await runDueAgenticJobs(rid, session);
+      await runDueAgenticJobs(rid, session, force: force);
     } catch (e) {
       debugPrint('push run-due failed: $e');
     }
@@ -113,7 +119,7 @@ Future<void> fcmBackgroundHandler(RemoteMessage message) async {
     final rid = await MatrixService.instance.pinRoomId();
     if (rid == null) return;
     final session = AgentSession(room: rid, proxy: devProxy());
-    await runDueAgenticJobs(rid, session);
+    await runDueAgenticJobs(rid, session, force: message.data['force'] == '1');
   } catch (e) {
     debugPrint('fcm bg run-due failed: $e');
   }

@@ -27,14 +27,19 @@ bool _running = false;
 /// posting ปิ่น's reply into the DM. One-shots are removed + cancelled
 /// server-side after running; daily ones record `lastRun` (server rolls its own
 /// copy forward). Best-effort — a failed job is left in place to retry.
-Future<void> runDueAgenticJobs(String rid, AgentSession session) async {
+/// [force] ignores the schedule/lastRun and runs EVERY agentic job now (used by
+/// the admin force-wake) — otherwise only jobs whose time has come run.
+Future<void> runDueAgenticJobs(String rid, AgentSession session,
+    {bool force = false}) async {
   if (_running) return;
   _running = true;
   try {
     final jobs =
         await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.reminders');
     final now = DateTime.now();
-    final due = dueAgenticJobs(jobs, now);
+    final due = force
+        ? [for (final j in jobs) if ('${j['kind']}' == 'agentic') '${j['id']}']
+        : dueAgenticJobs(jobs, now);
     if (due.isEmpty) return;
     final ProxyClient proxy = devProxy();
     var changed = false;

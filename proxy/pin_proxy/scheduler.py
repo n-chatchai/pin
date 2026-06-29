@@ -105,7 +105,7 @@ def _fcm_access_token() -> str | None:
     return _fcm_creds.token
 
 
-async def _push_fcm(device: str, job_id: str) -> None:
+async def _push_fcm(device: str, job_id: str, force: bool = False) -> None:
     token = await asyncio.to_thread(_fcm_access_token)
     if not token:
         log.warning("[sched] would FCM push job=%s device=%s (no SA creds)",
@@ -114,10 +114,14 @@ async def _push_fcm(device: str, job_id: str) -> None:
     project = os.environ.get("FCM_PROJECT_ID", "pin-ai-b9d8a")
     # Data-only, high-priority message → wakes the app's background isolate
     # (fcmBackgroundHandler) even when closed; no user-facing notification.
+    # force="1" → run every watcher now, ignoring the schedule (admin trigger).
+    data = {"pin_job": job_id}
+    if force:
+        data["force"] = "1"
     msg = {
         "message": {
             "token": device,
-            "data": {"pin_job": job_id},
+            "data": data,
             "android": {"priority": "high"},
         }
     }
@@ -130,9 +134,10 @@ async def _push_fcm(device: str, job_id: str) -> None:
     log.info("[sched] fcm job=%s status=%s", job_id, r.status_code)
 
 
-async def _push(device: str, job_id: str, platform: str = "apns") -> None:
+async def _push(device: str, job_id: str, platform: str = "apns",
+                force: bool = False) -> None:
     if platform == "fcm":
-        await _push_fcm(device, job_id)
+        await _push_fcm(device, job_id, force)
         return
     jwt_token = _apns_jwt()
     topic = os.environ.get("APNS_TOPIC", "io.tokens2.pin")
@@ -146,6 +151,8 @@ async def _push(device: str, job_id: str, platform: str = "apns") -> None:
                     job_id, device[:8])
         return
     payload = {"aps": {"content-available": 1}, "pin_job": job_id}
+    if force:
+        payload["force"] = "1"
     async with httpx.AsyncClient(http2=True, timeout=10) as c:
         r = await c.post(
             f"https://{host}/3/device/{device}",
