@@ -21,7 +21,10 @@ class NotificationService {
   /// use the same id and zonedSchedule stops throwing "must fit within 32-bit".
   int _nid(int id) => id & 0x7fffffff;
 
-  Future<void> init() async {
+  /// Initialize the plugin only (tz + channels). Safe in ANY isolate, incl. the
+  /// FCM background isolate — does NOT request permission (that needs an Activity
+  /// Context and crashes headless). Idempotent per isolate.
+  Future<void> _ensure() async {
     if (_inited) return;
     _inited = true;
     tzdata.initializeTimeZones();
@@ -31,6 +34,11 @@ class NotificationService {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
     await _plugin.initialize(settings: settings);
+  }
+
+  /// Foreground init: plugin + permission prompt (needs an Activity).
+  Future<void> init() async {
+    await _ensure();
     await _plugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
@@ -155,7 +163,7 @@ class NotificationService {
   /// the FCM/APNs background isolate, where the message-stream listener isn't
   /// running — so it lazy-inits the plugin first.
   Future<void> showNow(String roomId, String body) async {
-    await init(); // idempotent
+    await _ensure(); // plugin only — no permission prompt (bg-isolate safe)
     await _show(roomId, body);
   }
 
