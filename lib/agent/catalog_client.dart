@@ -115,10 +115,10 @@ class CatalogClient {
     // ดูดวง system=thai/bazi) — the model asks instead of guessing.
     final askParams =
         (m['askParams'] as List?)?.map((e) => '$e').toList() ?? const <String>[];
-    // news_reporter runs on-device (RSS fetch + summarise); the manifest only
-    // carries its config (admin-set feeds). Build the local tool, not a remote
-    // proxy call. Its dead 8091 endpoint in the catalog is ignored.
-    if (name == 'news_reporter') return newsTool(proxy, config: m['config']);
+    // `news` runs on-device (RSS fetch + summarise); the manifest only carries
+    // its config (admin-set sources per topic). Build the local tool, not a
+    // remote proxy call.
+    if (name == 'news') return newsTool(proxy, config: m['config']);
     final decl = <String, dynamic>{
       'type': 'function',
       'function': {

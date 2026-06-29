@@ -8,7 +8,7 @@ import 'agent_reply.dart';
 import 'proxy_client.dart';
 import 'tools.dart';
 
-/// On-device `news_reporter` — was an external dev microservice (8091); now the
+/// On-device `news` — was an external dev microservice (8091); now the
 /// device fetches the RSS itself and summarises through our blind LLM proxy, so
 /// there's no extra server to host or key. Returns a flex carousel of items.
 ///
@@ -16,10 +16,21 @@ import 'tools.dart';
 /// few after cross-source title dedup instead of parsing RFC-822 dates. Add a
 /// real date sort only if a source ever returns out of order.
 
-String _topicKey(String topic) {
-  const aiHints = ['ai', 'เอไอ', 'ปัญญาประดิษฐ์', 'artificial', 'machine learning'];
+/// Pick the source bucket for [topic] from the admin-configured keys: an exact
+/// (case-insensitive) match wins, then a key the topic contains (or vice-versa),
+/// else 'general'. So any topic the admin curated works; the rest → general news.
+String resolveNewsTopic(Iterable<String> keys, String topic) {
+  if (topic.isEmpty) return 'general';
   final t = topic.toLowerCase();
-  return aiHints.any(t.contains) ? 'ai' : 'general';
+  for (final k in keys) {
+    if (k.toLowerCase() == t) return k;
+  }
+  for (final k in keys) {
+    final kl = k.toLowerCase();
+    if (kl == 'general') continue;
+    if (t.contains(kl) || kl.contains(t)) return k;
+  }
+  return 'general';
 }
 
 /// Parse the admin-set tool config (`{"sources":{"general":[...],"ai":[...]}}`)
@@ -64,21 +75,22 @@ AgentTool newsTool(ProxyClient proxy, {dynamic config}) {
   final sources = _parseConfig(config);
   return AgentTool(
       fnDecl(
-        'news_reporter',
+        'news',
         'รายงานข่าวเป็นการ์ดเลื่อนได้ (carousel) พร้อมแหล่งข่าวและลิงก์อ่านต่อ '
-        'เรียกทุกครั้งที่ผู้ใช้ขอข่าว ใช้พารามิเตอร์ topic เลือกหมวด: '
-        'เว้นว่าง=ข่าวทั่วไป, ai=ข่าว AI',
+        'เรียกทุกครั้งที่ผู้ใช้ขอข่าว ใส่ topic เป็นเรื่องที่อยากได้ '
+        '(เช่น "AI", "คริปโต", "บอล") — ถ้าหัวข้อนั้นมีแหล่งข่าวที่ตั้งไว้จะใช้แหล่งนั้น '
+        'ไม่งั้นเป็นข่าวทั่วไป. เว้นว่าง = ข่าวทั่วไป',
         properties: {
           'topic': {
             'type': 'string',
-            'description': 'หัวข้อข่าว เช่น เว้นว่าง=ข่าวทั่วไป, ai=ข่าว AI',
+            'description': 'เรื่องข่าวที่สนใจ เช่น "AI" "คริปโต" "บอล"; เว้นว่าง=ทั่วไป',
           },
         },
       ),
       kind: 'remote', // blind: only the topic leaves the device
       (args) async {
         final topic = '${args['topic'] ?? ''}'.trim();
-        final key = _topicKey(topic);
+        final key = resolveNewsTopic(sources.keys, topic);
         final feeds = (sources[key]?.isNotEmpty ?? false)
             ? sources[key]!
             : _defaults(key); // admin config or built-in fallback

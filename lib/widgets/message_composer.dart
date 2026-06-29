@@ -315,7 +315,7 @@ class _MessageComposerState extends State<MessageComposer> {
   static const _capSpecs = <(List<String>, IconData, String, String)>[
     (['consult_astrologer', 'fortune'], PhosphorIconsLight.sparkle, 'ดูดวง',
         'ขอดูดวงหน่อย'),
-    (['news_reporter', 'morning_news'], PhosphorIconsLight.newspaper, 'ข่าว',
+    (['news', 'morning_news'], PhosphorIconsLight.newspaper, 'ข่าว',
         'สรุปข่าวให้หน่อย'),
     (['get_weather'], PhosphorIconsLight.cloudSun, 'อากาศ', 'ขอดูพยากรณ์อากาศ'),
     (['web_search'], PhosphorIconsLight.globe, 'ค้นเว็บ',

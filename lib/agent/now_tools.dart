@@ -10,6 +10,7 @@ import 'agent_config.dart';
 import 'agent_reply.dart';
 import 'agent_store.dart';
 import 'tools.dart';
+import 'when_parse.dart';
 
 /// On-device "ตอนนี้" tools: let ปิ่น create reminders / jobs / tasks / memory.
 /// The data lives in the ปิ่น DM room state (the single source of truth) — the
@@ -21,51 +22,15 @@ import 'tools.dart';
 /// straight back to Matrix room state, so there's no shared instance to thread
 /// through the session — the room is the source of truth.
 
-/// HH:MM (24h) for a daily reminder's "time" field.
-String _hhmm(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-
-/// Parse the model-supplied `time` into a fire `DateTime`.
-/// Accepts "+30m"/"+2h" (relative), "HH:MM" (today, or tomorrow if past), or
-/// a full ISO-8601 timestamp. Returns null when it can't be understood.
-DateTime? _parseWhen(String raw) {
-  final t = raw.trim();
-  // Relative: +30m / +2h / +90 (minutes).
-  final rel = RegExp(r'^\+?\s*(\d+)\s*([mhd]?)$', caseSensitive: false)
-      .firstMatch(t);
-  if (rel != null) {
-    final n = int.parse(rel.group(1)!);
-    final unit = (rel.group(2) ?? 'm').toLowerCase();
-    final dur = switch (unit) {
-      'h' => Duration(hours: n),
-      'd' => Duration(days: n),
-      _ => Duration(minutes: n),
-    };
-    return DateTime.now().add(dur);
-  }
-  // HH:MM today (roll to tomorrow if already past).
-  final hm = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t);
-  if (hm != null) {
-    final h = int.parse(hm.group(1)!);
-    final m = int.parse(hm.group(2)!);
-    final now = DateTime.now();
-    var when = DateTime(now.year, now.month, now.day, h, m);
-    if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
-    return when;
-  }
-  // Full ISO timestamp.
-  return DateTime.tryParse(t);
-}
-
 /// Short Thai phrasing of when the reminder fires, for the feedback line.
 String _whenLabel(DateTime when, bool daily) {
-  if (daily) return 'ทุกวันเวลา ${_hhmm(when)} น.';
+  if (daily) return 'ทุกวันเวลา ${hhmm(when)} น.';
   final now = DateTime.now();
   final sameDay =
       when.year == now.year && when.month == now.month && when.day == now.day;
-  if (sameDay) return 'วันนี้ ${_hhmm(when)} น.';
+  if (sameDay) return 'วันนี้ ${hhmm(when)} น.';
   return '${when.year}-${when.month.toString().padLeft(2, '0')}-'
-      '${when.day.toString().padLeft(2, '0')} ${_hhmm(when)} น.';
+      '${when.day.toString().padLeft(2, '0')} ${hhmm(when)} น.';
 }
 
 /// Build a reminder/job, persist it to room state + schedule the OS notification.
@@ -79,7 +44,7 @@ Future<(bool, String)> _scheduleEntry(
   if (text.isEmpty) return (false, 'ขอข้อความที่จะเตือนด้วยนะ');
   final repeat = '${args['repeat'] ?? 'once'}' == 'daily' ? 'daily' : 'once';
   final rawTime = '${args['time'] ?? ''}'.trim();
-  final when = rawTime.isEmpty ? null : _parseWhen(rawTime);
+  final when = rawTime.isEmpty ? null : parseWhen(rawTime);
   if (when == null) {
     return (false,
         'อ่านเวลาไม่ออก ลองบอกเป็น "HH:MM", "+30m" หรือวันเวลาแบบ ISO นะ');
@@ -91,7 +56,7 @@ Future<(bool, String)> _scheduleEntry(
   await store.load();
   final saved = await store.addReminder({
     'id': id,
-    'time': _hhmm(when),
+    'time': hhmm(when),
     'text': text,
     'repeat': repeat,
     'kind': kind,
@@ -146,14 +111,15 @@ Future<String?> _room() => MatrixService.instance.pinRoomId();
 /// pinging the chat only when it's actually worth the user's attention. (The
 /// job runner drops an empty reply, so "no message" = no interruption.)
 String _watchPrompt(String id, String topic) =>
-    'นี่คืองานเฝ้าติดตามหัวข้อ "$topic" (watch id: $id). ทำตามนี้:\n'
-    '1) ค้นข้อมูล/ข่าวล่าสุดเรื่องนี้ (เช่น web_search หรือเครื่องมือข่าว).\n'
-    '2) recall_knowledge ด้วยคำค้น "watch $topic" เพื่อดูว่ารอบก่อนเจออะไรไปแล้ว.\n'
-    '3) ถ้า "ไม่มีอะไรใหม่" เทียบกับที่จำไว้ — อย่าตอบอะไรเลย (เงียบ) แล้วจบงาน.\n'
-    '4) ถ้ามีเรื่องใหม่จริง: เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ") '
-    'และ save_knowledge หัวข้อ "watch $topic" เก็บสิ่งที่เจอกันซ้ำรอบหน้า.\n'
-    '5) เฉพาะเรื่องที่ "สำคัญพอจะรบกวน" เท่านั้น ค่อยตอบผู้ใช้สั้น ๆ เป็นข่าว '
-    '(คำเรียกผู้ใช้ตามเปอร์โซนา). ถ้าใหม่แต่ไม่ด่วน อัปเดต watch อย่างเดียว ไม่ต้องตอบ.';
+    'นี่คืองานเฝ้าติดตามหัวข้อ "$topic" (watch id: $id). ทำตามนี้ตามลำดับ:\n'
+    '1) เรียก web_search ด้วย query="$topic ล่าสุด" เพื่อหาข่าว/ข้อมูลล่าสุดของหัวข้อนี้ '
+    '(query ต้องมีคำว่า "$topic" เสมอ ห้ามค้นกว้าง ๆ).\n'
+    '2) เรียก recall_knowledge ด้วยคำค้น "watch $topic" เพื่อดูว่ารอบก่อนรู้อะไรไปแล้ว.\n'
+    '3) ถ้าเจอเรื่องใหม่ (ไม่ซ้ำกับที่จำไว้ — รอบแรกถือว่าใหม่ทั้งหมด): '
+    'เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ") + save_knowledge หัวข้อ "watch $topic" '
+    'เก็บสิ่งที่เจอกันซ้ำรอบหน้า + **ตอบผู้ใช้สั้น ๆ เป็นข่าวของ "$topic"** '
+    '(คำเรียกผู้ใช้ตามเปอร์โซนา).\n'
+    '4) เฉพาะกรณี "ไม่มีอะไรใหม่เลยจริง ๆ" เทียบกับที่จำไว้ — เงียบ ไม่ต้องตอบ แล้วจบงาน.';
 
 /// A confirmation card for things that land in the "ตอนนี้" drawer. Its footer
 /// is tappable → `open:now`, which the chat scaffold turns into openDrawer().
@@ -530,15 +496,15 @@ List<AgentTool> nowTools() => [
 
           // The checker = a daily agentic job (id == watch id) whose prompt tells
           // ปิ่น to look, compare with memory, and speak only on something new.
-          final when = _parseWhen('${args['time'] ?? ''}'.trim().isEmpty
+          final when = parseWhen('${args['time'] ?? ''}'.trim().isEmpty
                   ? '09:00'
                   : '${args['time']}') ??
-              _parseWhen('09:00')!;
+              parseWhen('09:00')!;
           final store = AgentStore();
           await store.load();
           await store.addReminder({
             'id': id,
-            'time': _hhmm(when),
+            'time': hhmm(when),
             'text': _watchPrompt(id, topic),
             'repeat': 'daily',
             'kind': 'agentic',
