@@ -95,7 +95,11 @@ class PushService {
 Future<void> fcmBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
-    await RustLib.init();
+    // Cold isolate needs the Rust lib; but if the app process is still warm the
+    // dylib is already loaded → a second init throws. Guard so both paths work.
+    try {
+      await RustLib.init();
+    } catch (_) {/* already initialized in this process */}
     await PrefsController.instance.load();
     if (!await MatrixService.instance.tryRestore()) return;
     final rid = await MatrixService.instance.pinRoomId();
