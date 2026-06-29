@@ -15,6 +15,7 @@ import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
 import '../widgets/pin_toast.dart';
 import '../widgets/recovery_qr.dart';
+import 'welcome_screen.dart';
 
 /// Onboarding. New users (signup=true): welcome → naming → theme → SIGNUP →
 /// recovery key → ready (account created mid-flow, before recovery which needs
@@ -458,6 +459,16 @@ class _RecoveryStepState extends State<_RecoveryStep> {
     }
   }
 
+  Future<void> _logout() async {
+    setState(() => _restoring = true);
+    await MatrixService.instance.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -573,6 +584,14 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                             if (mounted) setState(() => _error = '$e');
                           }
                         },
+                ),
+                const SizedBox(height: 4),
+                // Escape hatch: a user with no recovery key who doesn't want to
+                // start fresh can still log out (e.g. to sign in to a different
+                // account) instead of being trapped on this step.
+                PinButton.text(
+                  'ออกจากระบบ',
+                  onTap: _restoring ? null : _logout,
                 ),
               ],
             )
