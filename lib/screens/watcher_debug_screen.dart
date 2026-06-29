@@ -82,6 +82,31 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
     }
   }
 
+  Future<void> _testPush() async {
+    final tok = PushService.instance.deviceToken;
+    if (tok == null) {
+      if (mounted) PinToast.show(context, 'ยังไม่มี push token');
+      return;
+    }
+    try {
+      // Register a one-shot wake due now → the server poller (≤30s) sends an
+      // APNs/FCM wake to THIS device. Proves the whole push chain end-to-end,
+      // independent of watch creation/dedup.
+      await devProxy().scheduleRegister(
+        jobId: 'pushtest',
+        nextDue: DateTime.now().millisecondsSinceEpoch / 1000 - 60,
+        repeat: 'once',
+        device: tok,
+        platform: PushService.instance.platform,
+      );
+      if (mounted) {
+        PinToast.show(context, 'ลงทะเบียน wake แล้ว — เครื่องจะถูกปลุกใน ~30 วิ');
+      }
+    } catch (e) {
+      if (mounted) PinToast.show(context, 'ทดสอบไม่สำเร็จ: $e');
+    }
+  }
+
   static String _fmt(num? ms) {
     if (ms == null || ms == 0) return 'ยังไม่เคย';
     final t = DateTime.fromMillisecondsSinceEpoch(ms.toInt());
@@ -172,6 +197,18 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
                     const Text(
                       'รันงานเฝ้าที่ถึงเวลาบนเครื่องทันที (ไม่ต้องรอเวลาตั้ง) '
                       'แล้วดูว่าโพสต์ในแชตไหม.',
+                      style: TextStyle(fontSize: 12, color: PinPalette.ink3),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _testPush,
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      label: const Text('ทดสอบ server push (ปลุกเครื่อง)'),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'ลงทะเบียน wake ครบกำหนดทันทีที่ server → เครื่องถูกปลุกผ่าน '
+                      'FCM/APNs ใน ~30 วิ (พิสูจน์ push chain).',
                       style: TextStyle(fontSize: 12, color: PinPalette.ink3),
                     ),
                   ],
