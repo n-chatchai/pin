@@ -436,6 +436,16 @@ pub fn get_state(
 /// [`ChatMessage`] with `role` (which session saw it). Shared by the user and
 /// pin sync starts so both stream into the one [`MSG_SINK`].
 fn register_handlers(client: &Client, role: String) {
+    // Incoming device-verification requests (SAS). Only the human account
+    // verifies its own other devices, so register on the user client only.
+    if role == USER_ROLE {
+        use matrix_sdk::ruma::events::key::verification::request::ToDeviceKeyVerificationRequestEvent;
+        client.add_event_handler(|ev: ToDeviceKeyVerificationRequestEvent| async move {
+            *PENDING_VERIFY.lock().unwrap() =
+                Some((ev.sender.to_string(), ev.content.transaction_id.to_string()));
+        });
+    }
+
     // Messages (text + media + flex), with reply relation. Uses Raw so we can
     // read the custom `io.tokens2.*` keys from the (decrypted) content.
     let r = role.clone();
@@ -1484,6 +1494,240 @@ pub fn account_data_put(role: String, name: String, value: String) -> Result<(),
         let req = set_global_account_data::v3::Request::new_raw(uid, name.into(), raw);
         client.send(req).await.map_err(|e| e.to_string())?;
         Ok(())
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Interactive device verification (SAS / emoji)
+//
+// Lets a NEW device of the SAME user verify against an OLD device still logged
+// in: both compare 7 emoji, confirm, cross-sign. Once verified, the old device
+// auto-forwards room keys (automatic-room-key-forwarding is on) so encrypted
+// history decrypts WITHOUT the recovery key. Drives the SAS state machine in
+// Rust and exposes a single `verification_tick` the Dart UI polls.
+// ---------------------------------------------------------------------------
+
+use matrix_sdk::encryption::verification::Verification;
+
+/// An incoming verification request seen on this device (sender, flow id),
+/// stashed by the to-device handler for Dart to pick up.
+static PENDING_VERIFY: Lazy<Mutex<Option<(String, String)>>> =
+    Lazy::new(|| Mutex::new(None));
+/// Flow ids where we've already kicked off / accepted the SAS, so `tick` does
+/// each transition exactly once (the calls aren't idempotent).
+static SAS_STARTED: Lazy<Mutex<std::collections::HashSet<String>>> =
+    Lazy::new(|| Mutex::new(std::collections::HashSet::new()));
+static SAS_ACCEPTED: Lazy<Mutex<std::collections::HashSet<String>>> =
+    Lazy::new(|| Mutex::new(std::collections::HashSet::new()));
+
+fn clear_sas_flags(flow_id: &str) {
+    SAS_STARTED.lock().unwrap().remove(flow_id);
+    SAS_ACCEPTED.lock().unwrap().remove(flow_id);
+}
+
+pub struct IncomingVerification {
+    pub sender: String,
+    pub flow_id: String,
+}
+
+pub struct SasEmoji {
+    pub symbol: String,
+    pub description: String,
+}
+
+/// One poll of the verification flow. `state`: "requested" | "ready" | "sas" |
+/// "done" | "cancelled" | "none". `emoji` is Some(7) once both sides can show it.
+pub struct VerificationTick {
+    pub state: String,
+    pub emoji: Option<Vec<SasEmoji>>,
+    pub done: bool,
+    pub cancelled: bool,
+}
+
+/// Start a self-verification: broadcasts a request to the user's other devices.
+/// Returns the flow id used by every later call. Needs cross-signing set up.
+pub fn verification_request_self() -> Result<String, String> {
+    block(async {
+        let client = current_client().await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+        let identity = client
+            .encryption()
+            .get_user_identity(&uid)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or("ยังไม่มี cross-signing identity")?;
+        let req = identity
+            .request_verification()
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(req.flow_id().to_string())
+    })
+}
+
+/// Pick up an incoming verification request (the other device started it).
+/// Returns it once and clears it.
+pub fn verification_poll_incoming() -> Option<IncomingVerification> {
+    PENDING_VERIFY
+        .lock()
+        .unwrap()
+        .take()
+        .map(|(sender, flow_id)| IncomingVerification { sender, flow_id })
+}
+
+/// Accept an incoming verification request (the receiving side).
+pub fn verification_accept(flow_id: String) -> Result<(), String> {
+    block(async move {
+        let client = current_client().await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+        let req = client
+            .encryption()
+            .get_verification_request(&uid, &flow_id)
+            .await
+            .ok_or("ไม่พบคำขอยืนยัน")?;
+        req.accept().await.map_err(|e| e.to_string())
+    })
+}
+
+/// Confirm that the 7 emoji match on both devices → completes the SAS.
+pub fn verification_confirm(flow_id: String) -> Result<(), String> {
+    block(async move {
+        let client = current_client().await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+        match client.encryption().get_verification(&uid, &flow_id).await {
+            Some(Verification::SasV1(sas)) => {
+                sas.confirm().await.map_err(|e| e.to_string())
+            }
+            _ => Err("ยังไม่ถึงขั้นเทียบ emoji".into()),
+        }
+    })
+}
+
+/// Cancel the flow from this side.
+pub fn verification_cancel(flow_id: String) -> Result<(), String> {
+    clear_sas_flags(&flow_id);
+    block(async move {
+        let client = current_client().await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+        if let Some(v) = client.encryption().get_verification(&uid, &flow_id).await {
+            if let Verification::SasV1(sas) = v {
+                let _ = sas.cancel().await;
+            }
+        }
+        if let Some(req) = client
+            .encryption()
+            .get_verification_request(&uid, &flow_id)
+            .await
+        {
+            let _ = req.cancel().await;
+        }
+        Ok(())
+    })
+}
+
+/// Advance + report the flow. Auto-transitions: the side that did NOT start the
+/// request starts the SAS (single starter); the other side accepts it. Dart
+/// polls this every ~1s and renders by `state`/`emoji`.
+pub fn verification_tick(flow_id: String) -> Result<VerificationTick, String> {
+    block(async move {
+        let client = current_client().await?;
+        let uid = client.user_id().ok_or("not logged in")?.to_owned();
+
+        // SAS exists → drive emoji / accept / done.
+        if let Some(Verification::SasV1(sas)) =
+            client.encryption().get_verification(&uid, &flow_id).await
+        {
+            if sas.is_cancelled() {
+                clear_sas_flags(&flow_id);
+                return Ok(VerificationTick {
+                    state: "cancelled".into(),
+                    emoji: None,
+                    done: false,
+                    cancelled: true,
+                });
+            }
+            if sas.is_done() {
+                clear_sas_flags(&flow_id);
+                return Ok(VerificationTick {
+                    state: "done".into(),
+                    emoji: None,
+                    done: true,
+                    cancelled: false,
+                });
+            }
+            // The side that didn't start the SAS must accept it once.
+            if !sas.we_started() && !SAS_ACCEPTED.lock().unwrap().contains(&flow_id) {
+                SAS_ACCEPTED.lock().unwrap().insert(flow_id.clone());
+                let _ = sas.accept().await;
+            }
+            let emoji = sas.emoji().map(|arr| {
+                arr.iter()
+                    .map(|e| SasEmoji {
+                        symbol: e.symbol.to_string(),
+                        description: e.description.to_string(),
+                    })
+                    .collect()
+            });
+            return Ok(VerificationTick {
+                state: "sas".into(),
+                emoji,
+                done: false,
+                cancelled: false,
+            });
+        }
+
+        // No SAS yet → look at the request.
+        match client
+            .encryption()
+            .get_verification_request(&uid, &flow_id)
+            .await
+        {
+            Some(req) => {
+                if req.is_cancelled() {
+                    clear_sas_flags(&flow_id);
+                    return Ok(VerificationTick {
+                        state: "cancelled".into(),
+                        emoji: None,
+                        done: false,
+                        cancelled: true,
+                    });
+                }
+                if req.is_done() {
+                    return Ok(VerificationTick {
+                        state: "done".into(),
+                        emoji: None,
+                        done: true,
+                        cancelled: false,
+                    });
+                }
+                if req.is_ready() {
+                    // Single starter: the side that didn't initiate the request
+                    // starts the SAS; the initiator will accept it next tick.
+                    if !req.we_started() && !SAS_STARTED.lock().unwrap().contains(&flow_id)
+                    {
+                        SAS_STARTED.lock().unwrap().insert(flow_id.clone());
+                        let _ = req.start_sas().await;
+                    }
+                    return Ok(VerificationTick {
+                        state: "ready".into(),
+                        emoji: None,
+                        done: false,
+                        cancelled: false,
+                    });
+                }
+                Ok(VerificationTick {
+                    state: "requested".into(),
+                    emoji: None,
+                    done: false,
+                    cancelled: false,
+                })
+            }
+            None => Ok(VerificationTick {
+                state: "none".into(),
+                emoji: None,
+                done: false,
+                cancelled: false,
+            }),
+        }
     })
 }
 

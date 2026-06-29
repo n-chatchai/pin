@@ -39,6 +39,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  IncomingVerification dco_decode_box_autoadd_incoming_verification(
+    dynamic raw,
+  );
+
+  @protected
   ChatMessage dco_decode_chat_message(dynamic raw);
 
   @protected
@@ -46,6 +51,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double dco_decode_f_32(dynamic raw);
+
+  @protected
+  IncomingVerification dco_decode_incoming_verification(dynamic raw);
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
@@ -66,10 +74,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RoomSummary> dco_decode_list_room_summary(dynamic raw);
 
   @protected
+  List<SasEmoji> dco_decode_list_sas_emoji(dynamic raw);
+
+  @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  IncomingVerification? dco_decode_opt_box_autoadd_incoming_verification(
+    dynamic raw,
+  );
+
+  @protected
+  List<SasEmoji>? dco_decode_opt_list_sas_emoji(dynamic raw);
+
+  @protected
   RoomSummary dco_decode_room_summary(dynamic raw);
+
+  @protected
+  SasEmoji dco_decode_sas_emoji(dynamic raw);
 
   @protected
   Session dco_decode_session(dynamic raw);
@@ -88,6 +110,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
+
+  @protected
+  VerificationTick dco_decode_verification_tick(dynamic raw);
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
@@ -109,6 +134,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  IncomingVerification sse_decode_box_autoadd_incoming_verification(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ChatMessage sse_decode_chat_message(SseDeserializer deserializer);
 
   @protected
@@ -116,6 +146,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_f_32(SseDeserializer deserializer);
+
+  @protected
+  IncomingVerification sse_decode_incoming_verification(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
@@ -136,10 +171,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RoomSummary> sse_decode_list_room_summary(SseDeserializer deserializer);
 
   @protected
+  List<SasEmoji> sse_decode_list_sas_emoji(SseDeserializer deserializer);
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  IncomingVerification? sse_decode_opt_box_autoadd_incoming_verification(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SasEmoji>? sse_decode_opt_list_sas_emoji(SseDeserializer deserializer);
+
+  @protected
   RoomSummary sse_decode_room_summary(SseDeserializer deserializer);
+
+  @protected
+  SasEmoji sse_decode_sas_emoji(SseDeserializer deserializer);
 
   @protected
   Session sse_decode_session(SseDeserializer deserializer);
@@ -158,6 +207,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  VerificationTick sse_decode_verification_tick(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -187,6 +239,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_incoming_verification(
+    IncomingVerification self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_chat_message(ChatMessage self, SseSerializer serializer);
 
   @protected
@@ -194,6 +252,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_incoming_verification(
+    IncomingVerification self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
@@ -226,10 +290,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_sas_emoji(List<SasEmoji> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_incoming_verification(
+    IncomingVerification? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_sas_emoji(
+    List<SasEmoji>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_room_summary(RoomSummary self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sas_emoji(SasEmoji self, SseSerializer serializer);
 
   @protected
   void sse_encode_session(Session self, SseSerializer serializer);
@@ -248,6 +330,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_verification_tick(
+    VerificationTick self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);

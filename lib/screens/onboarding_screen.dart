@@ -15,6 +15,7 @@ import '../widgets/pin_button.dart';
 import '../widgets/pin_field.dart';
 import '../widgets/pin_toast.dart';
 import '../widgets/recovery_qr.dart';
+import 'device_verify_screen.dart';
 import 'welcome_screen.dart';
 
 /// Onboarding. New users (signup=true): welcome → naming → theme → SIGNUP →
@@ -544,6 +545,16 @@ class _RecoveryStepState extends State<_RecoveryStep> {
                   busy: _restoring,
                   onTap:
                       _restoreCtl.text.trim().isEmpty ? null : _restore,
+                ),
+                const SizedBox(height: 4),
+                // No key, but an old device is still logged in → verify against
+                // it to unlock old chats without the recovery key.
+                PinButton.text(
+                  'มีอุปกรณ์เก่า? ยืนยันเพื่อปลดล็อก',
+                  onTap: _restoring
+                      ? null
+                      : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => const DeviceVerifyScreen())),
                 ),
                 const SizedBox(height: 4),
                 PinButton.text(

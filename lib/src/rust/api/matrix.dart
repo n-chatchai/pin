@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `block`, `build_client`, `client_for`, `current_client`, `emit`, `map_timeline_to_chat`, `register_handlers`, `room_by_id_role`, `room_by_id`, `source_url`, `spawn_sync_loop`, `stop_sync`
+// These functions are ignored because they are not marked as `pub`: `block`, `build_client`, `clear_sas_flags`, `client_for`, `current_client`, `emit`, `map_timeline_to_chat`, `register_handlers`, `room_by_id_role`, `room_by_id`, `source_url`, `spawn_sync_loop`, `stop_sync`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`
 
 /// Whether `room_id` is present in the user client's local store (no network).
@@ -382,6 +382,34 @@ Future<void> accountDataPut({
   value: value,
 );
 
+/// Start a self-verification: broadcasts a request to the user's other devices.
+/// Returns the flow id used by every later call. Needs cross-signing set up.
+Future<String> verificationRequestSelf() =>
+    RustLib.instance.api.crateApiMatrixVerificationRequestSelf();
+
+/// Pick up an incoming verification request (the other device started it).
+/// Returns it once and clears it.
+Future<IncomingVerification?> verificationPollIncoming() =>
+    RustLib.instance.api.crateApiMatrixVerificationPollIncoming();
+
+/// Accept an incoming verification request (the receiving side).
+Future<void> verificationAccept({required String flowId}) =>
+    RustLib.instance.api.crateApiMatrixVerificationAccept(flowId: flowId);
+
+/// Confirm that the 7 emoji match on both devices → completes the SAS.
+Future<void> verificationConfirm({required String flowId}) =>
+    RustLib.instance.api.crateApiMatrixVerificationConfirm(flowId: flowId);
+
+/// Cancel the flow from this side.
+Future<void> verificationCancel({required String flowId}) =>
+    RustLib.instance.api.crateApiMatrixVerificationCancel(flowId: flowId);
+
+/// Advance + report the flow. Auto-transitions: the side that did NOT start the
+/// request starts the SAS (single starter); the other side accepts it. Dart
+/// polls this every ~1s and renders by `state`/`emoji`.
+Future<VerificationTick> verificationTick({required String flowId}) =>
+    RustLib.instance.api.crateApiMatrixVerificationTick(flowId: flowId);
+
 /// Log out a single role's session ("user" | "pin") and wipe its store. Dart
 /// calls this once per role on full logout.
 Future<void> logout({required String role, required String dbPath}) =>
@@ -520,6 +548,24 @@ class E2eeStatus {
           deviceVerified == other.deviceVerified;
 }
 
+class IncomingVerification {
+  final String sender;
+  final String flowId;
+
+  const IncomingVerification({required this.sender, required this.flowId});
+
+  @override
+  int get hashCode => sender.hashCode ^ flowId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is IncomingVerification &&
+          runtimeType == other.runtimeType &&
+          sender == other.sender &&
+          flowId == other.flowId;
+}
+
 class RoomSummary {
   final String id;
   final String name;
@@ -542,6 +588,24 @@ class RoomSummary {
           id == other.id &&
           name == other.name &&
           isEncrypted == other.isEncrypted;
+}
+
+class SasEmoji {
+  final String symbol;
+  final String description;
+
+  const SasEmoji({required this.symbol, required this.description});
+
+  @override
+  int get hashCode => symbol.hashCode ^ description.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SasEmoji &&
+          runtimeType == other.runtimeType &&
+          symbol == other.symbol &&
+          description == other.description;
 }
 
 class Session {
@@ -595,4 +659,34 @@ class TimelinePage {
           runtimeType == other.runtimeType &&
           endToken == other.endToken &&
           messages == other.messages;
+}
+
+/// One poll of the verification flow. `state`: "requested" | "ready" | "sas" |
+/// "done" | "cancelled" | "none". `emoji` is Some(7) once both sides can show it.
+class VerificationTick {
+  final String state;
+  final List<SasEmoji>? emoji;
+  final bool done;
+  final bool cancelled;
+
+  const VerificationTick({
+    required this.state,
+    this.emoji,
+    required this.done,
+    required this.cancelled,
+  });
+
+  @override
+  int get hashCode =>
+      state.hashCode ^ emoji.hashCode ^ done.hashCode ^ cancelled.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VerificationTick &&
+          runtimeType == other.runtimeType &&
+          state == other.state &&
+          emoji == other.emoji &&
+          done == other.done &&
+          cancelled == other.cancelled;
 }

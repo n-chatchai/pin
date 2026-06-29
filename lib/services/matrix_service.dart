@@ -314,6 +314,21 @@ class MatrixService {
     }
   }
 
+  // --- Interactive device verification (SAS / emoji) ---------------------
+  /// Start a self-verification → returns the flow id to drive with [verificationTick].
+  Future<String> verificationRequestSelf() => rust.verificationRequestSelf();
+  /// Pick up an incoming verification request (the other device started it).
+  Future<rust.IncomingVerification?> verificationPollIncoming() =>
+      rust.verificationPollIncoming();
+  Future<void> verificationAccept(String flowId) =>
+      rust.verificationAccept(flowId: flowId);
+  Future<void> verificationConfirm(String flowId) =>
+      rust.verificationConfirm(flowId: flowId);
+  Future<void> verificationCancel(String flowId) =>
+      rust.verificationCancel(flowId: flowId);
+  Future<rust.VerificationTick> verificationTick(String flowId) =>
+      rust.verificationTick(flowId: flowId);
+
   /// Enable E2EE key backup/recovery; returns the recovery key to save.
   /// "enabled" | "disabled" | "incomplete" | "unknown" — is key backup already
   /// set up for this account (returning user should restore, not re-create).

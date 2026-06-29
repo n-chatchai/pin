@@ -26,6 +26,7 @@ import 'abilities_screen.dart';
 import 'openrouter_screen.dart';
 import '../services/ai_settings.dart';
 import 'device_data_screen.dart';
+import 'device_verify_screen.dart';
 import 'usage_screen.dart';
 import 'local_chat_screen.dart' show debugForcePersonaSetup;
 import 'personality_screen.dart';
@@ -667,6 +668,14 @@ class _E2eeDebugState extends State<_E2eeDebug> {
             'ดู/ล้าง ความจำ · ประวัติ · ความรู้ · การตั้งค่า',
             nav: true,
             onTap: () => push(const DeviceDataScreen()),
+          ),
+          _div(),
+          _tile(
+            PhosphorIconsRegular.devices,
+            'ยืนยันอุปกรณ์',
+            'เทียบ emoji กับอีกเครื่องที่ล็อกอินอยู่ → ปลดล็อกแชตเก่าโดยไม่ใช้กุญแจ',
+            nav: true,
+            onTap: () => push(const DeviceVerifyScreen()),
           ),
           _div(),
           _tile(

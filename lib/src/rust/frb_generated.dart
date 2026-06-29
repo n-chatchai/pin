@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 2051019846;
+  int get rustContentHash => 1816865888;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -266,6 +266,20 @@ abstract class RustLibApi extends BaseApi {
   Stream<ChatMessage> crateApiMatrixStartSync();
 
   Future<void> crateApiMatrixStartSyncRole({required String role});
+
+  Future<void> crateApiMatrixVerificationAccept({required String flowId});
+
+  Future<void> crateApiMatrixVerificationCancel({required String flowId});
+
+  Future<void> crateApiMatrixVerificationConfirm({required String flowId});
+
+  Future<IncomingVerification?> crateApiMatrixVerificationPollIncoming();
+
+  Future<String> crateApiMatrixVerificationRequestSelf();
+
+  Future<VerificationTick> crateApiMatrixVerificationTick({
+    required String flowId,
+  });
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -1728,6 +1742,186 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiMatrixStartSyncRoleConstMeta =>
       const TaskConstMeta(debugName: "start_sync_role", argNames: ["role"]);
 
+  @override
+  Future<void> crateApiMatrixVerificationAccept({required String flowId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(flowId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 46,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiMatrixVerificationAcceptConstMeta,
+        argValues: [flowId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixVerificationAcceptConstMeta =>
+      const TaskConstMeta(
+        debugName: "verification_accept",
+        argNames: ["flowId"],
+      );
+
+  @override
+  Future<void> crateApiMatrixVerificationCancel({required String flowId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(flowId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 47,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiMatrixVerificationCancelConstMeta,
+        argValues: [flowId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixVerificationCancelConstMeta =>
+      const TaskConstMeta(
+        debugName: "verification_cancel",
+        argNames: ["flowId"],
+      );
+
+  @override
+  Future<void> crateApiMatrixVerificationConfirm({required String flowId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(flowId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 48,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiMatrixVerificationConfirmConstMeta,
+        argValues: [flowId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixVerificationConfirmConstMeta =>
+      const TaskConstMeta(
+        debugName: "verification_confirm",
+        argNames: ["flowId"],
+      );
+
+  @override
+  Future<IncomingVerification?> crateApiMatrixVerificationPollIncoming() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 49,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_incoming_verification,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMatrixVerificationPollIncomingConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixVerificationPollIncomingConstMeta =>
+      const TaskConstMeta(
+        debugName: "verification_poll_incoming",
+        argNames: [],
+      );
+
+  @override
+  Future<String> crateApiMatrixVerificationRequestSelf() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 50,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiMatrixVerificationRequestSelfConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixVerificationRequestSelfConstMeta =>
+      const TaskConstMeta(debugName: "verification_request_self", argNames: []);
+
+  @override
+  Future<VerificationTick> crateApiMatrixVerificationTick({
+    required String flowId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(flowId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 51,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_verification_tick,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiMatrixVerificationTickConstMeta,
+        argValues: [flowId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixVerificationTickConstMeta =>
+      const TaskConstMeta(debugName: "verification_tick", argNames: ["flowId"]);
+
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -1758,6 +1952,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
+  }
+
+  @protected
+  IncomingVerification dco_decode_box_autoadd_incoming_verification(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_incoming_verification(raw);
   }
 
   @protected
@@ -1807,6 +2009,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  IncomingVerification dco_decode_incoming_verification(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return IncomingVerification(
+      sender: dco_decode_String(arr[0]),
+      flowId: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
@@ -1843,9 +2057,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<SasEmoji> dco_decode_list_sas_emoji(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_sas_emoji).toList();
+  }
+
+  @protected
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  IncomingVerification? dco_decode_opt_box_autoadd_incoming_verification(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_incoming_verification(raw);
+  }
+
+  @protected
+  List<SasEmoji>? dco_decode_opt_list_sas_emoji(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_sas_emoji(raw);
   }
 
   @protected
@@ -1858,6 +2094,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       id: dco_decode_String(arr[0]),
       name: dco_decode_String(arr[1]),
       isEncrypted: dco_decode_bool(arr[2]),
+    );
+  }
+
+  @protected
+  SasEmoji dco_decode_sas_emoji(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return SasEmoji(
+      symbol: dco_decode_String(arr[0]),
+      description: dco_decode_String(arr[1]),
     );
   }
 
@@ -1912,6 +2160,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  VerificationTick dco_decode_verification_tick(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return VerificationTick(
+      state: dco_decode_String(arr[0]),
+      emoji: dco_decode_opt_list_sas_emoji(arr[1]),
+      done: dco_decode_bool(arr[2]),
+      cancelled: dco_decode_bool(arr[3]),
+    );
+  }
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_String(deserializer);
@@ -1945,6 +2207,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  IncomingVerification sse_decode_box_autoadd_incoming_verification(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_incoming_verification(deserializer));
   }
 
   @protected
@@ -2008,6 +2278,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  IncomingVerification sse_decode_incoming_verification(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_sender = sse_decode_String(deserializer);
+    var var_flowId = sse_decode_String(deserializer);
+    return IncomingVerification(sender: var_sender, flowId: var_flowId);
+  }
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -2065,11 +2345,47 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<SasEmoji> sse_decode_list_sas_emoji(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <SasEmoji>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_sas_emoji(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  IncomingVerification? sse_decode_opt_box_autoadd_incoming_verification(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_incoming_verification(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  List<SasEmoji>? sse_decode_opt_list_sas_emoji(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_sas_emoji(deserializer));
     } else {
       return null;
     }
@@ -2086,6 +2402,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       name: var_name,
       isEncrypted: var_isEncrypted,
     );
+  }
+
+  @protected
+  SasEmoji sse_decode_sas_emoji(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_symbol = sse_decode_String(deserializer);
+    var var_description = sse_decode_String(deserializer);
+    return SasEmoji(symbol: var_symbol, description: var_description);
   }
 
   @protected
@@ -2132,6 +2456,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_decode_unit(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  VerificationTick sse_decode_verification_tick(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_state = sse_decode_String(deserializer);
+    var var_emoji = sse_decode_opt_list_sas_emoji(deserializer);
+    var var_done = sse_decode_bool(deserializer);
+    var var_cancelled = sse_decode_bool(deserializer);
+    return VerificationTick(
+      state: var_state,
+      emoji: var_emoji,
+      done: var_done,
+      cancelled: var_cancelled,
+    );
   }
 
   @protected
@@ -2196,6 +2535,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_incoming_verification(
+    IncomingVerification self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_incoming_verification(self, serializer);
+  }
+
+  @protected
   void sse_encode_chat_message(ChatMessage self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.roomId, serializer);
@@ -2229,6 +2577,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
+  }
+
+  @protected
+  void sse_encode_incoming_verification(
+    IncomingVerification self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.sender, serializer);
+    sse_encode_String(self.flowId, serializer);
   }
 
   @protected
@@ -2297,6 +2655,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_sas_emoji(
+    List<SasEmoji> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_sas_emoji(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -2307,11 +2677,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_incoming_verification(
+    IncomingVerification? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_incoming_verification(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_list_sas_emoji(
+    List<SasEmoji>? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_sas_emoji(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_room_summary(RoomSummary self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
     sse_encode_String(self.name, serializer);
     sse_encode_bool(self.isEncrypted, serializer);
+  }
+
+  @protected
+  void sse_encode_sas_emoji(SasEmoji self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.symbol, serializer);
+    sse_encode_String(self.description, serializer);
   }
 
   @protected
@@ -2351,6 +2754,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  void sse_encode_verification_tick(
+    VerificationTick self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.state, serializer);
+    sse_encode_opt_list_sas_emoji(self.emoji, serializer);
+    sse_encode_bool(self.done, serializer);
+    sse_encode_bool(self.cancelled, serializer);
   }
 
   @protected
