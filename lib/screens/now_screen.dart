@@ -106,10 +106,20 @@ class NowView extends StatelessWidget {
               children: [
                 Text(_greet(), style: _serif(27)),
                 const SizedBox(height: 7),
-                Text(_summary(overdue.length, timedCount),
-                    style: const TextStyle(
-                        fontSize: 14, color: _ink2, height: 1.5)),
-                const SizedBox(height: 20),
+                if (overdue.isEmpty &&
+                    pending.isEmpty &&
+                    timedCount == 0 &&
+                    watches.isEmpty) ...[
+                  const SizedBox(height: 28),
+                  _emptyState(PhosphorIconsRegular.coffee,
+                      'วันนี้โล่ง ๆ ไม่มีอะไรด่วน', 'พักได้เลย'),
+                  const SizedBox(height: 28),
+                ] else ...[
+                  Text(_summary(overdue.length, timedCount),
+                      style: const TextStyle(
+                          fontSize: 14, color: _ink2, height: 1.5)),
+                  const SizedBox(height: 20),
+                ],
                 _menuCard([
                   _menuRow(
                     icon: PhosphorIconsRegular.calendarCheck,
@@ -693,6 +703,15 @@ Widget _swipeBg() => Container(
       child: const Icon(PhosphorIconsRegular.trash, size: 18, color: PinPalette.neg),
     );
 
+/// Explicit per-item delete (alongside swipe) so it's obvious things can go.
+Widget _delBtn(VoidCallback onTap) => IconButton(
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      icon: const Icon(PhosphorIconsRegular.trash, size: 17, color: _ink3),
+    );
+
 Widget _listCard({required Widget child}) => Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(15),
@@ -805,6 +824,7 @@ class _DayScreen extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, color: _ink))),
             const Text('เตือน',
                 style: TextStyle(fontSize: 12, color: _ink3)),
+            _delBtn(() => _removeReminder(r.id)),
           ]),
         ),
       );
@@ -827,6 +847,9 @@ class _DayScreen extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, color: _ink))),
             if (e.remind)
               const Icon(PhosphorIconsRegular.bell, size: 15, color: _ink3),
+            _delBtn(() => _removeRoomItem('io.tokens2.events',
+                (m) => '${m['id']}' == e.id,
+                EventsController.instance.updateFromJson)),
           ]),
         ),
       );
@@ -854,6 +877,10 @@ class _DayScreen extends StatelessWidget {
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: t.overdue ? _neg : _ink3)),
+            _delBtn(() => _removeRoomItem(
+                'io.tokens2.tasks',
+                (m) => '${m['text']}' == t.text && '${m['group']}' == t.group,
+                TasksController.instance.updateFromJson)),
           ]),
         ),
       );
@@ -925,6 +952,7 @@ class _WatchScreen extends StatelessWidget {
                                         fontWeight: FontWeight.w700,
                                         color: accent)),
                               ),
+                            _delBtn(() => _removeWatch(w.id)),
                           ]),
                           if (w.lastSeen.isNotEmpty)
                             Padding(
