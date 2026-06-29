@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../services/matrix_service.dart';
 import 'api_log_screen.dart';
+import 'watcher_debug_screen.dart';
 import '../services/notification_service.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import '../services/prefs.dart';
@@ -168,6 +169,15 @@ class SettingsScreen extends StatelessWidget {
                 trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const ApiLogScreen())),
+              ),
+              ListTile(
+                leading: const Icon(PhosphorIconsRegular.binoculars),
+                title: const Text('ดีบัก Watcher'),
+                subtitle: const Text(
+                    'ดู watch + งานเฝ้า (รันล่าสุด/ถึงเวลา) + รันเดี๋ยวนี้'),
+                trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const WatcherDebugScreen())),
               ),
               // Merged into one card — was two separate boxes.
               _E2eeDebug(),
