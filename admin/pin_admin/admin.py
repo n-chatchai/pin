@@ -526,6 +526,8 @@ def tab_generic(tab: str, request: Request, admin: str = Depends(owner)):
                    " ORDER BY version DESC LIMIT 20",
         "logs": "SELECT ts,tool,kind,arg_keys,status FROM tool_logs"
                 " ORDER BY ts DESC LIMIT 50",
+        "waitlist": "SELECT email,use,source,created_at FROM waitlist"
+                    " ORDER BY created_at DESC LIMIT 500",
     }.get(tab)
     if q is None:
         raise HTTPException(404)
