@@ -74,3 +74,4 @@ admin.log
 client_secret_*.json
 assets/models/*.onnx
 *.p8
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
