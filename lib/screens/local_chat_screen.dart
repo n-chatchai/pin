@@ -18,6 +18,7 @@ import '../agent/agent_session.dart';
 import '../agent/agent_store.dart';
 import '../agent/agentic_job_service.dart';
 import '../agent/token_cost.dart';
+import 'device_verify_screen.dart';
 import '../services/android_job_alarm.dart';
 import '../services/pin_meta.dart';
 import '../agent/abilities.dart';
@@ -72,6 +73,10 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// locked it out of its account) — surfaces a persistent "เริ่ม ปิ่น ใหม่" CTA
   /// instead of silently degrading to a local-only chat.
   bool _companionLocked = false;
+  // This device isn't cross-signed but the account already has E2EE on the
+  // server → a returning user on a new/unverified device. Surface a CTA to
+  // verify against another logged-in device (unlocks old chats, no recovery key).
+  bool _verifyNeeded = false;
   int _seq = 0;
   int _personaStep = -1; // -1 = not in the in-chat onboarding (>=0 = active)
 
@@ -143,6 +148,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
       unawaited(_seedNowFromRoom(_roomId!));
     }
     if (mounted) setState(() => _loading = null);
+    unawaited(_checkVerifyNeeded());
     // First run (no history): conversational onboarding once (after the
     // account/room exist, so persona syncs to room state). A returning user with
     // an empty room just sees an empty chat and types — no static greeting.
@@ -1330,8 +1336,44 @@ class _LocalChatScreenState extends State<LocalChatScreen>
               ),
             ),
           ),
+        if (_verifyNeeded && _loading == null && !_companionLocked)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: _VerifyDeviceBanner(
+                  onVerify: _openVerify,
+                  onDismiss: () => setState(() => _verifyNeeded = false),
+                ),
+              ),
+            ),
+          ),
       ],
     );
+  }
+
+  /// Show the "ยืนยันอุปกรณ์นี้" CTA only for a returning account on an
+  /// unverified device: cross-signing not ready here, but a key backup exists on
+  /// the server (so another device/identity is out there to verify against).
+  Future<void> _checkVerifyNeeded() async {
+    try {
+      final st = await MatrixService.instance.e2eeStatus();
+      if (st.crossSigningReady) return;
+      final backup = await MatrixService.instance.backupExists();
+      if (mounted && backup) setState(() => _verifyNeeded = true);
+    } catch (_) {/* best-effort CTA */}
+  }
+
+  Future<void> _openVerify() async {
+    await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const DeviceVerifyScreen()));
+    if (!mounted) return;
+    // Re-check: a successful verify flips crossSigningReady → hide the banner.
+    setState(() => _verifyNeeded = false);
+    unawaited(_checkVerifyNeeded());
   }
 
   /// The companion is locked out of its account (recovery key rotated). Route to
@@ -1393,6 +1435,58 @@ class _CompanionLockedBanner extends StatelessWidget {
               onPressed: onStartNew,
               child: const Text('เริ่ม ปิ่น ใหม่',
                   style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// CTA for a returning user on an unverified device: verify against another
+/// logged-in device to unlock old encrypted chats (no recovery key). Dismissible.
+class _VerifyDeviceBanner extends StatelessWidget {
+  const _VerifyDeviceBanner({required this.onVerify, required this.onDismiss});
+  final VoidCallback onVerify;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'อุปกรณ์นี้ยังไม่ยืนยัน — ยืนยันกับอีกเครื่องเพื่อดึงแชตเก่ากลับมา',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onPrimaryContainer),
+              ),
+            ),
+            TextButton(
+              onPressed: onVerify,
+              child: const Text('ยืนยัน',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            IconButton(
+              icon: Icon(Icons.close, size: 18, color: scheme.onPrimaryContainer),
+              onPressed: onDismiss,
             ),
           ],
         ),
