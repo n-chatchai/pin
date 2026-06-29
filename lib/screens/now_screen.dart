@@ -113,13 +113,45 @@ class NowView extends StatelessWidget {
                 Text(_summary(overdue.length, timedCount),
                     style: const TextStyle(
                         fontSize: 14, color: _ink2, height: 1.5)),
-                const SizedBox(height: 22),
-                _dayLink(context, accent, overdue.length,
-                    timedCount, pending.length),
-                const SizedBox(height: 12),
-                _watchBlock(context, watches, accent),
-                const SizedBox(height: 2),
-                _filesLink(context, accent),
+                const SizedBox(height: 20),
+                _menuCard([
+                  _menuRow(
+                    icon: PhosphorIconsRegular.calendarCheck,
+                    iconColor: overdue.isNotEmpty ? _neg : accent,
+                    label: 'งานวันนี้',
+                    hint: (overdue.length + timedCount + pending.length) == 0
+                        ? 'ว่าง'
+                        : '${overdue.length + timedCount + pending.length}',
+                    hintColor: overdue.isNotEmpty ? _neg : _ink3,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const _DayScreen())),
+                  ),
+                  _menuRow(
+                    icon: PhosphorIconsRegular.eye,
+                    iconColor: accent,
+                    label: 'ปิ่นเฝ้าให้อยู่',
+                    hint: () {
+                      final n = watches.where((w) => w.hasNew).length;
+                      if (n > 0) return 'ใหม่ $n';
+                      return watches.isEmpty ? '' : '${watches.length}';
+                    }(),
+                    hintColor:
+                        watches.any((w) => w.hasNew) ? accent : _ink3,
+                    onTap: () {
+                      WatchesController.instance.markAllSeen();
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const _WatchScreen()));
+                    },
+                  ),
+                  _menuRow(
+                    icon: PhosphorIconsRegular.folder,
+                    iconColor: accent,
+                    label: 'ไฟล์ที่ปิ่นเก็บไว้',
+                    hint: '',
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const _FilesScreen())),
+                  ),
+                ]),
               ],
             );
           },
@@ -128,176 +160,60 @@ class NowView extends StatelessWidget {
     );
   }
 
-  /// Collapsed "งานวันนี้" row → opens the full day list (like the files row).
-  Widget _dayLink(BuildContext context, Color accent, int overdue, int timed,
-      int pending) {
-    final total = overdue + timed + pending;
-    final sub = total == 0
-        ? 'ไม่มีอะไรวันนี้ — แตะดูทั้งหมด'
-        : [
-            if (overdue > 0) 'เลยกำหนด $overdue',
-            if (timed > 0) 'มีเวลา $timed',
-            if (pending > 0) 'ค้าง $pending',
-          ].join(' · ');
-    return _softCard(
-      onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const _DayScreen())),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(PhosphorIconsRegular.calendarCheck,
-                size: 19, color: overdue > 0 ? _neg : accent),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('งานวันนี้', style: _serif(15.5)),
-                Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: Text(sub,
-                      style: const TextStyle(
-                          fontSize: 13, color: _ink2, height: 1.45)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(PhosphorIconsRegular.caretRight, size: 17, color: _ink3),
-        ],
-      ),
-    );
-  }
-
-  /// "ปิ่นเฝ้าให้อยู่" — a glance at the watches; the findings live in chat.
-  /// Empty → a gentle invitation to start one.
-  Widget _watchBlock(
-      BuildContext context, List<PinWatch> watches, Color accent) {
-    if (watches.isEmpty) {
-      return _softCard(
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const _WatchScreen())),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _watchIcon(accent),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('อยากให้ปิ่นเฝ้าเรื่องไหนไหม', style: _serif(15.5)),
-                  const Padding(
-                    padding: EdgeInsets.only(top: 3),
-                    child: Text(
-                        'บอกในแชตว่าสนใจอะไร เดี๋ยวปิ่นคอยดูให้ มีอะไรค่อยบอก',
-                        style: TextStyle(
-                            fontSize: 13, color: _ink2, height: 1.45)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+  /// One soft card holding the section rows, hairline-separated (same surface as
+  /// the file/list cards elsewhere).
+  Widget _menuCard(List<Widget> rows) {
+    final children = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      children.add(rows[i]);
+      if (i != rows.length - 1) {
+        children.add(const Divider(height: 1, thickness: 1, color: _line));
+      }
     }
-    final newCount = watches.where((w) => w.hasNew).length;
-    return _softCard(
-      onTap: () {
-        WatchesController.instance.markAllSeen();
-        Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const _WatchScreen()));
-      },
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _watchIcon(accent),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ปิ่นเฝ้าให้อยู่', style: _serif(15.5)),
-                Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: newCount > 0
-                      ? Text.rich(TextSpan(
-                          style: const TextStyle(
-                              fontSize: 13, color: _ink2, height: 1.45),
-                          children: [
-                            TextSpan(
-                                text: '${watches.length} เรื่องที่คุณสนใจ · '),
-                            TextSpan(
-                                text: 'เจอใหม่ $newCount',
-                                style: TextStyle(
-                                    color: accent,
-                                    fontWeight: FontWeight.w700)),
-                            const TextSpan(text: ' — แตะดูในแชต'),
-                          ]))
-                      : Text(
-                          '${watches.length} เรื่องที่คุณสนใจ · ยังเงียบ มีอะไรเดี๋ยวบอก',
-                          style: const TextStyle(
-                              fontSize: 13, color: _ink2, height: 1.45)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(PhosphorIconsRegular.caretRight, size: 17, color: _ink3),
-        ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: _cardSh,
       ),
+      child: Column(children: children),
     );
   }
 
-  Widget _watchIcon(Color accent) => Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(PhosphorIconsRegular.eye, size: 19, color: accent),
-      );
-
-  Widget _softCard({required Widget child, VoidCallback? onTap}) => InkWell(
+  /// A uniform section row — icon · label · optional count hint · chevron. Same
+  /// shape for งานวันนี้ / ปิ่นเฝ้า / ไฟล์ so they read as one menu.
+  Widget _menuRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String hint,
+    Color hintColor = _ink3,
+    required VoidCallback onTap,
+  }) =>
+      InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          padding: const EdgeInsets.all(17),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _line),
-            boxShadow: _cardSh,
-          ),
-          child: child,
-        ),
-      );
-
-  Widget _filesLink(BuildContext context, Color accent) => InkWell(
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const _FilesScreen())),
-        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
-              Icon(PhosphorIconsRegular.folder, size: 18, color: accent),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text('ไฟล์ที่ปิ่นเก็บไว้',
-                    style: TextStyle(
-                        fontSize: 14,
+              Icon(icon, size: 20, color: iconColor),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: _ink2)),
+                        color: _ink)),
               ),
+              if (hint.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(hint,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: hintColor)),
+                ),
               const Icon(PhosphorIconsRegular.caretRight,
                   size: 17, color: _ink3),
             ],
