@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ความเป็นส่วนตัว · ปิ่น</title>
-<meta name="description" content="ปิ่นเป็นส่วนตัวจริง — ทุกข้อความเข้ารหัสลับ สมองทำงานบนเครื่องคุณ เปิดอ่านได้แค่คุณ ไม่ขายข้อมูล ไม่มีโฆษณา">
+<meta name="description" content="ปิ่นเป็นส่วนตัวจริง ทุกข้อความเข้ารหัสลับ สมองทำงานบนเครื่องคุณ เปิดอ่านได้แค่คุณ ไม่ขายข้อมูล ไม่มีโฆษณา">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Trirong:ital,wght@0,400;0,500;0,600;1,400&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Trirong:wght@400;500;600&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <style>
@@ -20,7 +20,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{background:var(--blush);color:var(--ink);font-family:var(--sans);line-height:1.7;-webkit-font-smoothing:antialiased}
+  body{background:var(--blush);color:var(--ink);font-family:var(--sans);line-height:1.62;-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
   a:focus-visible,button:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:8px}
   .wrap{width:min(760px,92vw);margin-inline:auto}
@@ -32,8 +32,6 @@
   .brand img{height:38px;border-radius:10px;display:block}
   .brand span{font-family:var(--serif);font-weight:600;font-size:22px;color:var(--forest)}
   .nav .sp{margin-left:auto}
-  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--forest);color:#fff;font-weight:600;font-size:15px;padding:11px 22px;border-radius:999px;border:none;cursor:pointer;transition:background .18s,transform .18s}
-  .pill:hover{background:#12301F;transform:translateY(-1px)}
   .back{display:inline-flex;align-items:center;gap:7px;color:var(--ink2);font-weight:500;font-size:15px}
   .back:hover{color:var(--forest)}
 
@@ -52,8 +50,6 @@
   .blk p{color:var(--ink2);font-size:15.5px;margin-top:8px;max-width:60ch}
   .blk b{color:var(--ink);font-weight:600}
 
-  /* comparison */
-
   .closing{text-align:center;padding:clamp(20px,4vw,40px) 0 clamp(44px,6vw,64px)}
   .cl-line{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(22px,3.4vw,32px);line-height:1.34;text-wrap:balance}
   .closing .back{margin-top:22px}
@@ -69,7 +65,6 @@
   .pol-item p b{color:var(--ink);font-weight:600}
   .pol-mail{color:var(--green);font-weight:600}
   .pol-mail:hover{text-decoration:underline}
-  .pol-note{margin-top:26px;font-size:13px;color:var(--ink2);text-align:center;font-style:italic}
 
   footer{padding:40px 0;border-top:1px solid var(--line);color:var(--ink2);font-size:14px;text-align:center}
   footer a:hover{color:var(--forest)}
@@ -82,13 +77,13 @@
   <div class="wide row">
     <a class="brand" href="index.html"><img src="assets/pin-icon.png" alt="ปิ่น"></a>
     <span class="sp"></span>
-    <a class="back" href="index.html"><i class="ph ph-arrow-left"></i> กลับหน้าแรก</a>
+    <a class="back" href="index.html"><i class="ph ph-arrow-left" aria-hidden="true"></i> กลับหน้าแรก</a>
   </div>
 </header>
 
 <section class="hero">
   <div class="wrap">
-    <div class="lock"><i class="ph-fill ph-lock-key"></i></div>
+    <div class="lock"><i class="ph-fill ph-lock-key" aria-hidden="true"></i></div>
     <h1>ไม่มีใคร อ่านแชตคุณได้<br>แม้แต่เรา</h1>
     <p class="lede">ปิ่นออกแบบมาให้เป็นส่วนตัวตั้งแต่แรก ไม่ใช่เพิ่มทีหลัง นี่คือวิธีที่เราดูแลข้อมูลของคุณ</p>
   </div>
@@ -97,7 +92,7 @@
 <section class="blocks">
   <div class="wrap">
     <div class="blk">
-      <span class="ic"><i class="ph-fill ph-lock-key"></i></span>
+      <span class="ic"><i class="ph-fill ph-lock-key" aria-hidden="true"></i></span>
       <div>
         <h2>เปิดอ่านได้แค่คุณ</h2>
         <p>ทุกข้อความถูก<b>เข้ารหัสลับตั้งแต่ในเครื่องคุณ</b> ก่อนส่งออกไป มีแค่คุณกับปิ่นที่อ่านออก
@@ -105,23 +100,23 @@
       </div>
     </div>
     <div class="blk">
-      <span class="ic"><i class="ph-fill ph-device-mobile"></i></span>
+      <span class="ic"><i class="ph-fill ph-device-mobile" aria-hidden="true"></i></span>
       <div>
         <h2>สมองอยู่บนเครื่องคุณ</h2>
-        <p>ปิ่นคิด ตัดสินใจ และ<b>จำเรื่องของคุณอยู่บนมือถือ</b> บทสนทนาจะซิงค์ข้ามเครื่องเป็น<b>สำเนาที่เข้ารหัสลับ</b> ซึ่งไม่มีใคร—แม้แต่เรา—เปิดอ่านได้
+        <p>ปิ่นคิด ตัดสินใจ และ<b>จำเรื่องของคุณอยู่บนมือถือ</b> บทสนทนาจะซิงค์ข้ามเครื่องเป็น<b>สำเนาที่เข้ารหัสลับ</b> ซึ่งไม่มีใคร (แม้แต่เรา) เปิดอ่านได้
           ย้ายเครื่องเมื่อไหร่ก็กู้คืนได้ด้วยกุญแจของคุณเอง</p>
       </div>
     </div>
     <div class="blk">
-      <span class="ic"><i class="ph-fill ph-eye-slash"></i></span>
+      <span class="ic"><i class="ph-fill ph-eye-slash" aria-hidden="true"></i></span>
       <div>
         <h2>ถามเอไอแบบไม่เปิดเผยตัว</h2>
         <p>เวลาปิ่นต้องถามโมเดลเอไอ จะส่งผ่าน<b>ตัวกลางที่มองไม่เห็น</b> ซึ่งส่งต่อแค่คำถามที่จำเป็น
-          ไม่ส่งว่าคุณเป็นใคร ไม่แนบบทสนทนา และไม่เก็บอะไรไว้ — เอไอตอบโดยไม่รู้ด้วยซ้ำว่ากำลังคุยกับใคร</p>
+          ไม่ส่งว่าคุณเป็นใคร ไม่แนบบทสนทนา และไม่เก็บอะไรไว้ เอไอจึงตอบโดยไม่รู้ด้วยซ้ำว่ากำลังคุยกับใคร</p>
       </div>
     </div>
     <div class="blk">
-      <span class="ic"><i class="ph-fill ph-hand-heart"></i></span>
+      <span class="ic"><i class="ph-fill ph-hand-heart" aria-hidden="true"></i></span>
       <div>
         <h2>ไม่มีโฆษณา ไม่ขายข้อมูล</h2>
         <p>เราตั้งใจอยู่ได้ด้วย<b>ค่าสมาชิก ไม่ใช่ด้วยข้อมูลของคุณ</b> ข้อมูลคุณไม่ใช่สินค้า
@@ -136,11 +131,11 @@
   <div class="policy">
     <div class="pol-head">
       <h2>นโยบายความเป็นส่วนตัว</h2>
-      <p class="pol-meta">อัปเดตล่าสุด มิถุนายน 2026 · เขียนแบบเข้าใจง่าย</p>
+      <p class="pol-meta">อัปเดต มิถุนายน 2026</p>
     </div>
 
     <div class="pol-item">
-      <h3>ข้อมูลที่เราเก็บ — และไม่เก็บ</h3>
+      <h3>ข้อมูลที่เราเก็บ และที่ไม่เก็บ</h3>
       <p><b>เก็บเท่าที่จำเป็น:</b> บัญชีของคุณ (ชื่อผู้ใช้ และอีเมลถ้าคุณเข้าด้วย Google) และอีเมลที่คุณส่งมาขอรับสิทธิ์ก่อนใคร (ถ้ามี)</p>
       <p><b>เราเปิดอ่านไม่ได้:</b> ข้อความแชต ความทรงจำ และไฟล์ของคุณถูกเข้ารหัสลับ เก็บอยู่บนเครื่องคุณ ฝั่งเซิร์ฟเวอร์มีเพียงสำเนาที่เข้ารหัสซึ่งเราเปิดอ่านไม่ออก</p>
       <p><b>เราไม่เก็บ:</b> ตำแหน่งที่อยู่ รายชื่อผู้ติดต่อ หรือพฤติกรรมการใช้งานเพื่อยิงโฆษณา</p>
@@ -178,22 +173,21 @@
 
     <div class="pol-item">
       <h3>ติดต่อเรา</h3>
-      <p>มีคำถามเรื่องข้อมูลส่วนตัว ส่งอีเมลถึง <a class="pol-mail" id="polMail" href="#join">ทีมปิ่น</a> ได้เลย — ดูแลโดย tokens2.io</p>
+      <p>มีคำถามเรื่องข้อมูลส่วนตัว ส่งอีเมลถึง <a class="pol-mail" id="polMail" href="index.html#join">ทีมปิ่น</a> ได้เลย ดูแลโดย tokens2.io</p>
     </div>
 
-    <p class="pol-note">นี่คือสรุปฉบับเข้าใจง่าย ก่อนเปิดตัวจริงจะมีฉบับเต็มที่ตรวจทานทางกฎหมาย</p>
   </div>
 </section>
 
 <section class="wrap">
   <div class="closing">
     <p class="cl-line">ความเป็นส่วนตัวคือคำมั่นของปิ่น<br>ไม่ใช่ฟีเจอร์เสริมที่เปิด-ปิดได้</p>
-    <a class="back" href="index.html"><i class="ph ph-arrow-left"></i> กลับหน้าแรก</a>
+    <a class="back" href="index.html"><i class="ph ph-arrow-left" aria-hidden="true"></i> กลับหน้าแรก</a>
   </div>
 </section>
 
 <footer>
-  <div class="wide">© 2026 ปิ่น · tokens2.io · <a href="index.html">หน้าแรก</a> · <a href="/developers/">นักพัฒนา</a></div>
+  <div class="wide">© 2026 ปิ่น · tokens2.io · <a href="index.html">หน้าแรก</a></div>
 </footer>
 
 <script>
