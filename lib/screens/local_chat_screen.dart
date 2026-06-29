@@ -29,6 +29,7 @@ import '../services/files_store.dart';
 import '../services/matrix_service.dart';
 import '../services/name_filter.dart';
 import '../services/notification_service.dart';
+import '../services/push_service.dart';
 import '../services/now_controllers.dart';
 import '../services/prefs.dart';
 import '../services/tasks_controller.dart';
@@ -180,6 +181,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
         AgentStore().load(), // seeds memory→MemoryController + reminders→JobsController
       ]);
       await NotificationService.instance.rescheduleFromRoom();
+      unawaited(PushService.instance.registerWithServer()); // mark user wakeable
       await AndroidJobAlarm.armAll(rid); // re-arm closed-app agentic alarms (Android)
     } catch (e) {
       debugPrint('seed now-from-room failed: $e');

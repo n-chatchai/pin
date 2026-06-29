@@ -245,6 +245,23 @@ def tab_backlog(request: Request, admin: str = Depends(owner)):
     return templates.TemplateResponse(request, "_backlog.html", {"rows": rows})
 
 
+@router.get("/tab/push", response_class=HTMLResponse)
+def tab_push(request: Request, admin: str = Depends(owner)):
+    import time as _t
+
+    rows = store.list_push_devices()
+    now = _t.time()
+    for r in rows:
+        age = now - (r.get("updated_at") or 0)
+        r["ago"] = (
+            "เมื่อกี้" if age < 3600
+            else f"{int(age // 3600)} ชม.ก่อน" if age < 86400
+            else f"{int(age // 86400)} วันก่อน"
+        )
+        r["device_short"] = (r.get("device") or "")[:16] + "…"
+    return templates.TemplateResponse(request, "_push.html", {"rows": rows})
+
+
 @router.post("/capability/{req_id}/status/{status}", response_class=HTMLResponse)
 def capability_status(req_id: int, status: str, request: Request,
                       admin: str = Depends(owner)):

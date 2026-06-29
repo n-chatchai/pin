@@ -192,6 +192,22 @@ class ProxyClient {
   /// empty (no token yet / Android) registers nothing — the job still runs on
   /// next app open via the on-device runner. `nextDue` is epoch SECONDS (matches
   /// the server poller's time.time()). Best-effort.
+  /// Register this user's push token on boot (independent of any job) so the
+  /// server knows they're wakeable. Best-effort, fire-and-forget.
+  Future<void> pushRegister(String device, String platform) async {
+    if (device.isEmpty) return;
+    try {
+      await http
+          .post(Uri.parse('$baseUrl/push/register'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({'device': device, 'platform': platform}))
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {/* offline → retries next boot */}
+  }
+
   Future<void> scheduleRegister({
     required String jobId,
     required double nextDue,

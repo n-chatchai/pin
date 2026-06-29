@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS capability_requests(
 CREATE TABLE IF NOT EXISTS waitlist(
   id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, use TEXT,
   source TEXT, created_at REAL);
+CREATE TABLE IF NOT EXISTS push_devices(
+  user_id TEXT PRIMARY KEY, device TEXT, platform TEXT, updated_at REAL);
 """
 
 # Legacy hard-coded hosted tools — used to seed an empty DB.
@@ -593,6 +595,27 @@ def list_waitlist() -> list[dict]:
     with conn() as c:
         return [dict(r) for r in c.execute(
             "SELECT * FROM waitlist ORDER BY created_at DESC").fetchall()]
+
+
+def record_push_device(user_id: str, device: str, platform: str) -> None:
+    """Remember which push token (FCM/APNs) reaches a given Matrix user, so the
+    admin can see who's wakeable and a future broadcast can target them. Upsert
+    by user_id — the latest token wins (tokens rotate)."""
+    if not (user_id and device):
+        return
+    with conn() as c:
+        c.execute(
+            "INSERT INTO push_devices(user_id,device,platform,updated_at) "
+            "VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET "
+            "device=excluded.device, platform=excluded.platform, "
+            "updated_at=excluded.updated_at",
+            (user_id, device, platform, time.time()))
+
+
+def list_push_devices() -> list[dict]:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM push_devices ORDER BY updated_at DESC").fetchall()]
 
 
 def add_submission(type_: str, name: str, payload: dict, developer: str) -> int:

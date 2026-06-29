@@ -75,6 +75,14 @@ class PushService {
     }
   }
 
+  /// Tell the server this user is wakeable (token + platform). Call once the
+  /// user is logged in AND a token exists — best-effort, retries next boot.
+  Future<void> registerWithServer() async {
+    final tok = deviceToken;
+    if (tok == null || tok.isEmpty) return;
+    await devProxy().pushRegister(tok, platform);
+  }
+
   Future<void> _runDue() async {
     try {
       if (!await MatrixService.instance.tryRestore()) return;

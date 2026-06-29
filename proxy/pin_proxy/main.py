@@ -145,14 +145,31 @@ async def schedule_register(
 ) -> dict:
     """Register a wake — metadata only: {job_id, device, next_due(epoch), repeat}.
     No content: the prompt stays on the phone."""
-    _check_token(authorization)
-    from . import scheduler
+    user_id = _check_token(authorization)
+    from . import scheduler, store
 
     b = await request.json()
     scheduler.register(
         b["job_id"], b["device"], float(b["next_due"]),
         b.get("repeat", "once"), b.get("platform", "apns"),
     )
+    # Remember this user is wakeable (admin view + future broadcast push).
+    store.record_push_device(user_id, b.get("device", ""), b.get("platform", "apns"))
+    return {"ok": True}
+
+
+@app.post("/push/register")
+async def push_register(
+    request: Request, authorization: str | None = Header(default=None)
+) -> dict:
+    """Register a user's push token on app boot (independent of any job), so every
+    user with notifications appears as wakeable. Body: {device, platform}."""
+    user_id = _check_token(authorization)
+    from . import store
+
+    b = await request.json()
+    store.record_push_device(
+        user_id, str(b.get("device", "")), str(b.get("platform", "apns")))
     return {"ok": True}
 
 
