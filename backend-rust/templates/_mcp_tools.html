@@ -1,0 +1,28 @@
+<div class="sec-h"><h3>ตั้งค่า params · {{ server }}</h3>
+  <span class="hint">params มาจาก MCP schema — ตั้ง default หรือ <span class="mono">$user</span> (ใส่รหัสผู้ใช้อัตโนมัติ)</span></div>
+<p class="hint" style="margin:-4px 0 12px">
+  <a class="tg" hx-get="/admin/tab/store" hx-target="#panel">← กลับ ความสามารถ</a>
+  &nbsp;·&nbsp;<a class="tg" hx-post="/admin/mcp/server/{{ server }}/refresh" hx-target="#panel">⟳ รีเฟรชจาก server</a></p>
+{% for t in tools %}
+<div class="rcard" style="margin-bottom:12px">
+  <div class="rh"><b>{{ t.label }}</b><span class="b sub" style="margin-left:6px">{{ t.name }}</span></div>
+  {% if t.description %}<p class="hint" style="margin:4px 0 8px">{{ t.description }}</p>{% endif %}
+  {% if t.params %}
+  <form hx-post="/admin/mcp/tool/{{ t.name }}/defaults" hx-target="#panel">
+    <input type="hidden" name="_server" value="{{ server }}">
+    <table style="width:100%"><tbody>
+    {% for p in t.params %}
+      <tr>
+        <td style="padding:4px 8px 4px 0;white-space:nowrap"><span class="mono">{{ p.key }}</span></td>
+        <td style="font-size:11.5px;color:var(--ink3)">{{ p.desc }}</td>
+        <td style="width:200px"><input name="default__{{ p.key }}" value="{{ t.defaults.get(p.key, '') }}"
+            placeholder="(ถามผู้ใช้)" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px"></td>
+      </tr>
+    {% endfor %}
+    </tbody></table>
+    <div class="rfoot"><span class="hint">ว่าง = ให้ปิ่นถามผู้ใช้ · ค่าคงที่ = ส่งให้เสมอ · <span class="mono">$user</span> = รหัสผู้ใช้</span>
+      <button class="btn p sm" type="submit">บันทึก</button></div>
+  </form>
+  {% else %}<p style="color:var(--ink3)">ไม่มี params</p>{% endif %}
+</div>
+{% else %}<p style="color:var(--ink3)">ยังไม่มี tool ในเซิร์ฟเวอร์นี้</p>{% endfor %}

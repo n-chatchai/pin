@@ -78,3 +78,6 @@ android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
 # Firebase service-account (FCM v1 send) — SECRET, never commit
 *firebase-adminsdk*.json
+
+# Rust build artifacts
+backend-rust/target/

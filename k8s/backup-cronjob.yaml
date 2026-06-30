@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pin-db-backup
+  namespace: pin
+spec:
+  schedule: "0 2 * * *" # Everyday at 2:00 AM
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: backup
+              image: alpine:3.18
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  apk add --no-cache sqlite
+                  mkdir -p /data/backups
+                  DATE=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="/data/backups/pin-admin-$DATE.db"
+                  echo "Starting SQLite backup to $BACKUP_FILE..."
+                  
+                  # Perform online safe backup
+                  sqlite3 /data/pin-admin.db ".backup '$BACKUP_FILE'"
+                  echo "Backup completed successfully."
+                  
+                  # Retain backups for last 7 days and delete older ones
+                  echo "Cleaning up backups older than 7 days..."
+                  find /data/backups -name "pin-admin-*.db" -mtime +7 -delete
+                  echo "Cleanup completed."
+              volumeMounts:
+                - name: data-volume
+                  mountPath: /data
+          restartPolicy: OnFailure
+          volumes:
+            - name: data-volume
+              persistentVolumeClaim:
+                claimName: pin-backend-pvc

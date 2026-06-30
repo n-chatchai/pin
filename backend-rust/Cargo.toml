@@ -1,0 +1,45 @@
+[package]
+name = "pin-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web server
+axum = { version = "0.7", features = ["multipart"] }
+axum-extra = { version = "0.9", features = ["cookie"] }
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
+time = "=0.3.36"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "multipart"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Database (SQLite Async)
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "sqlite"] }
+
+# HTML Templating
+minijinja = { version = "2.0", features = ["loader", "json"] }
+
+# Encryption & Auth
+argon2 = "0.5"
+jsonwebtoken = "9.3"
+rand = "0.8"
+base64 = "0.22"
+
+# Python execution (PyO3)
+pyo3 = { version = "0.22", features = ["auto-initialize"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+
+# Date time handling
+chrono = { version = "0.4", features = ["serde"] }

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pin-backend
+  namespace: pin
+  labels:
+    app: pin-backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # Required for SQLite single-writer Lock to prevent multiple pods writing to the same SQLite file
+  selector:
+    matchLabels:
+      app: pin-backend
+  template:
+    metadata:
+      labels:
+        app: pin-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/n-chatchai/pin-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8088
+              name: http
+          
+          # Automatically injects all keys/values from your .env secret as env vars
+          envFrom:
+            - secretRef:
+                name: pin-secrets
+              
+          volumeMounts:
+            - name: data-volume
+              mountPath: /data
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: pin-backend-pvc

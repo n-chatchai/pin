@@ -1,0 +1,12 @@
+<div class="rcard" style="margin-bottom:14px;border-color:var(--green-d)">
+  <div class="rh">
+    <b>ตัวอย่างอีเมล → {{ to }}</b>
+    <a class="tg" style="margin-left:auto" onclick="document.getElementById('wlpreview').innerHTML=''">ปิด</a>
+  </div>
+  <div class="hint" style="margin-bottom:8px"><b>Subject:</b> {{ subject }}</div>
+  <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden">{{ html|safe }}</div>
+  <div style="margin-top:10px;text-align:right">
+    <a class="btn p sm" hx-post="/admin/waitlist/{{ wid }}/send" hx-target="#panel"
+       data-confirm="ส่งหา {{ to }}?">{{ 'ส่งซ้ำ' if sent else 'ส่งเลย' }}</a>
+  </div>
+</div>
