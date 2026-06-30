@@ -105,5 +105,5 @@ def build(use: str) -> tuple[str, str, str]:
         'background:#FAF8F2">' + body_html +
         '<p style="font-size:12px;color:#9A8F7E;margin-top:24px;'
         'border-top:1px solid #E7DCCB;padding-top:14px">'
-        'ไม่อยากรับอีเมลจากเรา ตอบกลับว่า “unsubscribe” ได้เลยค่ะ</p></div>')
+        'ไม่อยากรับอีเมลจากเรา ตอบกลับว่า “เลิกรับ” ได้เลยค่ะ</p></div>')
     return p["subject"], text, html

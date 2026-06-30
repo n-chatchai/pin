@@ -44,7 +44,10 @@ CREATE TABLE IF NOT EXISTS capability_requests(
   requesters TEXT, created_at REAL, updated_at REAL);
 CREATE TABLE IF NOT EXISTS waitlist(
   id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, use TEXT,
-  source TEXT, created_at REAL, sent_at REAL);
+  source TEXT, created_at REAL, sent_at REAL, unsubscribed_at REAL);
+CREATE TABLE IF NOT EXISTS mail_messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, waitlist_email TEXT, direction TEXT,
+  subject TEXT, body TEXT, msg_id TEXT, in_reply_to TEXT, created_at REAL);
 CREATE TABLE IF NOT EXISTS push_devices(
   user_id TEXT PRIMARY KEY, device TEXT, platform TEXT, updated_at REAL);
 """
@@ -90,7 +93,7 @@ def init() -> None:
                           "status"),
             "mcp_tools": ("label", "category", "provider", "pricing_json",
                           "defaults_json", "status", "render", "ask_params"),
-            "waitlist": ("sent_at",),
+            "waitlist": ("sent_at", "unsubscribed_at"),
         }
         for tbl, cols in _migrate.items():
             for col in cols:
@@ -603,6 +606,60 @@ def mark_waitlist_sent(email: str) -> None:
     with conn() as c:
         c.execute("UPDATE waitlist SET sent_at=? WHERE email=?",
                   (time.time(), email))
+
+
+def mark_waitlist_unsubscribed(email: str) -> None:
+    with conn() as c:
+        c.execute("UPDATE waitlist SET unsubscribed_at=? WHERE email=?",
+                  (time.time(), email))
+
+
+# ---- mail threads (waitlist outreach + captured replies) -------------------
+
+def add_mail_message(waitlist_email: str, direction: str, subject: str,
+                     body: str, msg_id: str = "", in_reply_to: str = "") -> None:
+    with conn() as c:
+        c.execute("INSERT INTO mail_messages(waitlist_email,direction,subject,"
+                  "body,msg_id,in_reply_to,created_at) VALUES(?,?,?,?,?,?,?)",
+                  (waitlist_email, direction, subject, body, msg_id,
+                   in_reply_to, time.time()))
+
+
+def mail_thread(email: str) -> list[dict]:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM mail_messages WHERE waitlist_email=?"
+            " ORDER BY created_at", (email,)).fetchall()]
+
+
+def mail_reply_counts() -> dict:
+    """email -> number of inbound replies captured (for the list view)."""
+    with conn() as c:
+        return {r["waitlist_email"]: r["n"] for r in c.execute(
+            "SELECT waitlist_email, COUNT(*) n FROM mail_messages"
+            " WHERE direction='in' GROUP BY waitlist_email").fetchall()}
+
+
+def mail_out_index() -> dict:
+    """sent Message-ID -> waitlist_email, to match inbound In-Reply-To."""
+    with conn() as c:
+        return {r["msg_id"]: r["waitlist_email"] for r in c.execute(
+            "SELECT msg_id,waitlist_email FROM mail_messages"
+            " WHERE direction='out' AND msg_id!=''").fetchall()}
+
+
+def mail_msgid_seen(msg_id: str) -> bool:
+    if not msg_id:
+        return False
+    with conn() as c:
+        return c.execute("SELECT 1 FROM mail_messages WHERE msg_id=? LIMIT 1",
+                         (msg_id,)).fetchone() is not None
+
+
+def waitlist_email_set() -> set:
+    with conn() as c:
+        return {r["email"] for r in
+                c.execute("SELECT email FROM waitlist").fetchall()}
 
 
 def record_push_device(user_id: str, device: str, platform: str) -> None:

@@ -10,11 +10,15 @@ Manages config only — never user content.
 
 from __future__ import annotations
 
+import email as emaillib
+import imaplib
 import json
 import os
+import re
 import smtplib
 import time
 from email.message import EmailMessage
+from email.utils import make_msgid, parseaddr
 
 import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -315,24 +319,101 @@ def store_toggle(name: str, request: Request, admin: str = Depends(owner)):
 
 # ---- waitlist outreach (SMTP early-access mail, personalised per use-case) ---
 
-def _send_email(to: str, subject: str, text: str, html: str) -> None:
-    host = os.environ.get("SMTP_HOST", "smtp.sequenzy.com")
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    user = os.environ.get("SMTP_USER", "api")
-    pw = os.environ.get("SMTP_PASS") or os.environ.get("SEQUENZY_API_KEY", "")
-    sender = os.environ.get("SMTP_FROM", "ปิ่น <hello@tokens2.io>")
+def _gmail_creds() -> tuple[str, str, str]:
+    """(login_user, app_password, from_header) — Gmail Workspace.
+    Login is the real account (chatchai@); From is the pin@ send-as alias."""
+    user = os.environ.get("GMAIL_USER", "chatchai@tokens2.io")
+    pw = (os.environ.get("GG_APP_PASSWORD_PIN")
+          or os.environ.get("GMAIL_APP_PASSWORD", "")).replace(" ", "")
+    sender = os.environ.get("GMAIL_FROM", "ปิ่น <pin@tokens2.io>")
+    return user, pw, sender
+
+
+def _send_email(to: str, subject: str, text: str, html: str) -> str:
+    """Send via Gmail Workspace SMTP (send-as pin@). Returns the Message-ID so
+    the outbound row can be threaded against captured replies."""
+    user, pw, sender = _gmail_creds()
+    msg_id = make_msgid(domain="tokens2.io")
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = to
     msg["Reply-To"] = sender
+    msg["Message-ID"] = msg_id
     msg.set_content(text)
     msg.add_alternative(html, subtype="html")
-    with smtplib.SMTP(host, port, timeout=20) as s:
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as s:
         s.starttls()
-        if pw:
-            s.login(user, pw)
+        s.login(user, pw)
         s.send_message(msg)
+    return msg_id
+
+
+_UNSUB_WORDS = ("unsubscribe", "เลิกรับ", "ยกเลิกรับ", "ไม่รับ", "เลิกติดตาม",
+                "opt out", "opt-out")
+
+
+def _is_unsubscribe(body: str) -> bool:
+    low = (body or "").lower()
+    return any(w in low for w in _UNSUB_WORDS)
+
+
+def _extract_text(m) -> str:
+    """Best-effort plain-text body from a parsed email, quoted history trimmed."""
+    body = ""
+    parts = m.walk() if m.is_multipart() else [m]
+    for part in parts:
+        if part.get_content_type() == "text/plain" and \
+                "attachment" not in str(part.get("Content-Disposition", "")):
+            try:
+                body = part.get_content()
+            except Exception:  # noqa: BLE001
+                body = (part.get_payload(decode=True) or b"").decode(
+                    part.get_content_charset() or "utf-8", "replace")
+            break
+    # cut quoted reply ("On ... wrote:" or leading "> " blocks)
+    body = re.split(r"\n\s*On .*wrote:\s*\n|\n\s*>", body, maxsplit=1)[0]
+    return body.strip()
+
+
+def _poll_mail() -> int:
+    """Poll the Gmail inbox (login account) for replies, match each to a
+    waitlist person (by sender or In-Reply-To), store inbound rows. Read-only:
+    leaves unmatched mail untouched."""
+    user, pw, _ = _gmail_creds()
+    wl = store.waitlist_email_set()
+    out_idx = store.mail_out_index()
+    added = 0
+    M = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+    try:
+        M.login(user, pw)
+        M.select("INBOX")
+        _typ, data = M.search(None, "UNSEEN")
+        for num in (data[0] or b"").split():
+            _typ, md = M.fetch(num, "(RFC822)")
+            if not md or not md[0]:
+                continue
+            m = emaillib.message_from_bytes(md[0][1])
+            frm = parseaddr(m.get("From", ""))[1].lower()
+            msgid = (m.get("Message-ID") or "").strip()
+            irt = (m.get("In-Reply-To") or "").strip()
+            who = frm if frm in wl else out_idx.get(irt)
+            if not who:
+                continue  # not a waitlist reply — leave it UNSEEN
+            if not store.mail_msgid_seen(msgid):
+                body = _extract_text(m)
+                store.add_mail_message(who, "in", m.get("Subject", ""),
+                                       body, msgid, irt)
+                if _is_unsubscribe(body):
+                    store.mark_waitlist_unsubscribed(who)
+                added += 1
+            M.store(num, "+FLAGS", "\\Seen")
+    finally:
+        try:
+            M.logout()
+        except Exception:  # noqa: BLE001
+            pass
+    return added
 
 
 _PERSONA_TH = {"study": "ติว/ทบทวน", "home": "เรื่องในบ้าน", "creative": "ครีเอทีฟ",
@@ -342,19 +423,45 @@ _PERSONA_TH = {"study": "ติว/ทบทวน", "home": "เรื่อง
 def _wl_render(request: Request, flash: str = ""):
     import time as _t
     rows = store.list_waitlist()
+    replies = store.mail_reply_counts()
     for r in rows:
         r["persona_th"] = _PERSONA_TH.get(emails.classify(r.get("use") or ""), "")
         sa = r.get("sent_at")
         r["sent"] = bool(sa)
         r["sent_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(sa)) if sa else ""
+        r["replies"] = replies.get(r["email"], 0)
+        r["unsub"] = bool(r.get("unsubscribed_at"))
     return templates.TemplateResponse(request, "_waitlist.html", {
         "rows": rows, "flash": flash,
-        "unsent": sum(0 if r["sent"] else 1 for r in rows)})
+        "unsent": sum(1 for r in rows if not r["sent"] and not r["unsub"])})
 
 
 @router.get("/tab/waitlist", response_class=HTMLResponse)
 def tab_waitlist(request: Request, admin: str = Depends(owner)):
     return _wl_render(request)
+
+
+@router.post("/waitlist/poll", response_class=HTMLResponse)
+def waitlist_poll(request: Request, admin: str = Depends(owner)):
+    try:
+        n = _poll_mail()
+        flash = f"ดึงเมลแล้ว · reply ใหม่ {n}" if n else "ดึงเมลแล้ว · ไม่มี reply ใหม่"
+    except Exception as e:  # noqa: BLE001
+        flash = f"ดึงเมลไม่สำเร็จ: {e}"
+    return _wl_render(request, flash)
+
+
+@router.get("/waitlist/{wid}/thread", response_class=HTMLResponse)
+def waitlist_thread(wid: int, request: Request, admin: str = Depends(owner)):
+    import time as _t
+    row = next((r for r in store.list_waitlist() if r["id"] == wid), None)
+    if row is None:
+        raise HTTPException(404)
+    msgs = store.mail_thread(row["email"])
+    for m in msgs:
+        m["ts_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(m.get("created_at") or 0))
+    return templates.TemplateResponse(request, "_waitlist_thread.html",
+                                      {"to": row["email"], "msgs": msgs})
 
 
 @router.get("/waitlist/{wid}/preview", response_class=HTMLResponse)
@@ -373,10 +480,13 @@ def waitlist_send(wid: int, request: Request, admin: str = Depends(owner)):
     row = next((r for r in store.list_waitlist() if r["id"] == wid), None)
     if row is None:
         raise HTTPException(404)
+    if row.get("unsubscribed_at"):
+        return _wl_render(request, f"{row['email']} ยกเลิกรับแล้ว — ไม่ส่ง")
     subject, text, html = emails.build(row.get("use") or "")
     try:
-        _send_email(row["email"], subject, text, html)
+        mid = _send_email(row["email"], subject, text, html)
         store.mark_waitlist_sent(row["email"])
+        store.add_mail_message(row["email"], "out", subject, text, mid)
         flash = f"ส่งหา {row['email']} แล้ว ✓"
     except Exception as e:  # noqa: BLE001
         flash = f"ส่งไม่สำเร็จ ({row['email']}): {e}"
@@ -387,12 +497,13 @@ def waitlist_send(wid: int, request: Request, admin: str = Depends(owner)):
 def waitlist_send_unsent(request: Request, admin: str = Depends(owner)):
     sent, fail = 0, 0
     for row in store.list_waitlist():
-        if row.get("sent_at"):
+        if row.get("sent_at") or row.get("unsubscribed_at"):
             continue
         subject, text, html = emails.build(row.get("use") or "")
         try:
-            _send_email(row["email"], subject, text, html)
+            mid = _send_email(row["email"], subject, text, html)
             store.mark_waitlist_sent(row["email"])
+            store.add_mail_message(row["email"], "out", subject, text, mid)
             sent += 1
         except Exception:  # noqa: BLE001
             fail += 1

@@ -1,0 +1,20 @@
+<div class="rcard" style="margin-bottom:14px;border-color:var(--green-d)">
+  <div class="rh">
+    <b>บทสนทนา → {{ to }}</b>
+    <a class="tg" style="margin-left:auto" onclick="document.getElementById('wlpreview').innerHTML=''">ปิด</a>
+  </div>
+  {% if msgs %}
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+    {% for m in msgs %}
+    <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+      {% if m.direction=='out' %}background:var(--green-soft)border-color:var(--green-line){% endif %}">
+      <div class="hint" style="margin-bottom:4px">
+        {% if m.direction=='out' %}<b style="color:var(--green-d)">→ เราส่ง</b>{% else %}<b style="color:var(--blue)">← เขาตอบ</b>{% endif %}
+        · {{ m.ts_th }}{% if m.subject %} · {{ m.subject }}{% endif %}
+      </div>
+      <div style="font-size:13px;color:var(--ink);white-space:pre-wrap;line-height:1.5">{{ m.body }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<p class="hint" style="margin-top:6px">ยังไม่มีข้อความ</p>{% endif %}
+</div>
