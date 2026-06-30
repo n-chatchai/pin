@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/services.dart';
@@ -151,6 +152,7 @@ class SettingsScreen extends StatelessWidget {
             ]),
             _section('สถานะความปลอดภัย'),
             _card([_SecurityStatus()]),
+            if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
             _section('เครื่องมือนักพัฒนา'),
             _card([
               SwitchListTile(
@@ -183,6 +185,7 @@ class SettingsScreen extends StatelessWidget {
               // Merged into one card — was two separate boxes.
               _E2eeDebug(),
             ]),
+            ],
             _section('บัญชี'),
             _card([
               if (userId != null)
@@ -201,6 +204,7 @@ class SettingsScreen extends StatelessWidget {
                 onTap: () => _logout(context),
               ),
             ]),
+            const _VersionTap(),
           ],
         ),
       ),
@@ -281,6 +285,65 @@ class SettingsScreen extends StatelessWidget {
 /// Clean, user-facing E2EE status (not the debug dump): one row per protection
 /// with a green check when active — recovery, server key backup, cross-signing,
 /// device verification.
+/// App version footer. Tap 7× to reveal the developer-tools section (hidden by
+/// default for the public release); long-press when unlocked to hide it again.
+class _VersionTap extends StatefulWidget {
+  const _VersionTap();
+  @override
+  State<_VersionTap> createState() => _VersionTapState();
+}
+
+class _VersionTapState extends State<_VersionTap> {
+  int _taps = 0;
+  String _ver = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((i) {
+      if (mounted) {
+        setState(() => _ver = 'เวอร์ชัน ${i.version} (${i.buildNumber})');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = PrefsController.instance.value.devUnlocked;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (unlocked) return;
+        _taps++;
+        if (_taps >= 7) {
+          _taps = 0;
+          PrefsController.instance.update(
+              PrefsController.instance.value.copyWith(devUnlocked: true));
+          PinToast.show(context, 'เปิดโหมดนักพัฒนาแล้ว');
+        } else if (_taps >= 4) {
+          PinToast.show(context, 'อีก ${7 - _taps} ครั้ง');
+        }
+      },
+      onLongPress: unlocked
+          ? () {
+              PrefsController.instance.update(PrefsController.instance.value
+                  .copyWith(devUnlocked: false));
+              PinToast.show(context, 'ปิดโหมดนักพัฒนาแล้ว');
+            }
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 26, 20, 34),
+        child: Center(
+          child: Text(
+            _ver.isEmpty ? 'ปิ่น' : 'ปิ่น · $_ver',
+            style: const TextStyle(color: PinPalette.ink3, fontSize: 12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Placeholder row matching [_SecurityStatusState._row]'s height, shown while
 /// the status loads so the card reserves its space (no layout shift).
 class _LoadingRow extends StatelessWidget {

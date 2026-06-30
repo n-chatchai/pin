@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
@@ -150,9 +151,10 @@ class MessageBubble extends StatelessWidget {
             if (!mine) _footer(context, scheme),
             if (!mine && msg.debug != null && msg.debug!.isNotEmpty)
               _debugTrace(scheme),
-            // Debug: show the Matrix event id under each bubble so we can tell
-            // real DM events from optimistic/local renders while diagnosing.
-            if (PrefsController.instance.value.debugBot)
+            // Dev diagnostic: the Matrix event id under each bubble (tell real
+            // DM events from optimistic/local renders). Behind the hidden dev
+            // unlock, not the user-facing debugBot trace toggle.
+            if (PrefsController.instance.value.devUnlocked || kDebugMode)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Align(
