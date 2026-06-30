@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS mail_messages(
   subject TEXT, body TEXT, msg_id TEXT, in_reply_to TEXT, created_at REAL);
 CREATE TABLE IF NOT EXISTS push_devices(
   user_id TEXT PRIMARY KEY, device TEXT, platform TEXT, updated_at REAL);
+CREATE TABLE IF NOT EXISTS client_logs(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, payload TEXT);
+CREATE TABLE IF NOT EXISTS system_settings(
+  key TEXT PRIMARY KEY, value TEXT);
 "#;
 
 #[derive(Clone)]
@@ -100,7 +104,75 @@ impl Store {
         // 5. Seed paid skills
         self.seed_paid_skills().await?;
 
+        // Seed settings
+        let settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
+            .fetch_one(&self.pool)
+            .await?;
+        if settings_count == 0 {
+            let free_model = std::env::var("PIN_FREE_MODEL").unwrap_or_else(|_| "gemini-flash-lite-latest".to_string());
+            let embed_model = std::env::var("PIN_EMBED_MODEL").unwrap_or_else(|_| "gemini-embedding-001".to_string());
+            let embed_dim = std::env::var("PIN_EMBED_DIM").unwrap_or_else(|_| "256".to_string());
+            sqlx::query("INSERT INTO system_settings (key, value) VALUES (?, ?), (?, ?), (?, ?)")
+                .bind("pin_free_model").bind(free_model)
+                .bind("pin_embed_model").bind(embed_model)
+                .bind("pin_embed_dim").bind(embed_dim)
+                .execute(&self.pool).await?;
+        }
+
+        // Seed admins
+        let admin_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM admin_users")
+            .fetch_one(&self.pool)
+            .await?;
+        if admin_count == 0 {
+            if let Ok(owners_env) = std::env::var("PIN_ADMIN_OWNERS") {
+                for email in owners_env.split(',') {
+                    let email = email.trim().to_lowercase();
+                    if !email.is_empty() {
+                        sqlx::query("INSERT OR IGNORE INTO admin_users (email, role) VALUES (?, 'owner')")
+                            .bind(&email)
+                            .execute(&self.pool).await?;
+                    }
+                }
+            }
+        }
+
         Ok(())
+    }
+
+    pub async fn get_setting(&self, key: &str) -> Result<Option<String>, sqlx::Error> {
+        let val: Option<String> = sqlx::query_scalar("SELECT value FROM system_settings WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(val)
+    }
+
+    pub async fn set_setting(&self, key: &str, value: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+            .bind(key)
+            .bind(value)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn insert_client_log(&self, ts: f64, payload: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("INSERT INTO client_logs (ts, payload) VALUES (?, ?)")
+            .bind(ts)
+            .bind(payload)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn is_admin(&self, email: &str) -> Result<bool, sqlx::Error> {
+        let local = email.split('@').next().unwrap_or(email);
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM admin_users WHERE email = ? OR email = ?")
+            .bind(email)
+            .bind(local)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count > 0)
     }
 
     async fn has_column(&self, table: &str, column: &str) -> Result<bool, sqlx::Error> {

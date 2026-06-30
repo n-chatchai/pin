@@ -93,9 +93,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler = Arc::new(Scheduler::new(PathBuf::from(sched_store_path), google_auth));
 
     // LLM Models
-    let free_model = std::env::var("PIN_FREE_MODEL").unwrap_or_else(|_| "gemini-flash-lite-latest".to_string());
-    let embed_model = std::env::var("PIN_EMBED_MODEL").unwrap_or_else(|_| "gemini-embedding-001".to_string());
-    let embed_dim = std::env::var("PIN_EMBED_DIM").ok().and_then(|s| s.parse().ok()).unwrap_or(256);
+    let free_model = store.get_setting("pin_free_model").await.unwrap_or(None).unwrap_or_else(|| "gemini-flash-lite-latest".to_string());
+    let embed_model = store.get_setting("pin_embed_model").await.unwrap_or(None).unwrap_or_else(|| "gemini-embedding-001".to_string());
+    let embed_dim = store.get_setting("pin_embed_dim").await.unwrap_or(None).and_then(|s| s.parse().ok()).unwrap_or(256);
     let forwarder = LLMForwarder::new(free_model, embed_model, embed_dim);
 
     // 5. Initialize Python (PyO3) and test markitdown import
@@ -123,17 +123,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     jinja_env.add_filter("fromjson", fromjson_filter);
 
     let jwt_secret = std::env::var("PIN_ADMIN_SECRET").unwrap_or_else(|_| "pin_admin_fallback_secret_key_123".to_string());
-    let owners_env = std::env::var("PIN_ADMIN_OWNERS").unwrap_or_default();
-    let owners: HashSet<String> = owners_env.split(',')
-        .map(|s| s.trim().to_lowercase())
-        .filter(|s| !s.is_empty())
-        .collect();
 
     let admin_state = AdminState {
         store: store.clone(),
         jinja_env,
         jwt_secret,
-        owners,
         scheduler: scheduler.clone(),
     };
 
@@ -446,15 +440,9 @@ async fn debug_log(
         obj.insert("ts".to_string(), json!(now));
     }
 
-    let path = std::env::var("PIN_DEBUG_LOG").unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        format!("{}/pin-debug.log", home)
-    });
-
-    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
-        use std::io::Write;
-        let _ = writeln!(file, "{}", body.to_string());
-    }
+    let payload_str = body.to_string();
+    tracing::info!("Client debug log: {}", payload_str);
+    let _ = state.store.insert_client_log(now, &payload_str).await;
 
     Json(json!({ "ok": true })).into_response()
 }

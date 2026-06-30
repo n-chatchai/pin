@@ -66,12 +66,16 @@ PIN_PROXY_HOST=0.0.0.0
 PIN_PROXY_PORT=8088
 PIN_ADMIN_DB=/data/pin-admin.db
 PIN_SCHED_STORE=/data/pin-schedule.json
-PIN_DEBUG_LOG=/data/pin-debug.log
+# Logging (Kubernetes will capture standard output natively)
 
 # App Config & Integrations
 PIN_HOMESERVER=http://matrix.pin.svc.cluster.local:8008
 PIN_ADMIN_GOOGLE_REDIRECT_URI=https://pin-admin.tokens2.io/admin/auth/google/callback
+# Used for initial DB seeding only (once seeded, manage via admin web):
 PIN_ADMIN_OWNERS=chatchai@tokens2.io
+PIN_FREE_MODEL=gemini-flash-lite-latest
+PIN_EMBED_MODEL=gemini-embedding-001
+PIN_EMBED_DIM=256
 
 # Credentials & API Keys
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY

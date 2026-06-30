@@ -35,7 +35,6 @@ pub struct AdminState {
     pub store: Store,
     pub jinja_env: minijinja::Environment<'static>,
     pub jwt_secret: String,
-    pub owners: HashSet<String>,
     pub scheduler: Arc<Scheduler>,
 }
 
@@ -63,7 +62,7 @@ fn get_google_creds() -> Option<(String, String)> {
 }
 
 // Helper to validate the admin session
-fn get_admin_session(jar: &CookieJar, secret: &str, owners: &HashSet<String>) -> Option<String> {
+async fn get_admin_session(jar: &CookieJar, secret: &str, store: &Store) -> Option<String> {
     let cookie = jar.get(COOKIE_NAME)?;
     let token = cookie.value();
     
@@ -72,8 +71,7 @@ fn get_admin_session(jar: &CookieJar, secret: &str, owners: &HashSet<String>) ->
     
     if let Ok(data) = jsonwebtoken::decode::<AdminClaims>(token, &key, &validation) {
         let email = data.claims.email;
-        let local = email.split('@').next().unwrap_or(&email).to_string();
-        if owners.contains(&email) || owners.contains(&local) {
+        if store.is_admin(&email).await.unwrap_or(false) {
             return Some(email);
         }
     }
@@ -100,7 +98,7 @@ fn render(env: &minijinja::Environment, template: &str, ctx: Value) -> Response 
 // ---- Routes ----
 
 pub async fn login_page(State(state): State<AdminState>, jar: CookieJar, Query(params): Query<HashMap<String, String>>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_some() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_some() {
         return Redirect::to("/admin").into_response();
     }
     let error = params.get("error").map(|e| match e.as_str() {
@@ -208,10 +206,9 @@ pub async fn auth_google_callback(
         Err(_) => return Redirect::to("/admin/login?error=google_failed").into_response(),
     };
 
-    // 3. Verify user email against owners list
+    // 3. Verify user email against DB
     let email = user_info.email.to_lowercase();
-    let local = email.split('@').next().unwrap_or(&email).to_string();
-    if !state.owners.contains(&email) && !state.owners.contains(&local) {
+    if !state.store.is_admin(&email).await.unwrap_or(false) {
         warn!("Unauthorized admin login attempt: {}", email);
         return Redirect::to("/admin/login?error=unauthorized").into_response();
     }
@@ -245,7 +242,7 @@ pub async fn auth_google_callback(
 }
 
 pub async fn dashboard(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    let admin = match get_admin_session(&jar, &state.jwt_secret, &state.owners) {
+    let admin = match get_admin_session(&jar, &state.jwt_secret, &state.store).await {
         Some(email) => email,
         None => return Redirect::to("/admin/login").into_response(),
     };
@@ -296,7 +293,7 @@ async fn get_dashboard_counts(store: &Store) -> Result<Value, sqlx::Error> {
 // ---- Tabs ----
 
 pub async fn tab_backlog(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let rows = store_list_capability_requests_json(&state.store).await;
@@ -311,7 +308,7 @@ async fn store_list_capability_requests_json(store: &Store) -> Value {
 pub async fn set_backlog_status(
     State(state): State<AdminState>, jar: CookieJar, Path((req_id, status)): Path<(i32, String)>
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     if status == "requested" || status == "building" || status == "done" {
@@ -324,7 +321,7 @@ pub async fn set_backlog_status(
 // --- Push tab ---
 
 pub async fn tab_push(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let rows = get_push_rows(&state.store).await;
@@ -341,7 +338,7 @@ pub async fn push_wake(
     jar: CookieJar,
     Form(f): Form<WakeForm>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     
@@ -393,7 +390,7 @@ async fn get_push_rows(store: &Store) -> Vec<Value> {
 // --- Store Tab ---
 
 pub async fn tab_store(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let (by_cat, providers, commercial, categories, comm_cats) = get_store_metadata(&state.store).await;
@@ -447,7 +444,7 @@ async fn get_store_metadata(store: &Store) -> (HashMap<String, Vec<Value>>, Vec<
 }
 
 pub async fn store_toggle(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = state.store.toggle_capability(&name).await;
@@ -468,7 +465,7 @@ pub struct StoreMetaForm {
 pub async fn store_save(
     State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>, Form(f): Form<StoreMetaForm>
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     
@@ -489,7 +486,7 @@ pub async fn store_save(
 // --- Waitlist Tab ---
 
 pub async fn tab_waitlist(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     wl_render(&state.jinja_env, &state.store, "").await
@@ -670,7 +667,7 @@ def send_email_py(to, subject, text, html):
 }
 
 pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -724,7 +721,7 @@ pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> R
 pub async fn waitlist_thread(
     State(state): State<AdminState>, jar: CookieJar, Path(wid): Path<i32>
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     
@@ -753,7 +750,7 @@ pub async fn waitlist_thread(
 pub async fn waitlist_preview(
     State(state): State<AdminState>, jar: CookieJar, Path(wid): Path<i32>
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -778,7 +775,7 @@ pub async fn waitlist_preview(
 pub async fn waitlist_send(
     State(state): State<AdminState>, jar: CookieJar, Path(wid): Path<i32>
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -814,7 +811,7 @@ pub async fn waitlist_send(
 pub async fn waitlist_send_unsent(
     State(state): State<AdminState>, jar: CookieJar
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -851,7 +848,7 @@ pub async fn waitlist_send_unsent(
 pub async fn tab_generic(
     State(state): State<AdminState>, jar: CookieJar, Path(tab): Path<String>
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.owners).is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
