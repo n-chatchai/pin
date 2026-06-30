@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from pin_proxy import registry, store
+from pin_proxy import store
 
 _HERE = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(_HERE, "templates"))
@@ -95,11 +95,10 @@ def current_admin(request: Request) -> str:
 
 
 def owner(request: Request) -> str:
-    """Owner-only routes; non-owners are bounced to the developer portal."""
+    """Owner-only routes; non-owners get a plain 403."""
     uid = _auth(request, "/admin/login")
     if not _is_owner(uid):
-        raise HTTPException(status_code=303, detail="dev",
-                            headers={"Location": "/developers"})
+        raise HTTPException(status_code=403, detail="owners only")
     return uid
 
 
@@ -114,8 +113,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     if not token:
         return templates.TemplateResponse(
             request, "login.html", {"error": "เข้าสู่ระบบไม่สำเร็จ"})
-    dest = "/admin" if _is_owner(_whoami(token) or "") else "/developers"
-    resp = RedirectResponse(dest, status_code=303)
+    resp = RedirectResponse("/admin", status_code=303)
     resp.set_cookie(_COOKIE, token, httponly=True, samesite="lax",
                     max_age=8 * 3600)
     return resp
@@ -126,86 +124,6 @@ def logout():
     resp = RedirectResponse("/admin/login", status_code=303)
     resp.delete_cookie(_COOKIE)
     return resp
-
-
-# ════════════════════════════════════════════════════════════════════════
-# Developer portal — separate URL space (/developers), its own login/signup.
-# ════════════════════════════════════════════════════════════════════════
-dev_router = APIRouter(prefix="/developers", tags=["developers"])
-
-
-def current_dev(request: Request) -> str:
-    """Any logged-in ปิ่น user; unauthenticated → the developer login."""
-    return _auth(request, "/developers/login")
-
-
-@dev_router.get("/login", response_class=HTMLResponse)
-def dev_login_page(request: Request):
-    return templates.TemplateResponse(
-        request, "login.html",
-        {"post": "/developers/login", "title": "Developer"})
-
-
-@dev_router.post("/login")
-def dev_login(request: Request, email: str = Form(...),
-              password: str = Form(...)):
-    token = _matrix_login(email, password)
-    if not token:
-        return templates.TemplateResponse(
-            request, "login.html",
-            {"error": "เข้าสู่ระบบไม่สำเร็จ", "post": "/developers/login",
-             "title": "Developer"})
-    resp = RedirectResponse("/developers", status_code=303)
-    resp.set_cookie(_COOKIE, token, httponly=True, samesite="lax",
-                    max_age=8 * 3600)
-    return resp
-
-
-@dev_router.post("/logout")
-def dev_logout():
-    resp = RedirectResponse("/developers/login", status_code=303)
-    resp.delete_cookie(_COOKIE)
-    return resp
-
-
-@dev_router.get("", response_class=HTMLResponse)
-def dev_portal(request: Request, dev: str = Depends(current_dev)):
-    mine = [s for s in store.list_submissions() if s["developer"] == dev]
-    return templates.TemplateResponse(
-        request, "dev.html", {"admin": dev, "mine": mine})
-
-
-@dev_router.get("/sub/{sub_id}", response_class=HTMLResponse)
-def dev_sub_detail(sub_id: int, request: Request,
-                   dev: str = Depends(current_dev)):
-    r = store.get_submission(sub_id)
-    if r is None or r["developer"] != dev:
-        raise HTTPException(404)
-    payload = json.loads(r["payload_json"] or "{}")
-    return templates.TemplateResponse(request, "_dev_detail.html", {
-        "s": dict(r),
-        "audit": store.audit_submission(r["type"], payload),
-        "pretty": json.dumps(payload, ensure_ascii=False, indent=2),
-        "live": store.get_tool(r["name"]) is not None
-        or r["name"] in store.installed_names("skills")
-        or r["name"] in store.installed_names("subagents")
-        or r["name"] in store.installed_names("mcp_servers"),
-    })
-
-
-@dev_router.post("/submit", response_class=HTMLResponse)
-def dev_submit(request: Request, dev: str = Depends(current_dev),
-               type: str = Form(...), name: str = Form(...),
-               payload: str = Form(...)):
-    try:
-        data = json.loads(payload)
-        data.setdefault("name", name)
-    except Exception:  # noqa: BLE001
-        return HTMLResponse('<div class="ok" style="background:var(--red-soft);'
-                            'color:var(--red)">JSON ไม่ถูกต้อง</div>')
-    store.add_submission(type, name, data, dev)
-    mine = [s for s in store.list_submissions() if s["developer"] == dev]
-    return templates.TemplateResponse(request, "_dev_list.html", {"mine": mine})
 
 
 # ---- pages -----------------------------------------------------------------
@@ -230,13 +148,6 @@ def _counts() -> dict:
 def dashboard(request: Request, admin: str = Depends(owner)):
     return templates.TemplateResponse(
         request, "dashboard.html", {"admin": admin, "counts": _counts()})
-
-
-@router.get("/tab/tools", response_class=HTMLResponse)
-def tab_tools(request: Request, admin: str = Depends(owner)):
-    with store.conn() as c:
-        rows = c.execute("SELECT * FROM tools ORDER BY kind,name").fetchall()
-    return templates.TemplateResponse(request, "_tools.html", {"rows": rows})
 
 
 @router.get("/tab/backlog", response_class=HTMLResponse)
@@ -298,44 +209,6 @@ def capability_status(req_id: int, status: str, request: Request,
     return tab_backlog(request, admin)
 
 
-@router.post("/tools/{name}/toggle", response_class=HTMLResponse)
-def toggle_tool(name: str, request: Request, admin: str = Depends(owner)):
-    with store.conn() as c:
-        c.execute("UPDATE tools SET enabled=1-enabled,updated_at=? WHERE name=?",
-                  (time.time(), name))
-        row = c.execute("SELECT * FROM tools WHERE name=?", (name,)).fetchone()
-    return templates.TemplateResponse(request, "_tool_row.html", {"r": row})
-
-
-# Registry-backed tabs: installed rows + the curated catalog still available.
-_REG = {
-    "mcp": ("mcp_servers", lambda: registry.MCP),
-    "skills": ("skills", lambda: registry.SKILLS),
-    "subagents": ("subagents", lambda: registry.SUBAGENTS),
-}
-
-
-@router.get("/tool/{name}/edit", response_class=HTMLResponse)
-def tool_edit(name: str, request: Request, admin: str = Depends(owner)):
-    r = store.get_tool(name)
-    if r is None:
-        raise HTTPException(404)
-    pricing = json.loads(r["pricing_json"]) if r["pricing_json"] else {}
-    return templates.TemplateResponse(
-        request, "_tool_edit.html", {"r": r, "pricing": pricing})
-
-
-@router.post("/tool/{name}", response_class=HTMLResponse)
-def tool_save(name: str, request: Request, admin: str = Depends(owner),
-              label: str = Form(""), blurb: str = Form(""),
-              category: str = Form(""), provider: str = Form(""),
-              tier: str = Form("free"), amount: str = Form(""),
-              period: str = Form("month")):
-    store.update_tool_meta(name, label, blurb, category, provider, tier,
-                           amount, period)
-    return tab_tools(request, admin)
-
-
 # Per-tool "params" editor, reached from the store card (like the MCP defaults
 # editor). news_reporter's params = its RSS feeds per topic.
 _NEWS_TOPICS = [("general", "ข่าวทั่วไป"), ("ai", "ข่าว AI")]
@@ -367,48 +240,6 @@ async def tool_config_save(name: str, request: Request,
         sources[tid] = feeds
     store.set_tool_config(name, {"sources": sources})
     return tab_store(request, admin)
-
-
-def _render_registry(request: Request, tab: str):
-    table, items = _REG[tab]
-    installed = store.installed_names(table)
-    with store.conn() as c:
-        rows = [dict(r) for r in c.execute(
-            f"SELECT * FROM {table} ORDER BY name").fetchall()]
-    available = [it for it in items() if it["name"] not in installed]
-    by_cat: dict[str, list] = {}
-    for it in available:
-        by_cat.setdefault(it.get("category", "อื่น ๆ"), []).append(it)
-    return templates.TemplateResponse(
-        request, f"_{tab}.html",
-        {"tab": tab, "rows": rows, "avail": available, "by_cat": by_cat})
-
-
-@router.get("/tab/mcp", response_class=HTMLResponse)
-@router.get("/tab/skills", response_class=HTMLResponse)
-@router.get("/tab/subagents", response_class=HTMLResponse)
-def tab_registry(request: Request, admin: str = Depends(owner)):
-    return _render_registry(request, request.url.path.rsplit("/", 1)[-1])
-
-
-@router.post("/install/{tab}/{name}", response_class=HTMLResponse)
-def install(tab: str, name: str, request: Request,
-            admin: str = Depends(owner)):
-    items = _REG[tab][1]()
-    item = next((i for i in items if i["name"] == name), None)
-    if item is None:
-        raise HTTPException(404)
-    {"mcp": store.install_mcp, "skills": store.install_skill,
-     "subagents": store.install_subagent}[tab](item)
-    return _render_registry(request, tab)
-
-
-@router.post("/uninstall/{tab}/{name}", response_class=HTMLResponse)
-def uninstall(tab: str, name: str, request: Request,
-              admin: str = Depends(owner)):
-    {"mcp": store.uninstall_mcp, "skills": store.uninstall_skill,
-     "subagents": store.uninstall_subagent}[tab](name)
-    return _render_registry(request, tab)
 
 
 # ---- MCP tool default params (configure per param: fixed value or $user) -----
@@ -459,9 +290,17 @@ def tab_store(request: Request, admin: str = Depends(owner)):
             providers.add(m["provider"])
             if paid:
                 commercial.add(m["provider"])
+    # Catalog publish history merged into the store view (the published snapshot
+    # is just the enabled capabilities, signed) — no separate Catalog tab.
+    with store.conn() as c:
+        versions = [dict(r) for r in c.execute(
+            "SELECT version,"
+            "datetime(published_at,'unixepoch','localtime') AS published_at,"
+            "author FROM catalog_versions ORDER BY version DESC LIMIT 8"
+        ).fetchall()]
     return templates.TemplateResponse(
         request, "_store.html",
-        {"by_cat": by_cat,
+        {"by_cat": by_cat, "versions": versions,
          "providers": sorted(providers), "commercial": sorted(commercial),
          "categories": sorted(by_cat.keys()), "comm_cats": sorted(comm_cats)})
 
@@ -482,52 +321,14 @@ def store_toggle(name: str, request: Request, admin: str = Depends(owner)):
     return tab_store(request, admin)
 
 
-@router.post("/store/add/{tab}/{name}", response_class=HTMLResponse)
-def store_add(tab: str, name: str, request: Request,
-              admin: str = Depends(owner)):
-    items = _REG[tab][1]()
-    item = next((i for i in items if i["name"] == name), None)
-    if item is not None:
-        {"mcp": store.install_mcp, "skills": store.install_skill}[tab](item)
-    return tab_store(request, admin)
-
-
-# ---- developer portal + review queue ---------------------------------------
-
-def _review_rows() -> list[dict]:
-    out = []
-    for s in store.list_submissions("pending"):
-        payload = json.loads(s["payload_json"] or "{}")
-        out.append({**s, "audit": store.audit_submission(s["type"], payload)})
-    return out
-
-
-@router.get("/tab/review", response_class=HTMLResponse)
-def tab_review(request: Request, admin: str = Depends(owner)):
-    return templates.TemplateResponse(request, "_review.html",
-                                      {"rows": _review_rows()})
-
-
-@router.post("/review/{sub_id}/{action}", response_class=HTMLResponse)
-def review_action(sub_id: int, action: str, request: Request,
-                  admin: str = Depends(owner)):
-    if action == "approve":
-        store.approve_submission(sub_id)
-    else:
-        store.set_submission_status(sub_id, "rejected")
-    return templates.TemplateResponse(request, "_review.html",
-                                      {"rows": _review_rows()})
-
-
 @router.get("/tab/{tab}", response_class=HTMLResponse)
 def tab_generic(tab: str, request: Request, admin: str = Depends(owner)):
     q = {
-        "catalog": "SELECT version,published_at,author FROM catalog_versions"
-                   " ORDER BY version DESC LIMIT 20",
         "logs": "SELECT ts,tool,kind,arg_keys,status FROM tool_logs"
                 " ORDER BY ts DESC LIMIT 50",
-        "waitlist": "SELECT email,use,source,created_at FROM waitlist"
-                    " ORDER BY created_at DESC LIMIT 500",
+        "waitlist": "SELECT email,use,source,"
+                    "datetime(created_at,'unixepoch','localtime') AS created_at"
+                    " FROM waitlist ORDER BY created_at DESC LIMIT 500",
     }.get(tab)
     if q is None:
         raise HTTPException(404)

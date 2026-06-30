@@ -41,10 +41,6 @@ CREATE TABLE IF NOT EXISTS admin_users(
   email TEXT PRIMARY KEY, pw_hash TEXT, role TEXT);
 CREATE TABLE IF NOT EXISTS tool_logs(
   ts REAL, tool TEXT, kind TEXT, arg_keys TEXT, status TEXT);
-CREATE TABLE IF NOT EXISTS submissions(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, name TEXT,
-  payload_json TEXT, developer TEXT, status TEXT DEFAULT 'pending',
-  note TEXT, created_at REAL);
 CREATE TABLE IF NOT EXISTS capability_requests(
   id INTEGER PRIMARY KEY AUTOINCREMENT, capability TEXT, detail TEXT,
   status TEXT DEFAULT 'requested', count INTEGER DEFAULT 1,
@@ -536,7 +532,7 @@ def install_subagent(s: dict) -> None:
                    s.get("label"), s.get("provider"), _pj(s)))
 
 
-# ---- developer submissions + review queue ----------------------------------
+# ---- capability requests (backlog) -----------------------------------------
 
 def add_capability_request(capability: str, detail: str, user: str) -> None:
     """Log a user's request for a not-yet-supported capability. Dedupe by
@@ -616,95 +612,6 @@ def list_push_devices() -> list[dict]:
     with conn() as c:
         return [dict(r) for r in c.execute(
             "SELECT * FROM push_devices ORDER BY updated_at DESC").fetchall()]
-
-
-def add_submission(type_: str, name: str, payload: dict, developer: str) -> int:
-    with conn() as c:
-        cur = c.execute(
-            "INSERT INTO submissions(type,name,payload_json,developer,status,"
-            "created_at) VALUES(?,?,?,?, 'pending', ?)",
-            (type_, name, json.dumps(payload), developer, time.time()))
-        return cur.lastrowid
-
-
-def list_submissions(status: str | None = None) -> list[dict]:
-    with conn() as c:
-        if status:
-            rows = c.execute("SELECT * FROM submissions WHERE status=?"
-                             " ORDER BY id DESC", (status,)).fetchall()
-        else:
-            rows = c.execute("SELECT * FROM submissions ORDER BY id DESC"
-                             ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def get_submission(sub_id: int):
-    with conn() as c:
-        return c.execute("SELECT * FROM submissions WHERE id=?",
-                         (sub_id,)).fetchone()
-
-
-def set_submission_status(sub_id: int, status: str, note: str = "") -> None:
-    with conn() as c:
-        c.execute("UPDATE submissions SET status=?,note=? WHERE id=?",
-                  (status, note, sub_id))
-
-
-_FORBIDDEN_ARGKEYS = {
-    "identity", "conversation", "convo", "prefs", "preferences", "user",
-    "email", "token", "secret", "password", "name", "phone", "address",
-    "userid", "user_id", "history",
-}
-
-
-def audit_submission(type_: str, payload: dict) -> list[dict]:
-    """Automated checks before review: forbidden argKeys (block), missing
-    declarations (warn). Returns [{level, msg}]."""
-    issues: list[dict] = []
-
-    def check_keys(keys, where):
-        for k in keys or []:
-            if str(k).lower() in _FORBIDDEN_ARGKEYS:
-                issues.append({"level": "block",
-                               "msg": f"argKey ต้องห้าม ({where}): {k}"})
-
-    if type_ == "mcp":
-        for t in payload.get("tools", []):
-            ak = t.get("argKeys")
-            if not ak and (t.get("parameters", {}) or {}).get("properties"):
-                issues.append({"level": "warn",
-                               "msg": f"{t.get('name')}: ไม่ประกาศ argKeys"})
-            check_keys(ak, t.get("name", "tool"))
-    elif type_ == "skill":
-        if not payload.get("instructions"):
-            issues.append({"level": "warn", "msg": "ไม่มี instructions"})
-    elif type_ == "subagent":
-        if not payload.get("system"):
-            issues.append({"level": "warn", "msg": "ไม่มี system prompt"})
-        if not payload.get("toolNames"):
-            issues.append({"level": "warn", "msg": "ไม่ได้ระบุ toolNames"})
-    elif type_ == "tool":
-        if not payload.get("endpoint"):
-            issues.append({"level": "block", "msg": "ไม่มี endpoint (URL)"})
-        if not payload.get("argKeys"):
-            issues.append({"level": "warn", "msg": "ไม่ได้ประกาศ argKeys"})
-        check_keys(payload.get("argKeys"), "tool")
-    return issues
-
-
-def approve_submission(sub_id: int) -> bool:
-    """Approve = install the submitted capability into the live catalog tables."""
-    with conn() as c:
-        r = c.execute("SELECT * FROM submissions WHERE id=?",
-                      (sub_id,)).fetchone()
-    if r is None:
-        return False
-    payload = json.loads(r["payload_json"] or "{}")
-    {"mcp": install_mcp, "skill": install_skill,
-     "subagent": install_subagent,
-     "tool": install_tool}.get(r["type"], lambda _: None)(payload)
-    set_submission_status(sub_id, "approved")
-    return True
 
 
 def log_tool(tool: str, kind: str, arg_keys: list[str], status: str) -> None:

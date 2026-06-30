@@ -1,8 +1,8 @@
-"""ปิ่น admin — standalone backoffice (catalog/skills/MCP/subagents + dev portal).
+"""ปิ่น admin — standalone backoffice (catalog/skills/MCP/subagents).
 
 Shares the proxy's SQLite store (the admin-editable source of truth). Auth is
-tuwunel (Matrix): owners listed in PIN_ADMIN_OWNERS get the full backoffice,
-everyone else the developer portal. Run separately from the LLM proxy.
+tuwunel (Matrix): owners listed in PIN_ADMIN_OWNERS get the backoffice. Run
+separately from the LLM proxy.
 """
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ load_dotenv()
 
 app = FastAPI(title="pin-admin")
 app.include_router(admin.router)
-app.include_router(admin.dev_router)
 
 
 @app.on_event("startup")
