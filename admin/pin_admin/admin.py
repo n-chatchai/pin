@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import json
 import os
+import smtplib
 import time
+from email.message import EmailMessage
 
 import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -20,6 +22,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from pin_proxy import store
+
+from . import emails
 
 _HERE = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(_HERE, "templates"))
@@ -309,14 +313,97 @@ def store_toggle(name: str, request: Request, admin: str = Depends(owner)):
     return tab_store(request, admin)
 
 
+# ---- waitlist outreach (SMTP early-access mail, personalised per use-case) ---
+
+def _send_email(to: str, subject: str, text: str, html: str) -> None:
+    host = os.environ.get("SMTP_HOST", "smtp.sequenzy.com")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "api")
+    pw = os.environ.get("SMTP_PASS") or os.environ.get("SEQUENZY_API_KEY", "")
+    sender = os.environ.get("SMTP_FROM", "ปิ่น <hello@tokens2.io>")
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to
+    msg["Reply-To"] = sender
+    msg.set_content(text)
+    msg.add_alternative(html, subtype="html")
+    with smtplib.SMTP(host, port, timeout=20) as s:
+        s.starttls()
+        if pw:
+            s.login(user, pw)
+        s.send_message(msg)
+
+
+_PERSONA_TH = {"study": "ติว/ทบทวน", "home": "เรื่องในบ้าน", "creative": "ครีเอทีฟ",
+               "sme": "ร้านค้า", "work": "จัดการงาน", "default": "ทั่วไป"}
+
+
+def _wl_render(request: Request, flash: str = ""):
+    import time as _t
+    rows = store.list_waitlist()
+    for r in rows:
+        r["persona_th"] = _PERSONA_TH.get(emails.classify(r.get("use") or ""), "")
+        sa = r.get("sent_at")
+        r["sent"] = bool(sa)
+        r["sent_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(sa)) if sa else ""
+    return templates.TemplateResponse(request, "_waitlist.html", {
+        "rows": rows, "flash": flash,
+        "unsent": sum(0 if r["sent"] else 1 for r in rows)})
+
+
+@router.get("/tab/waitlist", response_class=HTMLResponse)
+def tab_waitlist(request: Request, admin: str = Depends(owner)):
+    return _wl_render(request)
+
+
+@router.get("/waitlist/{wid}/preview", response_class=HTMLResponse)
+def waitlist_preview(wid: int, request: Request, admin: str = Depends(owner)):
+    row = next((r for r in store.list_waitlist() if r["id"] == wid), None)
+    if row is None:
+        raise HTTPException(404)
+    subject, _text, html = emails.build(row.get("use") or "")
+    return templates.TemplateResponse(request, "_waitlist_preview.html", {
+        "to": row["email"], "subject": subject, "html": html, "wid": wid,
+        "sent": bool(row.get("sent_at"))})
+
+
+@router.post("/waitlist/{wid}/send", response_class=HTMLResponse)
+def waitlist_send(wid: int, request: Request, admin: str = Depends(owner)):
+    row = next((r for r in store.list_waitlist() if r["id"] == wid), None)
+    if row is None:
+        raise HTTPException(404)
+    subject, text, html = emails.build(row.get("use") or "")
+    try:
+        _send_email(row["email"], subject, text, html)
+        store.mark_waitlist_sent(row["email"])
+        flash = f"ส่งหา {row['email']} แล้ว ✓"
+    except Exception as e:  # noqa: BLE001
+        flash = f"ส่งไม่สำเร็จ ({row['email']}): {e}"
+    return _wl_render(request, flash)
+
+
+@router.post("/waitlist/send-unsent", response_class=HTMLResponse)
+def waitlist_send_unsent(request: Request, admin: str = Depends(owner)):
+    sent, fail = 0, 0
+    for row in store.list_waitlist():
+        if row.get("sent_at"):
+            continue
+        subject, text, html = emails.build(row.get("use") or "")
+        try:
+            _send_email(row["email"], subject, text, html)
+            store.mark_waitlist_sent(row["email"])
+            sent += 1
+        except Exception:  # noqa: BLE001
+            fail += 1
+    return _wl_render(request, f"ส่งสำเร็จ {sent} · ล้มเหลว {fail}")
+
+
 @router.get("/tab/{tab}", response_class=HTMLResponse)
 def tab_generic(tab: str, request: Request, admin: str = Depends(owner)):
     q = {
         "logs": "SELECT ts,tool,kind,arg_keys,status FROM tool_logs"
                 " ORDER BY ts DESC LIMIT 50",
-        "waitlist": "SELECT email,use,source,"
-                    "datetime(created_at,'unixepoch','localtime') AS created_at"
-                    " FROM waitlist ORDER BY created_at DESC LIMIT 500",
     }.get(tab)
     if q is None:
         raise HTTPException(404)

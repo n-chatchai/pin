@@ -1,0 +1,31 @@
+<div class="sec-h"><h3>ผู้รอรับสิทธิ์</h3>
+  <span class="hint">{{ rows|length }} คน · ยังไม่ส่ง {{ unsent }}</span></div>
+<p class="hint" style="margin:-4px 0 10px">อีเมลปรับตาม use-case อัตโนมัติ · กดดูตัวอย่างก่อนส่ง · คนตอบกลับเข้ากล่องอีเมล From</p>
+{% if flash %}<div class="ok" style="margin-bottom:12px">{{ flash }}</div>{% endif %}
+{% if rows %}
+{% if unsent %}
+<div style="margin-bottom:12px">
+  <button class="btn p sm" hx-post="/admin/waitlist/send-unsent" hx-target="#panel"
+    hx-confirm="ส่งอีเมลหาทุกคนที่ยังไม่ส่ง ({{ unsent }} คน)?">ส่งที่ยังไม่ส่งทั้งหมด ({{ unsent }})</button>
+</div>
+{% endif %}
+<div id="wlpreview"></div>
+<table>
+  <thead><tr><th>อีเมล</th><th>สนใจ</th><th>persona</th><th>สถานะ</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td class="mono">{{ r.email }}</td>
+    <td style="font-size:12px;color:var(--ink2);max-width:200px">{{ r.use }}</td>
+    <td><span class="b sub">{{ r.persona_th }}</span></td>
+    <td>{% if r.sent %}<span class="b on">ส่งแล้ว {{ r.sent_th }}</span>{% else %}<span class="b off">ยังไม่ส่ง</span>{% endif %}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <a class="tg" hx-get="/admin/waitlist/{{ r.id }}/preview" hx-target="#wlpreview">ดูตัวอย่าง</a>
+      <a class="tg" style="color:var(--green-d)" hx-post="/admin/waitlist/{{ r.id }}/send"
+         hx-target="#panel" hx-confirm="ส่งหา {{ r.email }}?">{{ 'ส่งซ้ำ' if r.sent else 'ส่ง' }}</a>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p style="color:var(--ink3)">ยังไม่มีคนลงชื่อ</p>{% endif %}

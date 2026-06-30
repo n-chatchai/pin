@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS capability_requests(
   requesters TEXT, created_at REAL, updated_at REAL);
 CREATE TABLE IF NOT EXISTS waitlist(
   id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, use TEXT,
-  source TEXT, created_at REAL);
+  source TEXT, created_at REAL, sent_at REAL);
 CREATE TABLE IF NOT EXISTS push_devices(
   user_id TEXT PRIMARY KEY, device TEXT, platform TEXT, updated_at REAL);
 """
@@ -90,6 +90,7 @@ def init() -> None:
                           "status"),
             "mcp_tools": ("label", "category", "provider", "pricing_json",
                           "defaults_json", "status", "render", "ask_params"),
+            "waitlist": ("sent_at",),
         }
         for tbl, cols in _migrate.items():
             for col in cols:
@@ -596,6 +597,12 @@ def list_waitlist() -> list[dict]:
     with conn() as c:
         return [dict(r) for r in c.execute(
             "SELECT * FROM waitlist ORDER BY created_at DESC").fetchall()]
+
+
+def mark_waitlist_sent(email: str) -> None:
+    with conn() as c:
+        c.execute("UPDATE waitlist SET sent_at=? WHERE email=?",
+                  (time.time(), email))
 
 
 def record_push_device(user_id: str, device: str, platform: str) -> None:
