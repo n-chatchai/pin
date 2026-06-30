@@ -57,9 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 3. Connect to SQLite database
-    let db_path = std::env::var("PIN_ADMIN_DB").unwrap_or_else(|_| {
+    let db_path = std::env::var("PIN_DB").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        format!("{}/pin-admin.db", home)
+        format!("{}/pin.db", home)
     });
     info!("Using database: {}", db_path);
     

@@ -13,7 +13,7 @@ import os
 import sqlite3
 import time
 
-_DB = os.environ.get("PIN_ADMIN_DB", os.path.expanduser("~/pin-admin.db"))
+_DB = os.environ.get("PIN_DB", os.path.expanduser("~/pin.db"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS tools(
