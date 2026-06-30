@@ -22,10 +22,6 @@ def _sub(amount, period="month"):
             "period": period}
 
 
-def _once(amount):
-    return {"tier": "onetime", "amount": amount, "currency": "THB"}
-
-
 DISPLAY = {
     # hosted tools — free, provided by upstream data sources
     "get_weather": {"category": "ข้อมูล", "label": "พยากรณ์อากาศ",
@@ -37,15 +33,25 @@ DISPLAY = {
     "web_search": {"category": "ข้อมูล", "label": "ค้นข้อมูลในเว็บ",
                    "blurb": "หาข้อมูลสดจากเน็ต", "icon": "search",
                    "group": "ready", "provider": "ปิ่น", "pricing": _free()},
+    "news": {"category": "ข่าวสาร", "label": "สรุปข่าว",
+             "blurb": "สรุปข่าวที่คุณสนใจ", "icon": "newspaper",
+             "group": "ready", "provider": "ปิ่น", "pricing": _free()},
     # skills — free, by ปิ่น
-    "morning_news": {"category": "ข่าวสาร", "label": "สรุปข่าวเช้า",
-                     "blurb": "อ่านข่าวให้ทุกเช้า", "icon": "newspaper",
-                     "group": "ready", "provider": "ปิ่น", "pricing": _free()},
-    "researcher": {"category": "ค้นคว้า", "label": "ค้นข้อมูลเชิงลึก",
-                   "blurb": "หาหลายแหล่งแล้วสรุป", "icon": "brain",
-                   "group": "ready", "provider": "ปิ่น", "pricing": _free()},
-    # ดูดวง — via the lakkana-astrologer MCP (consult_astrologer). Free trial.
-    "consult_astrologer": {"category": "ดูดวง", "label": "ดูดวงลัคนา",
+    "generate_image": {"category": "สร้างสรรค์", "label": "สร้างรูปภาพ",
+                       "blurb": "วาดหรือสร้างรูปจากคำบอก", "icon": "image",
+                       "group": "ready", "provider": "ปิ่น", "pricing": _free()},
+    "joke": {"category": "บันเทิง", "label": "เล่ามุก",
+             "blurb": "ขอมุกตลกคลายเครียด", "icon": "smiley",
+             "group": "ready", "provider": "ปิ่น", "pricing": _free()},
+    "fortune": {"category": "ดูดวง", "label": "ดูดวงเบื้องต้น",
+                "blurb": "เสี่ยงทาย ทำนายเล่น ๆ", "icon": "star",
+                "group": "ready", "provider": "ปิ่น", "pricing": _free()},
+    "watch": {"category": "ผู้ช่วย", "label": "เฝ้าติดตามให้",
+              "blurb": "คอยจับตาเรื่องที่คุณสนใจ แล้วเตือน", "icon": "eye",
+              "group": "ready", "provider": "ปิ่น", "pricing": _free()},
+    # ดูดวง — lakkana.app MCP, tool get_reading (get_transits is a no-charge
+    # data helper, hidden from the store via store._INTERNAL_CAPS).
+    "get_reading": {"category": "ไลฟ์สไตล์", "label": "ดูดวงลัคนา",
                            "blurb": "ผูกดวงไทย+สากลจากวันเกิด อ่านดวงเฉพาะคุณ",
                            "icon": "star", "group": "ready", "status": "trial",
                            "provider": "ลักษณา"},
@@ -58,22 +64,6 @@ DISPLAY = {
                      "blurb": "สรุปเมลด่วน ร่างตอบ", "icon": "mail",
                      "group": "connect", "needs_connect": True, "status": "soon",
                      "provider": "Google", "pricing": _sub(59)},
-    "calendar_assistant": {"category": "เชื่อมบัญชี", "label": "ผู้ช่วยปฏิทิน",
-                           "blurb": "หาเวลาว่าง สร้างนัด", "icon": "calendar",
-                           "group": "connect", "needs_connect": True,
-                           "provider": "Google", "pricing": _sub(59)},
-    "notion_search": {"category": "เชื่อมบัญชี", "label": "ค้นใน Notion",
-                      "blurb": "หาโน้ตของคุณ", "icon": "book",
-                      "group": "connect", "needs_connect": True,
-                      "provider": "Notion", "pricing": _sub(49)},
-    "gcal_create_event": {"category": "เชื่อมบัญชี", "label": "สร้างนัดในปฏิทิน",
-                          "blurb": "เพิ่มนัด Google", "icon": "calendar",
-                          "group": "connect", "needs_connect": True,
-                          "provider": "Google", "pricing": _sub(59)},
-    "send_email": {"category": "เชื่อมบัญชี", "label": "ส่งอีเมล",
-                   "blurb": "ส่งเมลให้", "icon": "mail",
-                   "group": "connect", "needs_connect": True,
-                   "provider": "Google", "pricing": _sub(59)},
 }
 
 

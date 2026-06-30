@@ -3,37 +3,26 @@
   .chip{padding:5px 12px;border:1px solid var(--line);border-radius:20px;font-size:12.5px;
         color:var(--ink2);cursor:pointer;user-select:none;background:#fff}
   .chip.chip-on{background:var(--green-d,#1c7a4a);color:#fff;border-color:var(--green-d,#1c7a4a)}
-  .vrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:2px 0 4px}
-  .vchip{font-size:11.5px;color:var(--ink2);background:#fff;border:1px solid var(--line);
-         border-radius:20px;padding:4px 11px;white-space:nowrap}
-  .vchip.latest{background:var(--green-d,#1c7a4a);color:#fff;border-color:var(--green-d,#1c7a4a);font-weight:600}
+  .editbox{display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;
+           padding-top:10px;border-top:1px solid var(--line)}
+  .editbox.open{display:flex}
+  .editbox input,.editbox select{padding:6px 8px;border:1px solid var(--line);
+           border-radius:8px;font-size:13px}
+  .fl{display:flex;flex-direction:column;gap:3px}
+  .fl small{font-size:10.5px;color:var(--ink3)}
 </style>
 <div class="sec-h"><h3>ความสามารถ</h3>
-  <span class="hint">ความสามารถภายนอก (มีค่าใช้จ่าย) — แบบ builtin/ฟรี ซ่อนไว้ กดชิป "ทั้งหมด" เพื่อดู</span></div>
+  <span class="hint">ทุกอย่างที่ปิ่นทำให้ผู้ใช้ได้ · เปิด/ปิดแล้วมีผลกับเครื่องลูกทันที</span></div>
 <p class="hint" style="margin:-4px 0 10px">สถานะ: <b>live</b> ใช้ได้เลย · <b>trial</b> ทดลองฟรี · <b>soon</b> เร็ว ๆ นี้</p>
-
-<div style="margin-bottom:14px">
-  <div class="sec-h" style="margin-bottom:6px"><h3 style="font-size:14px">เผยแพร่ล่าสุด</h3></div>
-  {% if versions %}
-  <div class="vrow">{% for v in versions %}
-    <span class="vchip{{ ' latest' if loop.first }}">v{{ v.version }} · {{ v.published_at }}{% if v.author %} · {{ v.author.split(':')[0].lstrip('@') }}{% endif %}</span>
-  {% endfor %}</div>
-  {% else %}<p class="hint">ยังไม่เคยเผยแพร่</p>{% endif %}
-</div>
 
 <div style="margin-bottom:14px">
   <div class="chiprow">
     <span class="chip chip-on" onclick="chipSel('cat','',this)">ทุกหมวด</span>
-    {% for c in categories %}<span class="chip{{ ' chip-free' if c not in comm_cats }}"
-        {% if c not in comm_cats %}style="display:none"{% endif %}
-        onclick="chipSel('cat','{{ c }}',this)">{{ c }}</span>{% endfor %}
+    {% for c in categories %}<span class="chip" onclick="chipSel('cat','{{ c }}',this)">{{ c }}</span>{% endfor %}
   </div>
   <div class="chiprow">
     <span class="chip chip-on" onclick="chipSel('prov','',this)">ทุก provider</span>
-    {% for p in providers %}<span class="chip{{ ' chip-free' if p not in commercial }}"
-        {% if p not in commercial %}style="display:none"{% endif %}
-        onclick="chipSel('prov','{{ p }}',this)">{{ p }}</span>{% endfor %}
-    <span id="freechip" class="chip" onclick="chipFree(this)" style="margin-left:auto">ทั้งหมด</span>
+    {% for p in providers %}<span class="chip" onclick="chipSel('prov','{{ p }}',this)">{{ p }}</span>{% endfor %}
   </div>
 </div>
 
@@ -44,48 +33,36 @@
 {% for m in items %}
 {% set pr = m.get('pricing') or {} %}
 {% set st = m.get('status') or 'live' %}
-{% set isfree = pr.get('tier','free') == 'free' %}
-<div class="rcard cap-row" data-cat="{{ cat }}" data-prov="{{ m.get('provider','') }}" data-free="{{ '1' if isfree else '0' }}"
+{% set price = 'ฟรี' if pr.get('tier','free')=='free' else ('฿' ~ pr.get('amount','') ~ ('/เดือน' if pr.get('tier')=='subscription' and pr.get('period','month')=='month' else ('/ปี' if pr.get('tier')=='subscription' else ''))) %}
+<div class="rcard cap-row" data-cat="{{ cat }}" data-prov="{{ m.get('provider','') }}"
      style="margin-bottom:8px;{{ '' if m.enabled else 'opacity:.55' }}">
   <div class="rh">
     <b>{{ m.get('label') or m.name }}</b>
-    <span class="b sub" style="margin-left:6px">{{ m.name }}</span>
     <span class="b {{ 'on' if st in ('trial','live') else 'sub' }}" style="margin-left:6px">{{ labels.get(st, st) }}</span>
-    <span class="hint" style="margin-left:6px">{{ m.kind }}{% if m.get('provider') %} · {{ m.provider }}{% endif %}</span>
-    <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+    <span class="hint" style="margin-left:6px">{{ price }}{% if m.get('provider') %} · {{ m.provider }}{% endif %}</span>
+    <span style="margin-left:auto;display:flex;gap:12px;align-items:center">
       {% if m.kind == 'mcp' and m.get('server') %}
-        <a class="tg" hx-get="/admin/mcp/server/{{ m.server }}/tools" hx-target="#panel">ตั้งค่า params</a>
-      {% elif m.name == 'news_reporter' %}
-        <a class="tg" hx-get="/admin/tool/{{ m.name }}/config" hx-target="#panel">ตั้งค่า params</a>
+        <a class="tg" hx-get="/admin/mcp/server/{{ m.server }}/tools" hx-target="#panel">params</a>
+      {% elif m.name == 'news' %}
+        <a class="tg" hx-get="/admin/tool/{{ m.name }}/config" hx-target="#panel">params</a>
       {% endif %}
+      <a class="tg" onclick="this.closest('.cap-row').querySelector('.editbox').classList.toggle('open')">แก้</a>
       <a class="tg" style="color:{{ 'var(--red)' if m.enabled else 'var(--green-d)' }}"
          hx-post="/admin/store/{{ m.name }}/toggle" hx-target="#panel">{{ 'ปิด' if m.enabled else 'เปิด' }}</a>
     </span>
   </div>
-  <form hx-post="/admin/store/{{ m.name }}" hx-target="#panel"
-        style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
-    <input name="category" value="{{ m.get('category','') }}" placeholder="หมวด"
-        style="width:130px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-    <select name="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-      {% for s in ['live','trial','soon'] %}<option value="{{ s }}" {{ 'selected' if st==s }}>{{ labels[s] }}</option>{% endfor %}
-    </select>
-    <select name="tier" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-      {% for tt in ['free','onetime','subscription'] %}<option value="{{ tt }}" {{ 'selected' if pr.get('tier','free')==tt }}>{{ tt }}</option>{% endfor %}
-    </select>
-    <input name="amount" value="{{ pr.get('amount','') }}" placeholder="฿" type="number"
-        style="width:70px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-    <select name="period" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-      {% for pp in ['month','year'] %}<option value="{{ pp }}" {{ 'selected' if pr.get('period','month')==pp }}>{{ pp }}</option>{% endfor %}
-    </select>
+  {% if m.get('blurb') %}<div class="hint" style="margin-top:3px">{{ m.blurb }}</div>{% endif %}
+  <form class="editbox" hx-post="/admin/store/{{ m.name }}" hx-target="#panel">
+    <div class="fl"><small>ชื่อระบบ</small><input value="{{ m.name }}" disabled style="width:150px;opacity:.6"></div>
+    <div class="fl"><small>หมวด</small><input name="category" value="{{ m.get('category','') }}" placeholder="หมวด" style="width:120px"></div>
+    <div class="fl"><small>สถานะ</small><select name="status">{% for s in ['live','trial','soon'] %}<option value="{{ s }}" {{ 'selected' if st==s }}>{{ labels[s] }}</option>{% endfor %}</select></div>
+    <div class="fl"><small>ค่าใช้จ่าย</small><select name="tier">{% for tt,tl in [('free','ฟรี'),('onetime','จ่ายครั้งเดียว'),('subscription','รายเดือน/ปี')] %}<option value="{{ tt }}" {{ 'selected' if pr.get('tier','free')==tt }}>{{ tl }}</option>{% endfor %}</select></div>
+    <div class="fl"><small>ราคา (฿)</small><input name="amount" value="{{ pr.get('amount','') }}" placeholder="0" type="number" style="width:70px"></div>
+    <div class="fl"><small>รอบบิล</small><select name="period">{% for pp,pl in [('month','รายเดือน'),('year','รายปี')] %}<option value="{{ pp }}" {{ 'selected' if pr.get('period','month')==pp }}>{{ pl }}</option>{% endfor %}</select></div>
     {% if m.kind in ['tool','mcp'] %}
     {% set rv = m.get('render','auto') %}
-    <select name="render" title="การแสดงผลลัพธ์" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-      {% for rid, rlbl in [('auto','ผลลัพธ์: อัตโนมัติ'),('card','ผลลัพธ์: การ์ด'),('text','ผลลัพธ์: ข้อความ')] %}
-        <option value="{{ rid }}" {{ 'selected' if rv==rid }}>{{ rlbl }}</option>{% endfor %}
-    </select>
-    <input name="ask_params" value="{{ (m.get('askParams') or [])|join(', ') }}"
-        placeholder="ถามก่อน: system, area" title="พารามิเตอร์ที่ต้องถามผู้ใช้ก่อนเรียก (คั่นด้วย ,)"
-        style="width:150px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <div class="fl"><small>การแสดงผล</small><select name="render">{% for rid,rlbl in [('auto','อัตโนมัติ'),('card','การ์ด'),('text','ข้อความ')] %}<option value="{{ rid }}" {{ 'selected' if rv==rid }}>{{ rlbl }}</option>{% endfor %}</select></div>
+    <div class="fl"><small>ถามผู้ใช้ก่อนใช้</small><input name="ask_params" value="{{ (m.get('askParams') or [])|join(', ') }}" placeholder="เช่น area" style="width:140px"></div>
     {% endif %}
     <button class="btn p sm" type="submit" style="margin-left:auto">บันทึก</button>
   </form>
@@ -95,28 +72,17 @@
 {% else %}<p style="color:var(--ink3)">ยังไม่มีความสามารถ</p>{% endfor %}
 
 <script>
-window.storeS = {cat:'', prov:'', free:false};
+window.storeS = {cat:'', prov:''};
 function chipSel(g, v, el){
   window.storeS[g] = v;
   el.parentNode.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('chip-on'); });
   el.classList.add('chip-on');
   storeFlt();
 }
-function chipFree(el){
-  window.storeS.free = !window.storeS.free;
-  el.classList.toggle('chip-on', window.storeS.free);
-  // reveal/hide the free-only category + provider chips alongside the rows
-  document.querySelectorAll('#panel .chip-free').forEach(function(c){
-    c.style.display = window.storeS.free ? '' : 'none';
-  });
-  storeFlt();
-}
 function storeFlt(){
   var S = window.storeS;
   document.querySelectorAll('#panel .cap-row').forEach(function(r){
-    var ok = (!S.cat || r.dataset.cat===S.cat)
-          && (!S.prov || r.dataset.prov===S.prov)
-          && (S.free || r.dataset.free==='0');
+    var ok = (!S.cat || r.dataset.cat===S.cat) && (!S.prov || r.dataset.prov===S.prov);
     r.style.display = ok ? '' : 'none';
   });
   document.querySelectorAll('#panel .cat-sec').forEach(function(s){
@@ -125,5 +91,5 @@ function storeFlt(){
     s.style.display = any ? '' : 'none';
   });
 }
-storeFlt(); // default: hide free/builtin
+storeFlt();
 </script>

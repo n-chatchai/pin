@@ -1,5 +1,5 @@
 """SQLite store — the source of truth for the admin backoffice (catalog, skills,
-subagents, MCP, published versions, admin users, blind logs).
+subagents, MCP, capability requests, waitlist, blind logs).
 
 Config-only: no user conversation/memory ever lands here. The proxy stays blind.
 First run creates the schema and seeds it from the legacy hard-coded catalog +
@@ -34,9 +34,6 @@ CREATE TABLE IF NOT EXISTS mcp_servers(
 CREATE TABLE IF NOT EXISTS mcp_tools(
   server TEXT, name TEXT PRIMARY KEY, description TEXT,
   parameters_json TEXT, arg_keys_json TEXT, enabled INTEGER DEFAULT 1);
-CREATE TABLE IF NOT EXISTS catalog_versions(
-  version INTEGER PRIMARY KEY AUTOINCREMENT, signed_blob TEXT,
-  published_at REAL, author TEXT, diff TEXT);
 CREATE TABLE IF NOT EXISTS admin_users(
   email TEXT PRIMARY KEY, pw_hash TEXT, role TEXT);
 CREATE TABLE IF NOT EXISTS tool_logs(
@@ -264,9 +261,15 @@ def _extra(r) -> dict:
 
 
 # ---- store (capability) management across all catalog tables -----------------
+# Internal/plumbing tools that are never user-facing capabilities (privacy/admin
+# helpers the agent calls, not things a user "turns on").
+_INTERNAL_CAPS = {"forget_end_user", "get_transits"}
+
+
 def all_capabilities() -> list[dict]:
     """Every user-facing capability (enabled OR not), enriched with display copy,
-    for the admin store. Subagents are internal (delegate-only) and excluded."""
+    for the admin store. Subagents are internal (delegate-only) and excluded;
+    so are plumbing tools in _INTERNAL_CAPS."""
     from . import display
     out = []
     with conn() as c:
@@ -274,6 +277,8 @@ def all_capabilities() -> list[dict]:
                           ("mcp_tools", "mcp")):
             cols = {d[1] for d in c.execute(f"PRAGMA table_info({tbl})")}
             for r in c.execute(f"SELECT * FROM {tbl}"):
+                if r["name"] in _INTERNAL_CAPS:
+                    continue
                 d = {"name": r["name"], "kind": kind,
                      "enabled": bool(r["enabled"]) if "enabled" in cols else True,
                      "description": r["description"] if "description" in cols else "",

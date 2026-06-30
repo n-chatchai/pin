@@ -10,13 +10,11 @@ Manages config only — never user content.
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import time
 
 import httpx
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -139,8 +137,6 @@ def _counts() -> dict:
             "mcp": n("SELECT COUNT(*) FROM mcp_servers"),
             "backlog": n("SELECT COUNT(*) FROM capability_requests"
                          " WHERE status!='done'"),
-            "version": (c.execute("SELECT MAX(version) FROM catalog_versions")
-                        .fetchone()[0] or 0),
         }
 
 
@@ -290,17 +286,9 @@ def tab_store(request: Request, admin: str = Depends(owner)):
             providers.add(m["provider"])
             if paid:
                 commercial.add(m["provider"])
-    # Catalog publish history merged into the store view (the published snapshot
-    # is just the enabled capabilities, signed) — no separate Catalog tab.
-    with store.conn() as c:
-        versions = [dict(r) for r in c.execute(
-            "SELECT version,"
-            "datetime(published_at,'unixepoch','localtime') AS published_at,"
-            "author FROM catalog_versions ORDER BY version DESC LIMIT 8"
-        ).fetchall()]
     return templates.TemplateResponse(
         request, "_store.html",
-        {"by_cat": by_cat, "versions": versions,
+        {"by_cat": by_cat,
          "providers": sorted(providers), "commercial": sorted(commercial),
          "categories": sorted(by_cat.keys()), "comm_cats": sorted(comm_cats)})
 
@@ -336,36 +324,3 @@ def tab_generic(tab: str, request: Request, admin: str = Depends(owner)):
         rows = [dict(r) for r in c.execute(q).fetchall()]
     return templates.TemplateResponse(
         request, "_simple.html", {"tab": tab, "rows": rows})
-
-
-# ---- publish (Ed25519-signed snapshot) -------------------------------------
-
-def _signing_key() -> Ed25519PrivateKey:
-    """Load the catalog signing key (PEM in PIN_CATALOG_KEY) or a dev key."""
-    from cryptography.hazmat.primitives import serialization
-    pem = os.environ.get("PIN_CATALOG_KEY")
-    if pem:
-        return serialization.load_pem_private_key(pem.encode(), password=None)
-    return Ed25519PrivateKey.generate()  # dev only — non-persistent
-
-
-def build_signed_catalog() -> dict:
-    from pin_proxy import catalog
-    payload = {"tools": catalog.manifests()}
-    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-    sig = base64.b64encode(_signing_key().sign(blob.encode())).decode()
-    return {"payload": payload, "blob": blob, "sig": sig}
-
-
-@router.post("/catalog/publish", response_class=HTMLResponse)
-def publish(request: Request, admin: str = Depends(owner)):
-    signed = build_signed_catalog()
-    with store.conn() as c:
-        cur = c.execute(
-            "INSERT INTO catalog_versions(signed_blob,published_at,author,diff)"
-            " VALUES(?,?,?,?)",
-            (json.dumps({"blob": signed["blob"], "sig": signed["sig"]}),
-             time.time(), admin, "published"))
-        version = cur.lastrowid
-    return HTMLResponse(
-        f'<div class="ok">เผยแพร่ catalog v{version} แล้ว ✓</div>')
