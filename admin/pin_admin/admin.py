@@ -427,8 +427,11 @@ def _wl_render(request: Request, flash: str = ""):
     for r in rows:
         r["persona_th"] = _PERSONA_TH.get(emails.classify(r.get("use") or ""), "")
         sa = r.get("sent_at")
-        r["sent"] = bool(sa)
-        r["sent_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(sa)) if sa else ""
+        # sent_at column was added via ALTER (TEXT affinity) so a float epoch
+        # comes back as a string — coerce before localtime.
+        saf = float(sa) if sa else 0.0
+        r["sent"] = bool(saf)
+        r["sent_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(saf)) if saf else ""
         r["replies"] = replies.get(r["email"], 0)
         r["unsub"] = bool(r.get("unsubscribed_at"))
     return templates.TemplateResponse(request, "_waitlist.html", {
@@ -459,7 +462,8 @@ def waitlist_thread(wid: int, request: Request, admin: str = Depends(owner)):
         raise HTTPException(404)
     msgs = store.mail_thread(row["email"])
     for m in msgs:
-        m["ts_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(m.get("created_at") or 0))
+        ca = m.get("created_at") or 0
+        m["ts_th"] = _t.strftime("%d/%m %H:%M", _t.localtime(float(ca)))
     return templates.TemplateResponse(request, "_waitlist_thread.html",
                                       {"to": row["email"], "msgs": msgs})
 
