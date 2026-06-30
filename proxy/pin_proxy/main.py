@@ -175,6 +175,28 @@ async def push_register(
     return {"ok": True}
 
 
+@app.post("/push/test")
+async def push_test(
+    request: Request, authorization: str | None = Header(default=None)
+) -> dict:
+    """Force an immediate blind wake to this device (dev test) — fires the
+    APNs/FCM push right now instead of registering a job and waiting for the
+    ≤30s poller. Body: {device, platform}."""
+    _check_token(authorization)
+    from . import scheduler
+
+    b = await request.json()
+    device = str(b.get("device", ""))
+    if not device:
+        return {"ok": False, "error": "no device"}
+    try:
+        await scheduler._push(device, "pushtest",
+                              str(b.get("platform", "apns")), force=True)
+        return {"ok": True}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+
+
 @app.post("/schedule/cancel")
 async def schedule_cancel(
     request: Request, authorization: str | None = Header(default=None)

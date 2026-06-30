@@ -89,18 +89,12 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
       return;
     }
     try {
-      // Register a one-shot wake due now → the server poller (≤30s) sends an
-      // APNs/FCM wake to THIS device. Proves the whole push chain end-to-end,
-      // independent of watch creation/dedup.
-      await devProxy().scheduleRegister(
-        jobId: 'pushtest',
-        nextDue: DateTime.now().millisecondsSinceEpoch / 1000 - 60,
-        repeat: 'once',
-        device: tok,
-        platform: PushService.instance.platform,
-      );
+      // Force an immediate APNs/FCM wake to THIS device — no poller wait.
+      // Proves the whole push chain end-to-end, independent of watch/dedup.
+      final ok = await devProxy().pushTest(tok, PushService.instance.platform);
       if (mounted) {
-        PinToast.show(context, 'ลงทะเบียน wake แล้ว — เครื่องจะถูกปลุกใน ~30 วิ');
+        PinToast.show(context,
+            ok ? 'ส่ง push แล้ว — เครื่องควรตื่นทันที' : 'ส่ง push ไม่สำเร็จ');
       }
     } catch (e) {
       if (mounted) PinToast.show(context, 'ทดสอบไม่สำเร็จ: $e');

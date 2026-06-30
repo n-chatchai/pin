@@ -208,6 +208,24 @@ class ProxyClient {
     } catch (_) {/* offline → retries next boot */}
   }
 
+  /// Force an immediate blind wake to this device (dev test) — no poller wait.
+  Future<bool> pushTest(String device, String platform) async {
+    if (device.isEmpty) return false;
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/push/test'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({'device': device, 'platform': platform}))
+          .timeout(const Duration(seconds: 10));
+      return r.statusCode == 200 && (jsonDecode(r.body) as Map)['ok'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> scheduleRegister({
     required String jobId,
     required double nextDue,
