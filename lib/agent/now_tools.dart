@@ -122,6 +122,21 @@ String _watchPrompt(String id, String topic) =>
     '(คำเรียกผู้ใช้ตามเปอร์โซนา).\n'
     '4) เฉพาะกรณี "ไม่มีอะไรใหม่เลยจริง ๆ" เทียบกับที่จำไว้ — เงียบ ไม่ต้องตอบ แล้วจบงาน.';
 
+/// Poll cadence per watch tier, in seconds. The LLM picks the tier at create
+/// time from the topic's nature; on mobile this is a ceiling (jobs run on
+/// wake/resume), not a guaranteed clock. iOS APNs honours the short tiers best.
+const Map<String, int> _watchTierSec = {
+  'realtime': 2 * 3600,
+  'hourly': 6 * 3600,
+  'daily': 24 * 3600,
+  'weekly': 7 * 24 * 3600,
+  'idle': 30 * 24 * 3600,
+};
+
+/// Normalise the model's `interval` arg to a known tier, defaulting to daily.
+String _watchTier(String raw) =>
+    _watchTierSec.containsKey(raw.trim()) ? raw.trim() : 'daily';
+
 /// A confirmation card for things that land in the "ตอนนี้" drawer. Its footer
 /// is tappable → `open:now`, which the chat scaffold turns into openDrawer().
 Map<String, dynamic> _nowCard(String detail) => {
@@ -466,9 +481,21 @@ List<AgentTool> nowTools() => [
               'type': 'string',
               'description': 'เรื่องที่จะเฝ้า เช่น "ข่าว AI", "ราคา BTC"',
             },
+            'interval': {
+              'type': 'string',
+              'enum': ['realtime', 'hourly', 'daily', 'weekly', 'idle'],
+              'description': 'ความถี่ในการเช็ค — เลือกจากธรรมชาติของหัวข้อ+คำผู้ใช้: '
+                  'realtime(~2ชม.)=ตัวเลขสด ราคาเหรียญ/หุ้น ผลสด ภัยพิบัติกำลังเกิด; '
+                  'hourly(~6ชม.)=ข่าวด่วนร้อน ดราม่ากำลังพีค ของลดเวลาจำกัด; '
+                  'daily(1วัน)=ข่าวทั่วไป ความเคลื่อนไหววงการ (ดีฟอลต์ถ้าไม่แน่ใจ); '
+                  'weekly(7วัน)=เทรนด์ ของใหม่ยี่ห้อ สถานะนาน ๆ ขยับ; '
+                  'idle(30วัน)="ไว้มีอะไรค่อยบอก" เรื่องแทบไม่ขยับ. '
+                  'คำบอกใบ้เวลาในประโยคผู้ใช้สำคัญสุด (เช่น "ด่วน"→hourly, "ไม่ต้องรีบ"→weekly)',
+            },
             'time': {
               'type': 'string',
-              'description': 'เวลาเช็คต่อวัน "HH:MM" (ดีฟอลต์ 09:00)',
+              'description': 'ระบุเฉพาะเมื่อผู้ใช้อยากได้เวลาตายตัวต่อวัน "HH:MM" '
+                  '(เช่น "ทุก 8 โมง") — ถ้าใส่จะทับ interval เป็นเช็ควันละครั้งเวลานี้',
             },
           },
           required: ['topic'],
@@ -484,6 +511,11 @@ List<AgentTool> nowTools() => [
               (w) => '${w['topic']}'.toLowerCase() == topic.toLowerCase())) {
             return (false, 'เฝ้าเรื่อง "$topic" อยู่แล้วนะ');
           }
+          // A fixed daily "HH:MM" wins if the user asked for one; otherwise the
+          // LLM-judged interval tier sets the cadence (adaptive watch).
+          final timeArg = '${args['time'] ?? ''}'.trim();
+          final tier = _watchTier('${args['interval'] ?? ''}');
+          final fixedDaily = timeArg.isNotEmpty;
           final id = DateTime.now().millisecondsSinceEpoch.toString();
           list.add({
             'id': id,
@@ -491,6 +523,7 @@ List<AgentTool> nowTools() => [
             'last_seen': '',
             'last_seen_at': 0,
             'has_new': false,
+            'interval': fixedDaily ? 'daily' : tier,
             'created': DateTime.now().millisecondsSinceEpoch,
           });
           final ok = await MatrixService.instance
@@ -498,29 +531,48 @@ List<AgentTool> nowTools() => [
           if (!ok) return (false, 'ยังบันทึกไม่สำเร็จ ลองอีกครั้งนะ');
           WatchesController.instance.updateFromJson(jsonEncode(list));
 
-          // The checker = a daily agentic job (id == watch id) whose prompt tells
-          // ปิ่น to look, compare with memory, and speak only on something new.
-          final when = parseWhen('${args['time'] ?? ''}'.trim().isEmpty
-                  ? '09:00'
-                  : '${args['time']}') ??
-              parseWhen('09:00')!;
+          // The checker = an agentic job (id == watch id) whose prompt tells ปิ่น
+          // to look, compare with memory, and speak only on something new.
           final store = AgentStore();
           await store.load();
-          await store.addReminder({
-            'id': id,
-            'time': hhmm(when),
-            'text': _watchPrompt(id, topic),
-            'repeat': 'daily',
-            'kind': 'agentic',
-            'at': when.millisecondsSinceEpoch,
-          });
-          await devProxy().scheduleRegister(
-            jobId: id,
-            nextDue: when.millisecondsSinceEpoch / 1000,
-            repeat: 'daily',
-            device: PushService.instance.deviceToken,
-            platform: PushService.instance.platform,
-          );
+          if (fixedDaily) {
+            final when = parseWhen(timeArg) ?? parseWhen('09:00')!;
+            await store.addReminder({
+              'id': id,
+              'time': hhmm(when),
+              'text': _watchPrompt(id, topic),
+              'repeat': 'daily',
+              'kind': 'agentic',
+              'at': when.millisecondsSinceEpoch,
+            });
+            await devProxy().scheduleRegister(
+              jobId: id,
+              nextDue: when.millisecondsSinceEpoch / 1000,
+              repeat: 'daily',
+              device: PushService.instance.deviceToken,
+              platform: PushService.instance.platform,
+            );
+          } else {
+            final intervalSec = _watchTierSec[tier]!;
+            final now = DateTime.now().millisecondsSinceEpoch;
+            await store.addReminder({
+              'id': id,
+              'text': _watchPrompt(id, topic),
+              'repeat': 'interval',
+              'kind': 'agentic',
+              'interval_sec': intervalSec,
+              'floor_sec': intervalSec, // tier base; backoff caps at 8× this
+              'at': now, // first check ~now; settles to the interval after
+            });
+            await devProxy().scheduleRegister(
+              jobId: id,
+              nextDue: (now + intervalSec * 1000) / 1000,
+              repeat: 'interval',
+              intervalSec: intervalSec,
+              device: PushService.instance.deviceToken,
+              platform: PushService.instance.platform,
+            );
+          }
           await AndroidJobAlarm.armAll(rid);
           return (true, "จะคอยเฝ้าเรื่อง '$topic' ให้ — มีอะไรใหม่จะบอกในแชต");
         },

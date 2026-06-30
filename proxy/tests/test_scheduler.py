@@ -35,7 +35,7 @@ def test_persistence_survives_reload(sched):
 def test_fire_due_pushes_and_rolls(sched, monkeypatch):
     pushed = []
 
-    async def fake_push(device, jid):
+    async def fake_push(device, jid, platform="apns"):
         pushed.append((device, jid))
 
     monkeypatch.setattr(sched, "_push", fake_push)
@@ -51,10 +51,26 @@ def test_fire_due_pushes_and_rolls(sched, monkeypatch):
     assert sched._jobs["future"]["next_due"] == 10_000.0  # untouched
 
 
+def test_fire_due_interval_rolls_by_its_cadence(sched, monkeypatch):
+    pushed = []
+
+    async def fake_push(device, jid, platform="apns"):
+        pushed.append(jid)
+
+    monkeypatch.setattr(sched, "_push", fake_push)
+    sched.register("w", "devA", 100.0, "interval", interval_sec=7200.0)
+    asyncio.run(sched._fire_due(now=1000.0))
+    assert pushed == ["w"]
+    assert sched._jobs["w"]["next_due"] == 100.0 + 7200  # rolled by interval, not 24h
+
+
 def test_fire_due_daily_not_repushed_same_pass(sched, monkeypatch):
     pushed = []
-    monkeypatch.setattr(
-        sched, "_push", lambda d, j: pushed.append(j) or _async_none())
+
+    async def fake_push(device, jid, platform="apns"):
+        pushed.append(jid)
+
+    monkeypatch.setattr(sched, "_push", fake_push)
     sched.register("daily", "devB", 100.0, "daily")
     asyncio.run(sched._fire_due(now=1000.0))
     # After rolling +86400 it's no longer due at the same `now`.

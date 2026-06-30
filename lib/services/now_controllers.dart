@@ -125,8 +125,12 @@ class PinWatch {
   final String lastSeen;
   final int lastSeenAt; // ms epoch
   final bool hasNew;
+  final String interval; // poll tier: realtime|hourly|daily|weekly|idle
   const PinWatch(this.id, this.topic,
-      {this.lastSeen = '', this.lastSeenAt = 0, this.hasNew = false});
+      {this.lastSeen = '',
+      this.lastSeenAt = 0,
+      this.hasNew = false,
+      this.interval = 'daily'});
 }
 
 /// Live watch list, fed from the ปิ่น DM room state `io.tokens2.watches`.
@@ -147,6 +151,7 @@ class WatchesController extends ValueNotifier<List<PinWatch>> {
             lastSeen: '${w['last_seen'] ?? ''}',
             lastSeenAt: (w['last_seen_at'] as num?)?.toInt() ?? 0,
             hasNew: w['has_new'] == true,
+            interval: '${w['interval'] ?? 'daily'}',
           ),
       ];
     } catch (_) {/* ignore malformed */}

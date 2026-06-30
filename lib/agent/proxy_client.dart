@@ -214,6 +214,7 @@ class ProxyClient {
     required String repeat,
     String? device,
     String platform = 'apns', // 'apns' (iOS) | 'fcm' (Android) → server routes
+    int? intervalSec, // adaptive watch cadence → server rolls next_due by this
   }) async {
     if (device == null || device.isEmpty) return; // no push channel → on-open only
     try {
@@ -229,6 +230,7 @@ class ProxyClient {
                 'platform': platform,
                 'next_due': nextDue,
                 'repeat': repeat,
+                if (intervalSec != null) 'interval_sec': intervalSec,
               }))
           .timeout(const Duration(seconds: 10));
     } catch (_) {/* offline → still scheduled locally */}

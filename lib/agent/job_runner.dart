@@ -45,6 +45,17 @@ List<AgenticAlarm> agenticAlarmsToArm(
   for (final j in jobs) {
     if ('${j['kind']}' != 'agentic') continue;
     final id = '${j['id']}';
+    // Interval jobs (adaptive watches): next fire = lastRun + interval, or now
+    // if never run. Takes precedence over the daily/`time` path.
+    final intervalSec = (j['interval_sec'] as num?)?.toInt();
+    if (intervalSec != null && intervalSec > 0) {
+      final lastRun = (j['lastRun'] as num?)?.toInt();
+      final next = lastRun == null
+          ? now
+          : DateTime.fromMillisecondsSinceEpoch(lastRun + intervalSec * 1000);
+      out.add(AgenticAlarm(id, next.isAfter(now) ? next : now));
+      continue;
+    }
     if ('${j['repeat']}' == 'daily') {
       var fire = todayFireTime('${j['time'] ?? ''}', now);
       if (fire == null) continue;
@@ -60,6 +71,18 @@ List<AgenticAlarm> agenticAlarmsToArm(
   return out;
 }
 
+/// Adaptive backoff for a watch's poll cadence. A check that surfaced something
+/// new snaps back to the floor (topic is active → look often); a silent check
+/// doubles the gap, capped at 8× the floor so a quiet topic stops wasting checks
+/// but never drifts far past the tier the user/LLM picked. Pure → unit-tested;
+/// the runner just stores the result on the job's `interval_sec`.
+int nextWatchInterval(int currentSec, int floorSec, {required bool foundNew}) {
+  if (foundNew) return floorSec;
+  final doubled = currentSec * 2;
+  final cap = floorSec * 8;
+  return doubled > cap ? cap : doubled;
+}
+
 /// Ids of agentic jobs due to run at [now]. One-shots are due once their `at`
 /// has passed (and removed after, so they don't repeat). Daily jobs are due
 /// after today's fire time, but only if `lastRun` is before it — so they run
@@ -70,6 +93,17 @@ List<String> dueAgenticJobs(List<Map<String, dynamic>> jobs, DateTime now) {
   for (final j in jobs) {
     if ('${j['kind']}' != 'agentic') continue;
     final lastRun = (j['lastRun'] as num?)?.toInt();
+    // Interval jobs: due once `interval_sec` has elapsed since lastRun; first
+    // run (no lastRun) is due immediately. Checked before the daily path.
+    final intervalSec = (j['interval_sec'] as num?)?.toInt();
+    if (intervalSec != null && intervalSec > 0) {
+      if (lastRun == null) {
+        due.add('${j['id']}');
+      } else if (now.millisecondsSinceEpoch - lastRun >= intervalSec * 1000) {
+        due.add('${j['id']}');
+      }
+      continue;
+    }
     if ('${j['repeat']}' == 'daily') {
       final fire = todayFireTime('${j['time'] ?? ''}', now);
       if (fire == null || now.isBefore(fire)) continue; // not yet today

@@ -41,12 +41,16 @@ def _save() -> None:
 
 def register(
     job_id: str, device: str, next_due: float, repeat: str,
-    platform: str = "apns",
+    platform: str = "apns", interval_sec: float | None = None,
 ) -> None:
-    _jobs[job_id] = {
+    job = {
         "device": device, "next_due": next_due, "repeat": repeat,
         "platform": platform,
     }
+    # Adaptive watches roll by their own cadence instead of the daily 24h.
+    if interval_sec and interval_sec > 0:
+        job["interval_sec"] = interval_sec
+    _jobs[job_id] = job
     _save()
 
 
@@ -177,7 +181,10 @@ async def _fire_due(now: float) -> None:
                 await _push(j["device"], jid, j.get("platform", "apns"))
             except Exception:  # noqa: BLE001
                 log.exception("[sched] push failed %s", jid)
-            if j["repeat"] == "daily":
+            interval = j.get("interval_sec")
+            if interval and interval > 0:
+                j["next_due"] += interval
+            elif j["repeat"] == "daily":
                 j["next_due"] += 86400
             else:
                 _jobs.pop(jid, None)

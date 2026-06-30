@@ -118,6 +118,57 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
     return sameDay ? 'วันนี้ $hm' : '${t.month}/${t.day} $hm';
   }
 
+  /// Seconds → human gap ("2 ชม." / "1 วัน").
+  static String _dur(int sec) {
+    if (sec % 86400 == 0) return '${sec ~/ 86400} วัน';
+    if (sec % 3600 == 0) return '${sec ~/ 3600} ชม.';
+    if (sec % 60 == 0) return '${sec ~/ 60} นาที';
+    return '$sec วิ';
+  }
+
+  /// floor_sec → the tier the LLM picked at create time.
+  static const Map<int, String> _tierLabel = {
+    7200: 'realtime',
+    21600: 'hourly',
+    86400: 'daily',
+    604800: 'weekly',
+    2592000: 'idle',
+  };
+
+  /// Current pacing: gap + tier + backoff multiple vs floor.
+  static String _cadence(int intervalSec, int? floorSec) {
+    final tier = _tierLabel[floorSec ?? intervalSec];
+    final base = floorSec ?? intervalSec;
+    final mult = (intervalSec / base).round();
+    final tierStr = tier == null ? '' : ' · $tier';
+    if (mult <= 1) return '${_dur(intervalSec)}$tierStr';
+    return '${_dur(intervalSec)} (พื้นฐาน ${_dur(base)} ×$mult)$tierStr';
+  }
+
+  /// When the next on-device check is due (lastRun + interval), or now.
+  static String _nextPoll(int? lastRun, int intervalSec, bool due) {
+    if (lastRun == null) return 'เดี๋ยวนี้ (ครั้งแรก)';
+    if (due) return 'ถึงเวลาแล้ว';
+    return _fmt(lastRun + intervalSec * 1000);
+  }
+
+  /// Why the cadence is what it is — the adaptive-backoff decision.
+  static String _decision(
+      int intervalSec, int? floorSec, int? lastRun, Map<String, dynamic> w) {
+    if (lastRun == null) return 'ยังไม่เคยรัน → เช็คครั้งแรกเดี๋ยวนี้';
+    final base = floorSec ?? intervalSec;
+    final mult = (intervalSec / base).round();
+    if (mult <= 1) {
+      final everFound = '${w['last_seen'] ?? ''}'.trim().isNotEmpty;
+      return everFound
+          ? 'รอบล่าสุดเจอของใหม่ → รีเซ็ตจังหวะถี่สุด (×1)'
+          : 'อยู่จังหวะพื้นฐาน (×1)';
+    }
+    final capped = intervalSec >= base * 8;
+    return 'เงียบติดกัน → ถอยห่าง ×$mult${capped ? ' (ชนเพดาน ×8)' : ''}; '
+        'เจอใหม่จะรีเซ็ต';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -224,6 +275,10 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
     final due = _due.contains(id);
     final hasNew = w['has_new'] == true;
     final lastSeen = '${w['last_seen'] ?? ''}'.trim();
+    final intervalSec = (job?['interval_sec'] as num?)?.toInt();
+    final floorSec = (job?['floor_sec'] as num?)?.toInt();
+    final lastRun = (job?['lastRun'] as num?)?.toInt();
+    final isInterval = intervalSec != null && intervalSec > 0;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -249,8 +304,15 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          _kv('เวลาเช็ค', job == null ? '— (ไม่มี job!)' : '${job['time']} · ${job['repeat']}'),
-          _kv('รันล่าสุด', _fmt(job?['lastRun'] as num?)),
+          if (job == null)
+            _kv('เวลาเช็ค', '— (ไม่มี job!)')
+          else if (isInterval) ...[
+            _kv('จังหวะ', _cadence(intervalSec, floorSec)),
+            _kv('เช็คถัดไป', _nextPoll(lastRun, intervalSec, due)),
+            _kv('เหตุผล', _decision(intervalSec, floorSec, lastRun, w)),
+          ] else
+            _kv('เวลาเช็ค', '${job['time']} · ${job['repeat']}'),
+          _kv('รันล่าสุด', _fmt(lastRun)),
           _kv('เจอล่าสุด', _fmt(w['last_seen_at'] as num?)),
           if (lastSeen.isNotEmpty)
             Padding(

@@ -45,11 +45,13 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session,
     var changed = false;
     for (final id in due) {
       final job = jobs.firstWhere((j) => '${j['id']}' == id);
+      var foundNew = false; // did this run surface something? → drives backoff
       try {
         final r = await session.send('${job['text'] ?? ''}', persistUser: false);
         // A watch job that finds nothing new returns an empty reply → stay
         // silent (don't post). Only ping when ปิ่น actually has something.
         final hasReply = (r.text?.trim().isNotEmpty ?? false) || r.flex != null;
+        foundNew = hasReply;
         if (hasReply) {
           final body = (r.text?.isNotEmpty ?? false)
               ? r.text!
@@ -68,7 +70,17 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session,
         debugPrint('run job $id failed (retry next wake): $e');
         continue; // leave it in place
       }
-      if ('${job['repeat']}' == 'daily') {
+      final intervalSec = (job['interval_sec'] as num?)?.toInt();
+      if (intervalSec != null && intervalSec > 0) {
+        // Interval (adaptive watch) job: stamp lastRun + re-pace. Found something
+        // → snap to floor; silent → back off. Server keeps waking at the floor
+        // cadence (a no-op until this larger interval elapses), so no re-register.
+        job['lastRun'] = now.millisecondsSinceEpoch;
+        final floor = (job['floor_sec'] as num?)?.toInt() ?? intervalSec;
+        job['interval_sec'] =
+            nextWatchInterval(intervalSec, floor, foundNew: foundNew);
+      } else if ('${job['repeat']}' == 'daily') {
+        // Daily jobs recur — stamp lastRun so the due logic waits a full day.
         job['lastRun'] = now.millisecondsSinceEpoch;
       } else {
         jobs.removeWhere((j) => '${j['id']}' == id);

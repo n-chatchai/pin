@@ -149,9 +149,11 @@ async def schedule_register(
     from . import scheduler, store
 
     b = await request.json()
+    _iv = b.get("interval_sec")
     scheduler.register(
         b["job_id"], b["device"], float(b["next_due"]),
         b.get("repeat", "once"), b.get("platform", "apns"),
+        float(_iv) if _iv else None,
     )
     # Remember this user is wakeable (admin view + future broadcast push).
     store.record_push_device(user_id, b.get("device", ""), b.get("platform", "apns"))
