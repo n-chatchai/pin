@@ -11,6 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 import '../agent/token_cost.dart';
+import 'push_service.dart';
 import '../config.dart';
 import '../src/rust/api/matrix.dart' as rust;
 import 'api_log.dart';
@@ -143,6 +144,10 @@ class MatrixService {
     userId = session.userId;
     _userPassword = password; // reused for the ปิ่น companion (see ensurePinSession)
     _userEmail = email;
+    // Register the push token now that we have a session — boot's attempt ran
+    // before login, so a fresh login would otherwise stay unwakeable until the
+    // next launch.
+    unawaited(PushService.instance.registerWithServer());
     return session;
   }
 
@@ -184,6 +189,7 @@ class MatrixService {
     ));
     accessToken = session.accessToken;
     userId = session.userId;
+    unawaited(PushService.instance.registerWithServer()); // see login()
     return session;
   }
 

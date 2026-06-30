@@ -134,6 +134,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ]),
+            if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
             _section('โมเดลเอไอ'),
             _card([
               ValueListenableBuilder<AiConfig>(
@@ -150,6 +151,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ]),
+            ],
             _section('สถานะความปลอดภัย'),
             _card([_SecurityStatus()]),
             if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
