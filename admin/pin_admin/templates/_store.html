@@ -9,12 +9,11 @@
   .vchip.latest{background:var(--green-d,#1c7a4a);color:#fff;border-color:var(--green-d,#1c7a4a);font-weight:600}
 </style>
 <div class="sec-h"><h3>ความสามารถ</h3>
-  <span class="hint">สินค้าในร้าน (external / มีค่าใช้จ่าย) — builtin ฟรีซ่อนไว้ กดชิป "ฟรี/builtin" เพื่อดู</span></div>
+  <span class="hint">ความสามารถภายนอก (มีค่าใช้จ่าย) — แบบ builtin/ฟรี ซ่อนไว้ กดชิป "ทั้งหมด" เพื่อดู</span></div>
 <p class="hint" style="margin:-4px 0 10px">สถานะ: <b>live</b> ใช้ได้เลย · <b>trial</b> ทดลองฟรี · <b>soon</b> เร็ว ๆ นี้</p>
 
 <div style="margin-bottom:14px">
-  <div class="sec-h" style="margin-bottom:6px"><h3 style="font-size:14px">เผยแพร่ (Catalog)</h3>
-    <span class="hint">เครื่องลูกดึง snapshot นี้ไปใช้ — แก้ความสามารถข้างล่างแล้วกด "เผยแพร่ catalog" มุมบนขวา</span></div>
+  <div class="sec-h" style="margin-bottom:6px"><h3 style="font-size:14px">เผยแพร่ล่าสุด</h3></div>
   {% if versions %}
   <div class="vrow">{% for v in versions %}
     <span class="vchip{{ ' latest' if loop.first }}">v{{ v.version }} · {{ v.published_at }}{% if v.author %} · {{ v.author.split(':')[0].lstrip('@') }}{% endif %}</span>

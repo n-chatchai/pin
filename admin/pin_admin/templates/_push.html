@@ -1,5 +1,5 @@
-<div class="sec-h"><h3>ผู้ใช้ที่ปลุกได้</h3><span class="hint">{{ rows|length }} เครื่อง</span></div>
-<p class="hint" style="margin:-4px 0 12px">ผู้ใช้ที่มี push token (ปลุกจาก server ได้ผ่าน FCM/APNs) — "ปลุกเลย" สั่งให้เครื่องรันงานเฝ้าทั้งหมดทันที (ข้ามตารางเวลา)</p>
+<div class="sec-h"><h3>ปลุกอุปกรณ์</h3><span class="hint">{{ rows|length }} เครื่อง</span></div>
+<p class="hint" style="margin:-4px 0 12px">อุปกรณ์ที่เปิดรับการแจ้งเตือน — "ปลุกเลย" สั่งให้เครื่องรันงานเฝ้าทั้งหมดทันที (ข้ามตารางเวลา)</p>
 {% if flash %}<div class="rcard" style="margin-bottom:10px;border-color:var(--green-d)"><b style="color:var(--green-d)">{{ flash }}</b></div>{% endif %}
 {% if rows %}
 {% for r in rows %}
@@ -15,4 +15,4 @@
   </div>
 </div>
 {% endfor %}
-{% else %}<p style="color:var(--ink3)">ยังไม่มีผู้ใช้ที่ปลุกได้ (เปิดแอปบนเครื่องที่มี push token แล้วจะขึ้นที่นี่)</p>{% endif %}
+{% else %}<p style="color:var(--ink3)">ยังไม่มีอุปกรณ์ที่ปลุกได้ (เปิดแอปแล้วเปิดรับการแจ้งเตือน เครื่องจะขึ้นที่นี่)</p>{% endif %}
