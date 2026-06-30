@@ -86,11 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let google_auth = Arc::new(GoogleAuth::new(fcm_sa_path, fcm_project_id));
 
     // APNs configurations
-    let sched_store_path = std::env::var("PIN_SCHED_STORE").unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        format!("{}/pin-schedule.json", home)
-    });
-    let scheduler = Arc::new(Scheduler::new(PathBuf::from(sched_store_path), google_auth));
+    let scheduler = Arc::new(Scheduler::new(store.clone(), google_auth));
 
     // LLM Models
     let free_model = store.get_setting("pin_free_model").await.unwrap_or(None).unwrap_or_else(|| "gemini-flash-lite-latest".to_string());
@@ -273,7 +269,7 @@ async fn schedule_register(
     let platform = body.get("platform").and_then(|v| v.as_str()).unwrap_or("apns").to_string();
     let interval_sec = body.get("interval_sec").and_then(|v| v.as_f64());
 
-    state.scheduler.register(job_id, device.clone(), next_due, repeat, platform.clone(), interval_sec);
+    state.scheduler.register(job_id, device.clone(), next_due, repeat, platform.clone(), interval_sec).await;
     let _ = state.store.record_push_device(&user_id, &device, &platform).await;
 
     Json(json!({ "ok": true })).into_response()
@@ -335,7 +331,7 @@ async fn schedule_cancel(
         None => return (StatusCode::BAD_REQUEST, "missing job_id").into_response(),
     };
 
-    Json(json!({ "ok": state.scheduler.cancel(job_id) })).into_response()
+    Json(json!({ "ok": state.scheduler.cancel(job_id).await })).into_response()
 }
 
 async fn capability_request(

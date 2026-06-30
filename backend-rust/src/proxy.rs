@@ -222,83 +222,31 @@ pub fn apns_jwt() -> Option<String> {
 
 // --- Push Scheduler ---
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Job {
-    pub device: String,
-    pub next_due: f64,
-    pub repeat: String,
-    pub platform: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub interval_sec: Option<f64>,
-}
-
 pub struct Scheduler {
-    store_path: PathBuf,
-    jobs: RwLock<HashMap<String, Job>>,
+    store: crate::store::Store,
     google_auth: Arc<GoogleAuth>,
 }
 
 impl Scheduler {
-    pub fn new(store_path: PathBuf, google_auth: Arc<GoogleAuth>) -> Self {
-        let mut jobs = HashMap::new();
-        if store_path.exists() {
-            if let Ok(raw) = std::fs::read_to_string(&store_path) {
-                if let Ok(loaded) = serde_json::from_str(&raw) {
-                    jobs = loaded;
-                }
-            }
-        }
+    pub fn new(store: crate::store::Store, google_auth: Arc<GoogleAuth>) -> Self {
         Self {
-            store_path,
-            jobs: RwLock::new(jobs),
+            store,
             google_auth,
         }
     }
 
-    fn save(&self) {
-        let jobs = self.jobs.read().unwrap();
-        if let Ok(raw) = serde_json::to_string(&*jobs) {
-            let _ = std::fs::write(&self.store_path, raw);
+    pub async fn register(&self, job_id: String, device: String, next_due: f64, repeat: String, platform: String, interval_sec: Option<f64>) {
+        if let Err(e) = self.store.add_scheduled_job(&job_id, &device, next_due, &repeat, &platform, interval_sec).await {
+            error!("[sched] failed to register job {}: {:?}", job_id, e);
         }
     }
 
-    pub fn register(&self, job_id: String, device: String, next_due: f64, repeat: String, platform: String, interval_sec: Option<f64>) {
-        let job = Job {
-            device,
-            next_due,
-            repeat,
-            platform,
-            interval_sec,
-        };
-        let mut jobs = self.jobs.write().unwrap();
-        jobs.insert(job_id, job);
-        drop(jobs);
-        self.save();
+    pub async fn cancel(&self, job_id: &str) -> bool {
+        self.store.remove_scheduled_job(job_id).await.unwrap_or(false)
     }
 
-    pub fn cancel(&self, job_id: &str) -> bool {
-        let mut jobs = self.jobs.write().unwrap();
-        let ok = jobs.remove(job_id).is_some();
-        drop(jobs);
-        if ok {
-            self.save();
-        }
-        ok
-    }
-
-    pub fn list_for(&self, device: &str) -> Vec<Value> {
-        let jobs = self.jobs.read().unwrap();
-        jobs.iter()
-            .filter(|(_, j)| j.device == device)
-            .map(|(jid, j)| json!({
-                "job_id": jid,
-                "device": j.device,
-                "next_due": j.next_due,
-                "repeat": j.repeat,
-                "platform": j.platform,
-                "interval_sec": j.interval_sec,
-            }))
-            .collect()
+    pub async fn list_for(&self, device: &str) -> Vec<Value> {
+        self.store.get_scheduled_jobs_for_device(device).await.unwrap_or_default()
     }
 
     pub async fn push(&self, device: &str, job_id: &str, platform: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -385,41 +333,43 @@ impl Scheduler {
     }
 
     pub async fn fire_due(&self, now: f64) {
-        let mut jobs_to_fire = Vec::new();
-        
-        // Find due jobs
-        {
-            let jobs = self.jobs.read().unwrap();
-            for (jid, j) in jobs.iter() {
-                if j.next_due <= now {
-                    jobs_to_fire.push((jid.clone(), j.clone()));
-                }
+        let due = match self.store.get_due_jobs(now).await {
+            Ok(v) => v,
+            Err(e) => {
+                error!("[sched] failed to get due jobs: {:?}", e);
+                return;
             }
-        }
+        };
 
-        for (jid, j) in jobs_to_fire {
-            if let Err(e) = self.push(&j.device, &jid, &j.platform, false).await {
+        for j in due {
+            let jid = j["job_id"].as_str().unwrap_or("");
+            let device = j["device"].as_str().unwrap_or("");
+            let platform = j["platform"].as_str().unwrap_or("");
+            let repeat = j["repeat"].as_str().unwrap_or("");
+            let interval_sec = j["interval_sec"].as_f64();
+            let mut next_due = j["next_due"].as_f64().unwrap_or(0.0);
+
+            if let Err(e) = self.push(device, jid, platform, false).await {
                 error!("[sched] push failed for job {}: {:?}", jid, e);
             }
 
-            let mut jobs = self.jobs.write().unwrap();
-            if let Some(job) = jobs.get_mut(&jid) {
-                if let Some(iv) = job.interval_sec {
-                    if iv > 0.0 {
-                        job.next_due += iv;
-                    } else if job.repeat == "daily" {
-                        job.next_due += 86400.0;
-                    } else {
-                        jobs.remove(&jid);
-                    }
-                } else if job.repeat == "daily" {
-                    job.next_due += 86400.0;
+            if let Some(iv) = interval_sec {
+                if iv > 0.0 {
+                    next_due += iv;
+                    let _ = self.store.update_scheduled_job_due(jid, next_due).await;
+                } else if repeat == "daily" {
+                    next_due += 86400.0;
+                    let _ = self.store.update_scheduled_job_due(jid, next_due).await;
                 } else {
-                    jobs.remove(&jid);
+                    let _ = self.store.remove_scheduled_job(jid).await;
                 }
+            } else if repeat == "daily" {
+                next_due += 86400.0;
+                let _ = self.store.update_scheduled_job_due(jid, next_due).await;
+            } else {
+                let _ = self.store.remove_scheduled_job(jid).await;
             }
         }
-        self.save();
     }
 }
 

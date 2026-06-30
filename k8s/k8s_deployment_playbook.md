@@ -65,7 +65,6 @@ Create `/opt/pin/.env` (or any path you prefer) and populate it with the followi
 PIN_PROXY_HOST=0.0.0.0
 PIN_PROXY_PORT=8088
 PIN_DB=/data/pin.db
-PIN_SCHED_STORE=/data/pin-schedule.json
 # Logging (Kubernetes will capture standard output natively)
 
 # App Config & Integrations

@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS client_logs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, payload TEXT);
 CREATE TABLE IF NOT EXISTS system_settings(
   key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS scheduled_jobs(
+  job_id TEXT PRIMARY KEY, device TEXT, next_due REAL,
+  repeat TEXT, platform TEXT, interval_sec REAL);
 "#;
 
 #[derive(Clone)]
@@ -173,6 +176,66 @@ impl Store {
             .fetch_one(&self.pool)
             .await?;
         Ok(count > 0)
+    }
+
+    pub async fn add_scheduled_job(&self, job_id: &str, device: &str, next_due: f64, repeat: &str, platform: &str, interval_sec: Option<f64>) -> Result<(), sqlx::Error> {
+        sqlx::query("INSERT OR REPLACE INTO scheduled_jobs (job_id, device, next_due, repeat, platform, interval_sec) VALUES (?, ?, ?, ?, ?, ?)")
+            .bind(job_id)
+            .bind(device)
+            .bind(next_due)
+            .bind(repeat)
+            .bind(platform)
+            .bind(interval_sec)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn remove_scheduled_job(&self, job_id: &str) -> Result<bool, sqlx::Error> {
+        let res = sqlx::query("DELETE FROM scheduled_jobs WHERE job_id = ?")
+            .bind(job_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    pub async fn get_scheduled_jobs_for_device(&self, device: &str) -> Result<Vec<Value>, sqlx::Error> {
+        let rows = sqlx::query("SELECT job_id, device, next_due, repeat, platform, interval_sec FROM scheduled_jobs WHERE device = ?")
+            .bind(device)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows.into_iter().map(|r| json!({
+            "job_id": r.get::<String, _>("job_id"),
+            "device": r.get::<String, _>("device"),
+            "next_due": r.get::<f64, _>("next_due"),
+            "repeat": r.get::<String, _>("repeat"),
+            "platform": r.get::<String, _>("platform"),
+            "interval_sec": r.get::<Option<f64>, _>("interval_sec"),
+        })).collect())
+    }
+
+    pub async fn get_due_jobs(&self, now: f64) -> Result<Vec<Value>, sqlx::Error> {
+        let rows = sqlx::query("SELECT job_id, device, next_due, repeat, platform, interval_sec FROM scheduled_jobs WHERE next_due <= ?")
+            .bind(now)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows.into_iter().map(|r| json!({
+            "job_id": r.get::<String, _>("job_id"),
+            "device": r.get::<String, _>("device"),
+            "next_due": r.get::<f64, _>("next_due"),
+            "repeat": r.get::<String, _>("repeat"),
+            "platform": r.get::<String, _>("platform"),
+            "interval_sec": r.get::<Option<f64>, _>("interval_sec"),
+        })).collect())
+    }
+
+    pub async fn update_scheduled_job_due(&self, job_id: &str, next_due: f64) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE scheduled_jobs SET next_due = ? WHERE job_id = ?")
+            .bind(next_due)
+            .bind(job_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 
     async fn has_column(&self, table: &str, column: &str) -> Result<bool, sqlx::Error> {
