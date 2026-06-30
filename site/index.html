@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ปิ่น · ผู้ช่วยส่วนตัวที่รู้ใจคุณ</title>
-<meta name="description" content="ปิ่น ผู้ช่วยเอไอภาษาไทยที่รู้ใจคุณ คุยได้ทุกเรื่อง ช่วยจัดการชีวิต และจำคุณได้ — ทำงานบนเครื่องคุณ เปิดอ่านได้แค่คุณ เป็นส่วนตัวจริง">
+<meta name="description" content="ปิ่น ผู้ช่วยเอไอภาษาไทยที่รู้ใจคุณ คุยได้ทุกเรื่อง ช่วยจัดการชีวิต และจำคุณได้ ทำงานบนเครื่องคุณ เปิดอ่านได้แค่คุณ เป็นส่วนตัวจริง">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="icon" type="image/png" href="assets/pin-icon.png">
@@ -69,7 +69,7 @@
   .hero{text-align:center;padding:clamp(48px,8vw,104px) 0 clamp(34px,5vw,60px)}
   .brandmark{display:flex;justify-content:center;margin-bottom:22px}
   .wm{font-family:var(--serif);font-weight:600;font-size:clamp(64px,13vw,112px);color:var(--forest);line-height:1;letter-spacing:-.02em}
-  .h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(40px,8vw,80px);line-height:1.42;letter-spacing:-.012em;text-wrap:balance}
+  .h1{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(40px,8vw,80px);line-height:1.3;letter-spacing:-.012em;text-wrap:balance}
   .h1 em{font-weight:400}
   .lede{font-size:clamp(16px,2.1vw,20px);color:var(--ink2);max-width:46ch;margin:24px auto 0;text-wrap:pretty}
   .hero-cta{margin-top:32px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
@@ -202,6 +202,7 @@
   .wl-status:empty{display:none}
   .wl-status.ok{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--green);font-weight:600;font-size:16px}
   .wl-status.ok i{font-size:22px;display:block}
+  .wl-status.err{color:#C0492F;font-weight:600}
   .hl-body h2{font-family:var(--serif);font-weight:500;color:var(--forest);font-size:clamp(28px,4.4vw,46px);line-height:1.22;text-wrap:balance}
   .hl-body p{color:var(--ink2);font-size:16px;margin-top:16px;max-width:46ch}
   .trust-line{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px 9px;margin-top:18px;color:var(--forest);font-weight:600;font-size:14.5px}
@@ -229,6 +230,7 @@
 
   footer{padding:46px 0 40px;color:var(--ink2);font-size:14px;border-top:1px solid var(--line)}
   .frow{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+  .fleft{display:flex;align-items:center;gap:14px}
   .fnav{display:flex;gap:22px;flex-wrap:wrap}
   footer a:hover{color:var(--forest)}
 
@@ -257,12 +259,15 @@
     .crow{grid-auto-flow:column;grid-auto-columns:42%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
     .crow::-webkit-scrollbar{display:none;width:0;height:0}
     .uc{scroll-snap-align:center}
+    /* footer stacks centered instead of brand-left / nav-right / copyright orphaned */
+    .frow{flex-direction:column;justify-content:center;text-align:center;gap:16px}
   }
   @media(max-width:560px){
     .crow{grid-auto-columns:72%}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}.rv{opacity:1;transform:none}}
 </style>
+<noscript><style>.rv{opacity:1!important;transform:none!important}</style></noscript>
 </head>
 <body>
 
@@ -275,13 +280,13 @@
       <a href="#uses">วิธีใช้</a>
       <a href="#join">เริ่มต้น</a>
     </nav>
-    <a class="pill navcta" href="#join">เริ่มคุยกับปิ่น</a>
+    <a class="pill navcta" href="#cta">รับสิทธิ์ก่อนใคร</a>
     <button class="burger" id="burger" aria-label="เมนู" aria-expanded="false" aria-controls="mnav"><i class="ph ph-list"></i></button>
   </div>
   <div class="mnav wrap" id="mnav">
     <a href="#uses">วิธีใช้</a>
     <a href="#join">เริ่มต้น</a>
-    <a class="pill" href="#join">เริ่มคุยกับปิ่น</a>
+    <a class="pill" href="#cta">รับสิทธิ์ก่อนใคร</a>
   </div>
 </header>
 
@@ -290,7 +295,7 @@
   <div class="wrap">
     <div class="brandmark"><span class="wm">ปิ่น</span></div>
     <h1 class="h1">ผู้ช่วยส่วนตัว ที่<em>รู้ใจ</em>คุณจริง ๆ</h1>
-    <p class="lede">ถามปิ่นได้ทุกเรื่อง คุยได้ทั้งวัน ปิ่นพร้อมช่วยคุณคิด วางแผน และดูแลเรื่องต่าง ๆ ในชีวิต — บนเครื่องคุณ เปิดอ่านได้แค่คุณ</p>
+    <p class="lede">ถามปิ่นได้ทุกเรื่อง คุยได้ทั้งวัน ปิ่นพร้อมช่วยคุณคิด วางแผน และดูแลเรื่องต่าง ๆ ในชีวิต ทั้งหมดบนเครื่องคุณ เปิดอ่านได้แค่คุณ</p>
     <div class="hero-cta">
       <a class="pill lg" href="#cta">รับสิทธิ์ก่อนใคร <span class="ar">→</span></a>
       <a class="ghost" href="#uses">ดูวิธีใช้</a>
@@ -354,7 +359,7 @@
       <div class="hl-body rv">
         <h2>คุยกับปิ่นได้ทุกที่บนเครื่องของคุณ</h2>
         <p>พิมพ์หรือพูดได้เลย ปิ่นช่วยจัดการให้ในแชตเดียว และจำคุณได้ทุกครั้ง</p>
-        <p style="font-size:14px;color:var(--ink2);margin-top:6px">แตะดูตัวอย่าง — ปิ่นช่วยอะไรคุณได้บ้าง</p>
+        <p style="font-size:14px;color:var(--ink2);margin-top:6px">แตะดูตัวอย่าง ปิ่นช่วยอะไรคุณได้บ้าง</p>
         <div class="ucchips" id="ucChips">
           <button type="button" class="ucchip" data-uc="study" data-label="ติวและทบทวน"><i class="ph ph-books"></i> ติวและทบทวน</button>
           <button type="button" class="ucchip" data-uc="home" data-label="เรื่องในบ้าน"><i class="ph ph-house"></i> เรื่องในบ้าน</button>
@@ -372,7 +377,7 @@
 <!-- FELT-PRIVACY BAND -->
 <section class="trustband">
   <div class="wrap">
-    <p class="tb-line">ไม่มีใคร อ่านแชตคุณได้ — แม้แต่เรา</p>
+    <h2 class="tb-line">ไม่มีใคร อ่านแชตคุณได้ ไม่เว้นแม้แต่เรา</h2>
     <div class="tb-points">
       <span><i class="ph-fill ph-lock-key"></i> เข้ารหัสลับทั้งหมด</span>
       <span><i class="ph-fill ph-device-mobile"></i> สมองอยู่บนเครื่อง</span>
@@ -411,13 +416,15 @@
 
 <footer>
   <div class="wrap frow">
-    <a class="brand" href="#top"><img src="assets/pin-icon.png" alt="ปิ่น" style="height:26px"></a>
+    <div class="fleft">
+      <a class="brand" href="#top"><img src="assets/pin-icon.png" alt="ปิ่น" style="height:26px"></a>
+      <span>© 2026 ปิ่น · pin.tokens2.io</span>
+    </div>
     <nav class="fnav">
       <a href="#uses">วิธีใช้</a>
       <a href="privacy.html">ความเป็นส่วนตัว</a>
       <a href="#join">เริ่มต้น</a>
     </nav>
-    <span>© 2026 ปิ่น · https://pin.tokens2.io</span>
   </div>
 </footer>
 
