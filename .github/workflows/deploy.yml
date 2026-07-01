@@ -77,22 +77,22 @@ jobs:
           username: ${{ secrets.VPS_SSH_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script_stop: true
           script: |
-            # Create namespace if not exists
+            # k3s kubeconfig is root-only; the deploy user has its own copy here.
+            export KUBECONFIG=$HOME/.kube/config
+
+            # Sync manifests to a writable repo dir (deploy user can't touch /opt).
+            REPO=$HOME/pin-repo
+            git clone https://github.com/${{ github.repository }} "$REPO" 2>/dev/null || true
+            cd "$REPO" && git fetch origin && git reset --hard origin/main
+
             kubectl create namespace pin --dry-run=client -o yaml | kubectl apply -f -
-            
-            # Apply Kubernetes configuration files
-            # (Assuming the CI runner commits or the repository is cloned on the VPS,
-            # or we apply them directly by echoing/uploading the manifests)
-            # In standard deployment, we can pull the latest manifests:
-            cd /opt/pin || git clone https://github.com/${{ github.repository }} /opt/pin || true
-            cd /opt/pin && git fetch origin && git reset --hard origin/main
-            
-            # Apply PVC, Service, Ingress, and Deployment
             kubectl apply -f k8s/pvc.yaml
             kubectl apply -f k8s/service.yaml
             kubectl apply -f k8s/ingress.yaml
             kubectl apply -f k8s/deployment.yaml
-            
-            # Restart deployment to pull the latest image
+
+            # imagePullPolicy: Always -> restart pulls the freshly-pushed :latest.
             kubectl rollout restart deployment/pin-backend -n pin
+            kubectl rollout status deployment/pin-backend -n pin --timeout=120s
