@@ -121,7 +121,7 @@ class NowView extends StatelessWidget {
                   _menuRow(
                     icon: PhosphorIconsRegular.eye,
                     iconColor: accent,
-                    label: 'ปิ่นเฝ้าให้อยู่',
+                    label: '${botName}เฝ้าให้อยู่',
                     hint: () {
                       final n = watches.where((w) => w.hasNew).length;
                       if (n > 0) return 'ใหม่ $n';
@@ -138,7 +138,7 @@ class NowView extends StatelessWidget {
                   _menuRow(
                     icon: PhosphorIconsRegular.folder,
                     iconColor: accent,
-                    label: 'ไฟล์ที่ปิ่นเก็บไว้',
+                    label: 'ไฟล์ที่${botName}เก็บไว้',
                     hint: '',
                     onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const _FilesScreen())),
@@ -177,20 +177,20 @@ class NowView extends StatelessWidget {
     String msg;
     VoidCallback? onTap;
     Color color = _ink;
-    Color bgColor = _ink.withOpacity(0.05);
+    Color bgColor = _ink.withValues(alpha: 0.05);
     IconData? icon;
 
     if (newWatches.isNotEmpty) {
       msg = 'มีอัปเดตเรื่อง "${newWatches.first.topic}"';
       onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WatchScreen()));
       color = Theme.of(context).colorScheme.primary;
-      bgColor = color.withOpacity(0.08);
+      bgColor = color.withValues(alpha: 0.08);
       icon = PhosphorIconsRegular.bellRinging;
     } else if (overdue.isNotEmpty) {
       msg = 'มีงานค้าง ${overdue.length} เรื่องที่เลยกำหนดแล้ว';
       onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
       color = _neg;
-      bgColor = color.withOpacity(0.08);
+      bgColor = color.withValues(alpha: 0.08);
       icon = PhosphorIconsRegular.warning;
     } else if (timedCount > 0) {
       msg = 'มีกำหนดการ/นัดหมาย $timedCount รายการวันนี้';
@@ -232,7 +232,7 @@ class NowView extends StatelessWidget {
                       fontWeight: FontWeight.w500)),
             ),
             Icon(PhosphorIconsRegular.caretRight,
-                size: 16, color: color.withOpacity(0.5)),
+                size: 16, color: color.withValues(alpha: 0.5)),
           ],
         ),
       ),
@@ -409,20 +409,20 @@ class _FilesTabState extends State<FilesTab> {
 
   Widget _body(BuildContext context) {
     if (_items.isEmpty && !_loading) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(PhosphorIconsRegular.folderOpen, size: 38, color: PinPalette.ink2),
-              SizedBox(height: 14),
-              Text('ยังไม่มีไฟล์',
+              const Icon(PhosphorIconsRegular.folderOpen, size: 38, color: PinPalette.ink2),
+              const SizedBox(height: 14),
+              const Text('ยังไม่มีไฟล์',
                   style: TextStyle(fontSize: 16, color: PinPalette.ink)),
-              SizedBox(height: 6),
-              Text('ส่งเอกสารหรือไฟล์เสียงมา ปิ่นจะสรุปและเก็บไว้ให้',
+              const SizedBox(height: 6),
+              Text('ส่งเอกสารหรือไฟล์เสียงมา ${botName}จะสรุปและเก็บไว้ให้',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: PinPalette.ink2, height: 1.5)),
+                  style: const TextStyle(color: PinPalette.ink2, height: 1.5)),
             ],
           ),
         ),
@@ -985,7 +985,7 @@ class _WatchScreen extends StatelessWidget {
         backgroundColor: bg,
         surfaceTintColor: bg,
         elevation: 0,
-        title: const Text('ปิ่นเฝ้าให้อยู่'),
+        title: Text('${botName}เฝ้าให้อยู่'),
       ),
       body: SafeArea(
         child: AnimatedBuilder(
@@ -995,7 +995,7 @@ class _WatchScreen extends StatelessWidget {
             final jobs = JobsController.instance.value;
             if (watches.isEmpty) {
               return _emptyState(PhosphorIconsRegular.eye, 'ยังไม่มีเรื่องที่เฝ้า',
-                  'บอกปิ่นในแชตว่าสนใจเรื่องไหน เดี๋ยวคอยดูให้');
+                  'บอก${botName}ในแชตว่าสนใจเรื่องไหน เดี๋ยวคอยดูให้');
             }
             
             final sortedWatches = watches.toList()..sort((a, b) {
