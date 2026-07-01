@@ -520,7 +520,7 @@
 
   // Submit to our own backend (pin-proxy /waitlist). Stores {email,use} for the
   // launch list. On failure, show a retry message (no mailto fallback).
-  const FORM_ENDPOINT='https://pin-gateway.tokens2.io/waitlist';
+  const FORM_ENDPOINT='https://pin-backend.tokens2.io/waitlist';
   const statusEl=document.getElementById('wlStatus');
   if(form){
     const submitBtn=form.querySelector('button[type=submit]');

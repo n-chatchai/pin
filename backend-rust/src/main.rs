@@ -179,6 +179,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/tab/:tab", get(admin::tab_generic))
         .with_state(admin_state)
         .layer(tower_http::trace::TraceLayer::new_for_http())
+        // CORS for the public marketing site (waitlist POST does a JSON preflight).
+        // ponytail: allow the one known site origin; native app clients ignore CORS.
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin("https://pin.tokens2.io".parse::<axum::http::HeaderValue>().unwrap())
+                .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+                .allow_headers([axum::http::header::CONTENT_TYPE]),
+        )
         // App state layer (for API handlers)
         .layer(axum::Extension(app_state));
 
