@@ -18,18 +18,15 @@
   <div class="top">
     <b>{{ a.label|default(a.name) }}</b>
     <span class="hint">· {{ a.name }}</span>
-    {% if a.enabled %}<span class="pill on">เปิด</span>{% else %}<span class="pill off">ปิด</span>{% endif %}
+    {% if a.status == 'active' %}<span class="pill on">{{ a.status }}</span>{% else %}<span class="pill off">{{ a.status|default('—') }}</span>{% endif %}
     <span class="pill mode">{{ mode }}</span>
     {% if a.model %}<span class="hint">· {{ a.model }}</span>{% endif %}
-    <span style="margin-left:auto">
-      <button class="btn sm" hx-post="/admin/store/{{ a.name }}/toggle" hx-target="#panel">{% if a.enabled %}ปิด{% else %}เปิด{% endif %}</button>
-    </span>
   </div>
   {% if a.description %}<div class="hint" style="margin-top:3px">{{ a.description }}</div>{% endif %}
   <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-    <span class="hint">ใช้เครื่องมือ:</span>
-    {% for t in a.toolNames|default([]) %}<span class="capchip">{{ t }}</span>{% endfor %}
-    {% if not a.toolNames %}<span class="hint">—</span>{% endif %}
+    <span class="hint">ใช้ความสามารถ:</span>
+    {% for c in a.capabilities|default([]) %}<span class="capchip">{{ c }}</span>{% endfor %}
+    {% if not a.capabilities %}<span class="hint">—</span>{% endif %}
   </div>
 </div>
 {% endfor %}

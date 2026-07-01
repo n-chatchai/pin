@@ -6,7 +6,8 @@ use crate::display;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS assistants(
-  name TEXT PRIMARY KEY, label TEXT, description TEXT, version TEXT, status TEXT);
+  name TEXT PRIMARY KEY, label TEXT, description TEXT, version TEXT, status TEXT,
+  metadata_json TEXT);
 CREATE TABLE IF NOT EXISTS connectors(
   name TEXT PRIMARY KEY, kind TEXT, endpoint TEXT, auth_json TEXT, status TEXT);
 CREATE TABLE IF NOT EXISTS capabilities(
@@ -363,14 +364,18 @@ impl Store {
                 let c_name: String = cr.get("capability_name");
                 capabilities.push(c_name);
             }
-            
-            out.push(json!({
-                "name": name,
-                "label": r.get::<String, _>("label"),
-                "description": r.get::<Option<String>, _>("description").unwrap_or_default(),
-                "status": r.get::<String, _>("status"),
-                "capabilities": capabilities
-            }));
+
+            // Merge the assistant's agent config (model/system/toolNames/interaction_mode).
+            // Tolerant of an older schema without the metadata_json column.
+            let meta_str = r.try_get::<Option<String>, _>("metadata_json").ok().flatten()
+                .unwrap_or_else(|| "{}".to_string());
+            let mut d: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+            d["name"] = json!(name);
+            d["label"] = json!(r.get::<Option<String>, _>("label").unwrap_or_default());
+            d["description"] = json!(r.get::<Option<String>, _>("description").unwrap_or_default());
+            d["status"] = json!(r.get::<String, _>("status"));
+            d["capabilities"] = json!(capabilities);
+            out.push(d);
         }
         Ok(out)
     }

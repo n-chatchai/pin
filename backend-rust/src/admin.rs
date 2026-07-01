@@ -407,10 +407,7 @@ pub async fn tab_assistants(State(state): State<AdminState>, jar: CookieJar) -> 
     if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    let caps = state.store.all_capabilities_admin().await.unwrap_or_default();
-    let assistants: Vec<Value> = caps.into_iter()
-        .filter(|c| c.get("kind").and_then(|v| v.as_str()) == Some("subagent"))
-        .collect();
+    let assistants = state.store.enabled_assistants().await.unwrap_or_default();
     render(&state.jinja_env, "_assistants.html", json!({"assistants": assistants}))
 }
 
