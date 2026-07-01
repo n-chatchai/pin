@@ -103,8 +103,8 @@ class SettingsScreen extends StatelessWidget {
               _navRow(
                 context,
                 PhosphorIconsRegular.sparkle,
-                'ความสามารถ',
-                'สกิล · เครื่องมือ',
+                'ผู้ช่วย',
+                'ผู้ช่วยเฉพาะทาง — นักวิจัย · ช้อป · ติวเตอร์',
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
               ),
@@ -729,7 +729,7 @@ class _E2eeDebugState extends State<_E2eeDebug> {
           _div(),
           _tile(
             PhosphorIconsRegular.database,
-            'ข้อมูลในเครื่อง',
+            'ข้อมูลห้องแชต',
             'ดู/ล้าง ความจำ · ประวัติ · ความรู้ · การตั้งค่า',
             nav: true,
             onTap: () => push(const DeviceDataScreen()),

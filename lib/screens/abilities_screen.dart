@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../agent/abilities.dart';
+import '../agent/abilities.dart' show capabilitiesRevision;
 import '../agent/agent_config.dart';
 import '../agent/catalog_client.dart';
 import '../services/matrix_service.dart';
@@ -8,9 +8,10 @@ import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 import '../widgets/pin_toast.dart';
 
-/// "ร้านความสามารถ" — the PAID store. Only capabilities a bare LLM can't do
-/// (ดูดวง, account connects, …); built-in/free things ปิ่น does aren't here.
-/// Layout: title · category filter chips (from the admin catalog API) · cards.
+/// "ผู้ช่วย" — the assistants (ผู้ช่วยเฉพาะทาง) the user can turn on for $botName
+/// to use: นักวิจัย, ผู้ช่วยช้อป, ติวเตอร์ … Delegation ones $botName uses behind
+/// the scenes; handoff ones the user can talk to directly. Plumbing (tools /
+/// skills / connectors) is hidden — that's admin-only.
 class AbilitiesScreen extends StatefulWidget {
   const AbilitiesScreen({super.key});
 
@@ -19,12 +20,10 @@ class AbilitiesScreen extends StatefulWidget {
 }
 
 class _AbilitiesScreenState extends State<AbilitiesScreen> {
-  List<Ability> _items = const []; // paid capabilities only
-  List<Map<String, dynamic>> _cats = const []; // [{id,label,count}]
-  String? _sel; // selected category id; null = ทั้งหมด
+  List<Map<String, dynamic>> _items = const []; // assistants
   bool _loading = true;
   String? _roomId;
-  Set<String> _optedOut = {}; // capabilities the user turned off (opt-out model)
+  Set<String> _optedOut = {}; // assistants the user turned off
 
   @override
   void initState() {
@@ -38,30 +37,18 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         ? await MatrixService.instance
             .loadListFromRoom(roomId, 'io.tokens2.opted_out_capabilities')
         : [];
-
-
-    final client = CatalogClient(devProxy());
-    final manifests = await client.fetchManifests();
-    final cats = await client.fetchCategories();
-    final items = [
-      for (final m in manifests)
-        if (m['kind'] != 'subagent') Ability.fromManifest(m)
-    ].where((a) => !a.pricing.isFree).toList(); // PAID only
+    final items = await CatalogClient(devProxy()).fetchAssistants();
     if (!mounted) return;
     setState(() {
       _roomId = roomId;
       _optedOut = rawList.map((e) => '${e['name']}').toSet();
       _items = items;
-      _cats = cats;
       _loading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final shown = _sel == null
-        ? _items
-        : _items.where((a) => a.category == _sel).toList();
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -69,7 +56,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 20,
-        title: const Text('ร้านความสามารถ',
+        title: const Text('ผู้ช่วย',
             style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
@@ -79,27 +66,26 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text('เพิ่มสิ่งที่$botNameทำเองไม่ได้ — เชื่อมบัญชี ดูดวง และอื่น ๆ',
+                    child: Text(
+                        'ผู้ช่วยเฉพาะทางของ$botName — เปิดให้$botNameเรียกใช้เมื่อเจองานที่เหมาะ',
                         style: const TextStyle(
                             color: PinPalette.ink2, fontSize: 13.5)),
                   ),
                 ),
-                if (_cats.isNotEmpty)
-                  SliverToBoxAdapter(child: _chips()),
-                if (shown.isEmpty)
+                if (_items.isEmpty)
                   const SliverFillRemaining(
                     child: Center(
-                      child: Text('ยังไม่มีสินค้าในหมวดนี้',
+                      child: Text('ยังไม่มีผู้ช่วย',
                           style: TextStyle(color: PinPalette.ink2)),
                     ),
                   )
                 else
                   SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                        16, 4, 16, 32 + MediaQuery.of(context).viewPadding.bottom),
+                    padding: EdgeInsets.fromLTRB(16, 4, 16,
+                        32 + MediaQuery.of(context).viewPadding.bottom),
                     sliver: SliverList.builder(
-                      itemCount: shown.length,
-                      itemBuilder: (_, i) => _card(shown[i]),
+                      itemCount: _items.length,
+                      itemBuilder: (_, i) => _card(_items[i]),
                     ),
                   ),
               ],
@@ -107,45 +93,13 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     );
   }
 
-  Widget _chips() {
-    return SizedBox(
-      height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        children: [
-          _chip('ทั้งหมด', _sel == null, () => setState(() => _sel = null)),
-          for (final c in _cats)
-            _chip('${c['label']}', _sel == c['id'],
-                () => setState(() => _sel = '${c['id']}')),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(String label, bool on, VoidCallback onTap) {
+  Widget _card(Map<String, dynamic> a) {
     final primary = Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: on,
-        onSelected: (_) => onTap(),
-        showCheckmark: false,
-        labelStyle: TextStyle(
-            color: on ? Colors.white : PinPalette.ink,
-            fontWeight: FontWeight.w600,
-            fontSize: 13.5),
-        selectedColor: primary,
-        backgroundColor: Colors.white,
-        side: BorderSide(color: on ? primary : PinPalette.line),
-        shape: const StadiumBorder(),
-      ),
-    );
-  }
-
-  Widget _card(Ability a) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final name = '${a['name']}';
+    final label = '${a['label'] ?? name}';
+    final desc = '${a['description'] ?? ''}';
+    final handoff = '${a['interaction_mode'] ?? 'delegation'}' == 'handoff';
+    final on = !_optedOut.contains(name);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -162,7 +116,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
             decoration: BoxDecoration(
                 color: primary.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(12)),
-            child: Icon(a.icon, size: 22, color: primary),
+            child: Icon(handoff ? Icons.forum_outlined : Icons.auto_awesome,
+                size: 22, color: primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -170,110 +125,74 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(a.label,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 15)),
-                const SizedBox(height: 2),
-                Text(
-                  [a.blurb, if (a.provider.isNotEmpty) 'โดย ${a.provider}']
-                      .where((s) => s.isNotEmpty)
-                      .join(' · '),
-                  style: const TextStyle(color: PinPalette.ink2, fontSize: 12.5),
-                ),
+                Row(children: [
+                  Flexible(
+                    child: Text(label,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                    decoration: BoxDecoration(
+                        color: PinPalette.line,
+                        borderRadius: BorderRadius.circular(9)),
+                    child: Text(handoff ? 'คุยตรง' : 'ช่วยเบื้องหลัง',
+                        style: const TextStyle(
+                            fontSize: 11, color: PinPalette.ink2)),
+                  ),
+                ]),
+                if (desc.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(desc,
+                      style: const TextStyle(
+                          color: PinPalette.ink2, fontSize: 12.5)),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 10),
-          _cta(a),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: on ? primary : PinPalette.ink3)),
+              Switch.adaptive(
+                value: on,
+                activeTrackColor: primary,
+                onChanged: (_) => _toggle(name, label, on),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  // Fixed CTA width so every card's trailing control lines up (and the trial
-  // toggle doesn't change width when its label flips on↔off).
-  static const double _ctaWidth = 116;
-
-  Widget _cta(Ability a) {
-    final soon = a.status == 'soon';
-    final trial = a.status == 'trial';
-    final primary = Theme.of(context).colorScheme.primary;
-
-    // Trial = opt-out, on by default. A plain switch (like the ดีบักบอท toggle)
-    // — clearest on/off, and its width is fixed so cards line up.
-    if (trial) {
-      final on = !_optedOut.contains(a.name);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
-              style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: on ? primary : PinPalette.ink3)),
-          Switch.adaptive(
-            value: on,
-            activeTrackColor: primary,
-            onChanged: (_) => _toggleTrial(a, on),
-          ),
-        ],
-      );
-    }
-
-    final word = soon
-        ? 'เร็ว ๆ นี้'
-        : a.needsConnect
-            ? 'เชื่อม'
-            : a.pricing.tier == 'subscription'
-                ? 'สมัคร'
-                : 'ซื้อ';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(a.pricing.label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 13.5, color: PinPalette.ink)),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: _ctaWidth,
-          child: FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              backgroundColor: soon ? PinPalette.line : null,
-            ),
-            onPressed: soon
-                ? null
-                : () => PinToast.show(
-                    context, 'เปิดให้ใช้เร็ว ๆ นี้ — บันทึกความสนใจไว้แล้ว'),
-            child: Text(word),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _toggleTrial(Ability a, bool currentlyOn) async {
+  Future<void> _toggle(String name, String label, bool currentlyOn) async {
     if (_roomId == null) return;
     setState(() {
       if (currentlyOn) {
-        _optedOut.add(a.name); // turn off (opt out)
+        _optedOut.add(name);
       } else {
-        _optedOut.remove(a.name); // turn on
+        _optedOut.remove(name);
       }
     });
     await MatrixService.instance.saveListToRoom(
         _roomId!,
         'io.tokens2.opted_out_capabilities',
         _optedOut.map((e) => {'name': e}).toList());
-    // Live chat session + composer reload now (drops ดูดวง this turn, not 30s).
     capabilitiesRevision.value++;
     if (!mounted) return;
     PinToast.show(
         context,
         currentlyOn
-            ? 'ปิด "${a.label}" แล้ว — $botNameจะไม่เรียกใช้'
-            : 'เปิดใช้ "${a.label}" แล้ว');
+            ? 'ปิด "$label" แล้ว — $botNameจะไม่เรียกใช้'
+            : 'เปิดใช้ "$label" แล้ว');
   }
 }

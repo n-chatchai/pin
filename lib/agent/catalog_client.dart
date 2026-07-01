@@ -89,6 +89,25 @@ class CatalogClient {
     }
   }
 
+  /// The assistants (ผู้ช่วย) — researcher/shopper/tutor etc, each with its
+  /// interaction_mode + bound capabilities. Best-effort; empty on failure.
+  Future<List<Map<String, dynamic>>> fetchAssistants() async {
+    try {
+      final r = await http.get(
+        Uri.parse('${proxy.baseUrl}/catalog'),
+        headers: {'Authorization': 'Bearer ${proxy.token}'},
+      ).timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return const [];
+      final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      return [
+        for (final a in (body['assistants'] as List? ?? const []))
+          (a as Map).cast<String, dynamic>()
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Paid-store filter chips — [{id,label,count}] of paid categories. Best-effort.
   Future<List<Map<String, dynamic>>> fetchCategories() async {
     try {
