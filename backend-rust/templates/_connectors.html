@@ -6,7 +6,7 @@
   .pill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px;background:var(--green-soft);color:var(--green-d)}
 </style>
 
-<p class="hint" style="margin:0 0 12px">ตัวเชื่อมโลกภายนอก (MCP / API). กด “รีเฟรช” เพื่อดึงสคีมาเครื่องมือล่าสุดจากเซิร์ฟเวอร์.</p>
+<p class="hint" style="margin:0 0 12px">การเชื่อมต่อโลกภายนอก (MCP / API). กด “รีเฟรช” เพื่อดึงสคีมาเครื่องมือล่าสุดจากเซิร์ฟเวอร์.</p>
 
 {% for c in connectors %}
 <div class="caprow">
@@ -23,4 +23,4 @@
 </div>
 {% endfor %}
 
-{% if not connectors %}<p class="hint">ยังไม่มีตัวเชื่อม</p>{% endif %}
+{% if not connectors %}<p class="hint">ยังไม่มีการเชื่อมต่อ</p>{% endif %}
