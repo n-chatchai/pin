@@ -24,7 +24,11 @@ spec:
           ports:
             - containerPort: 8088
               name: http
-          
+
+          env:
+            - name: RUST_LOG
+              value: info
+
           # Automatically injects all keys/values from your .env secret as env vars
           envFrom:
             - secretRef:
