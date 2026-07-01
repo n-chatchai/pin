@@ -11,8 +11,6 @@ use axum::{
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
 use tracing::{error, warn};
 
 use crate::store::Store;
@@ -532,7 +530,12 @@ async fn wl_render(env: &minijinja::Environment<'static>, store: &Store, flash: 
         
         let email = r.get("email").and_then(|v| v.as_str()).unwrap_or("");
         r["replies"] = json!(replies.get(email).cloned().unwrap_or(0));
-        
+
+        let created_at = r.get("created_at").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        r["created_th"] = json!(chrono::DateTime::from_timestamp(created_at as i64, 0)
+            .map(|dt| dt.with_timezone(&chrono::Local).format("%d/%m %H:%M").to_string())
+            .unwrap_or_default());
+
         if sent {
             // format time
             let local_time = chrono::DateTime::from_timestamp(sent_at as i64, 0)
@@ -554,129 +557,144 @@ async fn wl_render(env: &minijinja::Environment<'static>, store: &Store, flash: 
     }))
 }
 
-// Mail message checker using PyO3 imaplib wrapper
-fn poll_imap_mail() -> Result<Vec<Value>, String> {
-    Python::with_gil(|py| {
-        let code = r#"
-import os
-import imaplib
-import email as emaillib
-from email.utils import parseaddr
-
-def poll_mail_py():
-    user = os.environ.get("GMAIL_USER", "chatchai@tokens2.io")
-    pw = (os.environ.get("GG_APP_PASSWORD_PIN")
-          or os.environ.get("GMAIL_APP_PASSWORD", "")).replace(" ", "")
-    
-    out = []
-    if not pw:
-        return out
-        
-    try:
-        M = imaplib.IMAP4_SSL("imap.gmail.com", 993)
-        M.login(user, pw)
-        M.select("INBOX")
-        typ, data = M.search(None, "UNSEEN")
-        for num in (data[0] or b"").split():
-            typ, md = M.fetch(num, "(RFC822)")
-            if not md or not md[0]:
-                continue
-            m = emaillib.message_from_bytes(md[0][1])
-            frm = parseaddr(m.get("From", ""))[1].lower()
-            msgid = (m.get("Message-ID") or "").strip()
-            irt = (m.get("In-Reply-To") or "").strip()
-            
-            # Extract plain text
-            body = ""
-            parts = m.walk() if m.is_multipart() else [m]
-            for part in parts:
-                if part.get_content_type() == "text/plain" and "attachment" not in str(part.get("Content-Disposition", "")):
-                    try:
-                        body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8", "replace")
-                    except:
-                        pass
-                    break
-            
-            # cut quoted reply
-            import re
-            body = re.split(r"\n\s*On .*wrote:\s*\n|\n\s*>", body, maxsplit=1)[0].strip()
-            
-            out.append({
-                "from": frm,
-                "msg_id": msgid,
-                "in_reply_to": irt,
-                "subject": m.get("Subject", ""),
-                "body": body
-            })
-            M.store(num, "+FLAGS", "\\Seen")
-        M.logout()
-    except Exception as e:
-        print("IMAP Poll Error:", e)
-    return out
-"#;
-        let locals = PyDict::new_bound(py);
-        py.run_bound(code, None, Some(&locals)).map_err(|e| e.to_string())?;
-        let func = locals.get_item("poll_mail_py")
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Failed to find poll_mail_py function".to_string())?;
-        
-        let py_list = func.call0().map_err(|e| e.to_string())?;
-        let list_str: String = py.import_bound("json")
-            .map_err(|e| e.to_string())?
-            .call_method1("dumps", (py_list,))
-            .map_err(|e| e.to_string())?
-            .extract()
-            .map_err(|e| e.to_string())?;
-            
-        let vec_val = serde_json::from_str(&list_str).map_err(|e| e.to_string())?;
-        Ok(vec_val)
-    })
+// IMAP reply poll via `imap` + `mailparse` (pure Rust). Sync crate, so the
+// blocking work runs on a spawn_blocking thread to keep the async runtime free.
+async fn poll_imap_mail() -> Result<Vec<Value>, String> {
+    tokio::task::spawn_blocking(poll_imap_blocking)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
-// Mail message sender using PyO3 smtplib wrapper
-fn send_mail_via_python(to: &str, subject: &str, text: &str, html: &str) -> Result<String, String> {
-    Python::with_gil(|py| {
-        let code = r#"
-import os
-import smtplib
-from email.message import EmailMessage
-from email.utils import make_msgid
+// From: "Name <a@b>" | "a@b" → lowercased bare address.
+fn extract_addr(s: &str) -> String {
+    if let (Some(a), Some(b)) = (s.find('<'), s.rfind('>')) {
+        if a < b {
+            return s[a + 1..b].trim().to_lowercase();
+        }
+    }
+    s.trim().to_lowercase()
+}
 
-def send_email_py(to, subject, text, html):
-    user = os.environ.get("GMAIL_USER", "chatchai@tokens2.io")
-    pw = (os.environ.get("GG_APP_PASSWORD_PIN")
-          or os.environ.get("GMAIL_APP_PASSWORD", "")).replace(" ", "")
-    sender = os.environ.get("GMAIL_FROM", "ปิ่น <pin@tokens2.io>")
-    
-    msg_id = make_msgid(domain="tokens2.io")
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = to
-    msg["Reply-To"] = sender
-    msg["Message-ID"] = msg_id
-    msg.set_content(text)
-    msg.add_alternative(html, subtype="html")
-    
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as s:
-        s.starttls()
-        s.login(user, pw)
-        s.send_message(msg)
-    return msg_id
-"#;
-        let locals = PyDict::new_bound(py);
-        py.run_bound(code, None, Some(&locals)).map_err(|e| e.to_string())?;
-        let func = locals.get_item("send_email_py")
+// First text/plain part, depth-first.
+fn plain_body(m: &mailparse::ParsedMail) -> String {
+    if m.subparts.is_empty() {
+        if m.ctype.mimetype == "text/plain" {
+            return m.get_body().unwrap_or_default();
+        }
+        return String::new();
+    }
+    for p in &m.subparts {
+        let b = plain_body(p);
+        if !b.is_empty() {
+            return b;
+        }
+    }
+    String::new()
+}
+
+// Drop quoted history: stop at first ">" line or an "On … wrote:" attribution.
+fn cut_quoted(body: &str) -> String {
+    let mut kept = Vec::new();
+    for line in body.lines() {
+        let t = line.trim();
+        if t.starts_with('>') || (t.starts_with("On ") && t.ends_with("wrote:")) {
+            break;
+        }
+        kept.push(line);
+    }
+    kept.join("\n").trim().to_string()
+}
+
+fn poll_imap_blocking() -> Result<Vec<Value>, String> {
+    use mailparse::MailHeaderMap;
+
+    let user = std::env::var("GMAIL_USER").unwrap_or_else(|_| "chatchai@tokens2.io".into());
+    let pw = std::env::var("GG_APP_PASSWORD_PIN")
+        .or_else(|_| std::env::var("GMAIL_APP_PASSWORD"))
+        .unwrap_or_default()
+        .replace(' ', "");
+    if pw.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let tls = native_tls::TlsConnector::builder().build().map_err(|e| e.to_string())?;
+    let client = imap::connect(("imap.gmail.com", 993), "imap.gmail.com", &tls).map_err(|e| e.to_string())?;
+    let mut session = client.login(&user, &pw).map_err(|(e, _)| e.to_string())?;
+
+    let mut out = Vec::new();
+    let scan = |session: &mut imap::Session<_>, out: &mut Vec<Value>| -> imap::error::Result<()> {
+        session.select("INBOX")?;
+        for seq in session.search("UNSEEN")? {
+            let msgs = session.fetch(seq.to_string(), "RFC822")?;
+            for m in msgs.iter() {
+                if let Some(raw) = m.body() {
+                    if let Ok(parsed) = mailparse::parse_mail(raw) {
+                        let h = |k: &str| parsed.headers.get_first_value(k).unwrap_or_default();
+                        out.push(json!({
+                            "from": extract_addr(&h("From")),
+                            "msg_id": h("Message-ID").trim(),
+                            "in_reply_to": h("In-Reply-To").trim(),
+                            "subject": h("Subject"),
+                            "body": cut_quoted(&plain_body(&parsed)),
+                        }));
+                    }
+                }
+            }
+            let _ = session.store(seq.to_string(), "+FLAGS (\\Seen)");
+        }
+        Ok(())
+    };
+
+    let res = scan(&mut session, &mut out);
+    let _ = session.logout();
+    res.map_err(|e| e.to_string())?;
+    Ok(out)
+}
+
+// SMTP send via lettre (async, pure Rust). Returns the Message-ID (bracketed)
+// so replies' In-Reply-To can be matched back to the outgoing mail.
+async fn send_mail(to: &str, subject: &str, text: &str, html: &str) -> Result<String, String> {
+    use lettre::message::{MultiPart, SinglePart};
+    use lettre::transport::smtp::authentication::Credentials;
+    use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+
+    let user = std::env::var("GMAIL_USER").unwrap_or_else(|_| "chatchai@tokens2.io".into());
+    let pw = std::env::var("GG_APP_PASSWORD_PIN")
+        .or_else(|_| std::env::var("GMAIL_APP_PASSWORD"))
+        .unwrap_or_default()
+        .replace(' ', "");
+    let sender = std::env::var("GMAIL_FROM").unwrap_or_else(|_| "ปิ่น <pin@tokens2.io>".into());
+
+    if pw.is_empty() {
+        return Err("no app password (set GG_APP_PASSWORD_PIN or GMAIL_APP_PASSWORD)".into());
+    }
+
+    // Unique Message-ID. nanos-since-epoch is enough for one-at-a-time admin sends.
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let msg_id = format!("{}@tokens2.io", nanos);
+
+    let from_mbox = sender.parse().map_err(|e| format!("bad GMAIL_FROM: {e}"))?;
+    let email = Message::builder()
+        .from(from_mbox)
+        .reply_to(sender.parse().map_err(|e| format!("bad reply-to: {e}"))?)
+        .to(to.parse().map_err(|e| format!("bad recipient: {e}"))?)
+        .subject(subject)
+        .message_id(Some(msg_id.clone()))
+        .multipart(
+            MultiPart::alternative()
+                .singlepart(SinglePart::plain(text.to_string()))
+                .singlepart(SinglePart::html(html.to_string())),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mailer: AsyncSmtpTransport<Tokio1Executor> =
+        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay("smtp.gmail.com")
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Failed to find send_email_py function".to_string())?;
-        
-        let msg_id: String = func.call1((to, subject, text, html))
-            .map_err(|e| e.to_string())?
-            .extract()
-            .map_err(|e| e.to_string())?;
-            
-        Ok(msg_id)
-    })
+            .credentials(Credentials::new(user, pw))
+            .build();
+
+    mailer.send(email).await.map_err(|e| e.to_string())?;
+    Ok(format!("<{}>", msg_id))
 }
 
 pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> Response {
@@ -684,7 +702,7 @@ pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> R
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
-    match poll_imap_mail() {
+    match poll_imap_mail().await {
         Ok(emails) => {
             let wl_set = state.store.waitlist_email_set().await.unwrap_or_default();
             let out_idx = state.store.mail_out_index().await.unwrap_or_default();
@@ -807,7 +825,7 @@ pub async fn waitlist_send(
     let use_case = row.get("use").and_then(|v| v.as_str()).unwrap_or("");
     let (subject, text, html) = emails::build(use_case);
 
-    let flash = match send_mail_via_python(email, &subject, &text, &html) {
+    let flash = match send_mail(email, &subject, &text, &html).await {
         Ok(mid) => {
             let _ = state.store.mark_waitlist_sent(email).await;
             let _ = state.store.add_mail_message(email, "out", &subject, &text, &mid, "").await;
@@ -843,7 +861,7 @@ pub async fn waitlist_send_unsent(
         let use_case = row.get("use").and_then(|v| v.as_str()).unwrap_or("");
         let (subject, text, html) = emails::build(use_case);
 
-        match send_mail_via_python(email, &subject, &text, &html) {
+        match send_mail(email, &subject, &text, &html).await {
             Ok(mid) => {
                 let _ = state.store.mark_waitlist_sent(email).await;
                 let _ = state.store.add_mail_message(email, "out", &subject, &text, &mid, "").await;
@@ -912,5 +930,23 @@ pub async fn install_assistant(
     match state.store.install_assistant(&payload).await {
         Ok(_) => axum::Json(json!({"ok": true})).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+#[cfg(test)]
+mod mail_tests {
+    use super::{cut_quoted, extract_addr};
+
+    #[test]
+    fn addr_extraction() {
+        assert_eq!(extract_addr("ปิ่น <A@B.com>"), "a@b.com");
+        assert_eq!(extract_addr("bare@x.io"), "bare@x.io");
+    }
+
+    #[test]
+    fn quoted_reply_cut() {
+        let body = "yes please\n\nOn Mon, Jan 1, someone wrote:\n> old text";
+        assert_eq!(cut_quoted(body), "yes please");
+        assert_eq!(cut_quoted("just this"), "just this");
     }
 }

@@ -35,8 +35,14 @@ rand = "0.8"
 base64 = "0.22"
 sha2 = "0.10"
 
-# Python execution (PyO3)
+# Python execution (PyO3) — still used by converter.rs
 pyo3 = { version = "0.22", features = ["auto-initialize"] }
+
+# Email: SMTP send (lettre, async) + IMAP reply poll (imap, sync in spawn_blocking)
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-native-tls", "hostname"] }
+imap = "2.4"
+mailparse = "0.15"
+native-tls = "0.2"
 
 # Logging
 tracing = "0.1"

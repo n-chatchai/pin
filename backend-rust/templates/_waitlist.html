@@ -12,13 +12,14 @@
 </div>
 <div id="wlpreview"></div>
 <table>
-  <thead><tr><th>อีเมล</th><th>สนใจ</th><th>persona</th><th>สถานะ</th><th></th></tr></thead>
+  <thead><tr><th>อีเมล</th><th>สนใจ</th><th>persona</th><th>ลงชื่อเมื่อ</th><th>สถานะ</th><th></th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
     <td class="mono">{{ r.email }}</td>
     <td style="font-size:12px;color:var(--ink2);max-width:200px">{{ r.use }}</td>
     <td><span class="b sub">{{ r.persona_th }}</span></td>
+    <td style="font-size:12px;color:var(--ink2);white-space:nowrap">{{ r.created_th }}</td>
     <td>
       {% if r.unsub %}<span class="b" style="background:var(--red-soft);color:var(--red)">ยกเลิกแล้ว</span>
       {% elif r.sent %}<span class="b on">ส่งแล้ว {{ r.sent_th }}</span>{% else %}<span class="b off">ยังไม่ส่ง</span>{% endif %}
