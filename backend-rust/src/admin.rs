@@ -419,8 +419,17 @@ pub async fn tab_assistants(State(state): State<AdminState>, jar: CookieJar) -> 
     if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    let assistants = state.store.enabled_assistants().await.unwrap_or_default();
+    let assistants = state.store.all_assistants().await.unwrap_or_default();
     render(&state.jinja_env, "_assistants.html", json!({"assistants": assistants}))
+}
+
+/// Toggle an assistant on/off from the admin.
+pub async fn assistant_toggle(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let _ = state.store.toggle_assistant(&name).await;
+    tab_assistants(State(state), jar).await
 }
 
 #[derive(Deserialize)]

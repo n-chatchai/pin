@@ -162,6 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/tab/capabilities", get(admin::tab_capabilities))
         .route("/admin/tab/connectors", get(admin::tab_connectors))
         .route("/admin/tab/assistants", get(admin::tab_assistants))
+        .route("/admin/assistant/:name/toggle", post(admin::assistant_toggle))
         .route("/admin/mcp/server/:server/refresh", post(admin::mcp_refresh))
         .route("/admin/mcp/server/:server/tools", get(admin::mcp_server_tools))
         .route("/admin/connector/:name/guide", post(admin::save_connector_guide))

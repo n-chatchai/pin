@@ -21,6 +21,9 @@
     {% if a.status == 'active' %}<span class="pill on">{{ a.status }}</span>{% else %}<span class="pill off">{{ a.status|default('—') }}</span>{% endif %}
     <span class="pill mode">{{ mode }}</span>
     {% if a.model %}<span class="hint">· {{ a.model }}</span>{% endif %}
+    <span style="margin-left:auto">
+      <button class="btn sm" hx-post="/admin/assistant/{{ a.name }}/toggle" hx-target="#panel">{% if a.status == 'active' %}ปิด{% else %}เปิด{% endif %}</button>
+    </span>
   </div>
   {% if a.description %}<div class="hint" style="margin-top:3px">{{ a.description }}</div>{% endif %}
   <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">

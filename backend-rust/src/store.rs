@@ -359,12 +359,28 @@ impl Store {
         Ok(out)
     }
 
+    /// Catalog view — active + coming-soon (app shows soon with a "เร็วๆนี้" badge).
     pub async fn enabled_assistants(&self) -> Result<Vec<Value>, sqlx::Error> {
-        // include 'soon' so the app can show coming-soon use-cases (waitlist framing)
-        let rows = sqlx::query("SELECT * FROM assistants WHERE status IN ('active','soon')")
+        self.assistants_query("SELECT * FROM assistants WHERE status IN ('active','soon')").await
+    }
+
+    /// Admin view — every assistant incl. disabled ('off'), so admin can re-enable.
+    pub async fn all_assistants(&self) -> Result<Vec<Value>, sqlx::Error> {
+        self.assistants_query("SELECT * FROM assistants ORDER BY status='soon', status='off', name").await
+    }
+
+    /// Toggle an assistant on/off. active→off, anything else (off/soon)→active.
+    pub async fn toggle_assistant(&self, name: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE assistants SET status = CASE WHEN status='active' THEN 'off' ELSE 'active' END WHERE name=?")
+            .bind(name).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    async fn assistants_query(&self, sql: &str) -> Result<Vec<Value>, sqlx::Error> {
+        let rows = sqlx::query(sql)
             .fetch_all(&self.pool)
             .await?;
-            
+
         let mut out = Vec::new();
         for r in rows {
             let name: String = r.get("name");
