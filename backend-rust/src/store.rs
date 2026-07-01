@@ -237,8 +237,19 @@ impl Store {
 
         let display_map = display::get_display();
 
-        // 1. Seed Packages (Assistants)
-        sqlx::query("INSERT INTO assistants(name, label, description, status) VALUES ('tutor', 'ติวเตอร์', 'ติวเตอร์ส่วนตัว', 'active')").execute(&self.pool).await?;
+        // 1. Seed Assistants (ผู้ช่วย = delegate/handoff agents; config in metadata_json)
+        let assistants = vec![
+            ("researcher", "นักวิจัย", "ค้นเว็บและความรู้ที่เก็บไว้หลายรอบ แล้วสรุปครบถ้วน ตรวจสอบได้. ห้ามมโน.",
+             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ค้นคว้า", "toolNames": ["web_search", "recall_knowledge"], "system": "ค้นเว็บและความรู้ที่เก็บไว้หลายรอบ แล้วสรุปครบถ้วน ตรวจสอบได้. ห้ามมโน."})),
+            ("shopper", "ผู้ช่วยช้อป", "เทียบราคาและรีวิวหลายแหล่ง แล้วสรุปตัวเลือกที่ดีที่สุด.",
+             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ช้อปปิ้ง", "toolNames": ["web_search", "get_currency"], "system": "เทียบราคาและรีวิวหลายแหล่ง แล้วสรุปตัวเลือกที่ดีที่สุด."})),
+            ("tutor", "ติวเตอร์", "ติวเตอร์ส่วนตัว (สลับให้คุยตรง)",
+             json!({"model": "gemini-2.5-pro", "interaction_mode": "handoff", "system": "You are a patient tutor."})),
+        ];
+        for (name, label, desc, meta) in assistants {
+            sqlx::query("INSERT INTO assistants(name, label, description, status, metadata_json) VALUES(?, ?, ?, 'active', ?)")
+                .bind(name).bind(label).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
+        }
 
         // 2. Seed Connectors
         sqlx::query("INSERT INTO connectors(name, kind, endpoint, status) VALUES ('lakkana', 'mcp', 'http://localhost:3000', 'active')").execute(&self.pool).await?;
@@ -275,21 +286,12 @@ impl Store {
                 .bind(name).bind(kind).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
         }
 
-        // 5. Seed Capabilities (Subagents with Interaction Mode)
-        let subagents = vec![
-            ("tutor_agent", "subagent", "ติวเตอร์: ช่วยอธิบายบทเรียน", json!({"interaction_mode": "handoff", "model": "gemini-2.5-pro", "system": "You are a patient tutor."})),
-        ];
-
-        for (name, kind, desc, meta) in subagents {
-            sqlx::query("INSERT INTO capabilities(name, kind, description, metadata_json, enabled) VALUES(?, ?, ?, ?, 1)")
-                .bind(name).bind(kind).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
-        }
-
-        // 6. Bind Capabilities to Assistants (M:M)
+        // 5. Bind assistants -> the tool capabilities they use (M:M).
         let mappings = vec![
-            ("tutor", "tutor_agent"),
+            ("researcher", "web_search"),
+            ("shopper", "web_search"),
+            ("shopper", "get_currency"),
         ];
-
         for (ast, cap) in mappings {
             sqlx::query("INSERT INTO assistant_capabilities(assistant_name, capability_name) VALUES(?, ?)")
                 .bind(ast).bind(cap).execute(&self.pool).await?;
