@@ -239,12 +239,13 @@ impl Store {
         let display_map = display::get_display();
 
         // 1. Seed Assistants (ผู้ช่วย = delegate/handoff agents; config in metadata_json)
+        // description = user-facing blurb (friendly); system = the agent's prompt (technical).
         let assistants = vec![
-            ("researcher", "นักวิจัย", "ค้นเว็บและความรู้ที่เก็บไว้หลายรอบ แล้วสรุปครบถ้วน ตรวจสอบได้. ห้ามมโน.",
+            ("researcher", "นักวิจัย", "ค้นข้อมูลเชิงลึกหลายแหล่ง สรุปให้ครบ เชื่อถือได้",
              json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ค้นคว้า", "toolNames": ["web_search", "recall_knowledge"], "system": "ค้นเว็บและความรู้ที่เก็บไว้หลายรอบ แล้วสรุปครบถ้วน ตรวจสอบได้. ห้ามมโน."})),
-            ("shopper", "ผู้ช่วยช้อป", "เทียบราคาและรีวิวหลายแหล่ง แล้วสรุปตัวเลือกที่ดีที่สุด.",
+            ("shopper", "ผู้ช่วยช้อป", "เทียบราคาและรีวิวหลายร้าน แนะนำตัวเลือกที่คุ้มที่สุด",
              json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ช้อปปิ้ง", "toolNames": ["web_search", "get_currency"], "system": "เทียบราคาและรีวิวหลายแหล่ง แล้วสรุปตัวเลือกที่ดีที่สุด."})),
-            ("tutor", "ติวเตอร์", "ติวเตอร์ส่วนตัว (สลับให้คุยตรง)",
+            ("tutor", "ติวเตอร์", "สอนและอธิบายทีละขั้น ฝึกจนเข้าใจจริง",
              json!({"model": "gemini-2.5-pro", "interaction_mode": "handoff", "system": "You are a patient tutor."})),
         ];
         for (name, label, desc, meta) in assistants {
