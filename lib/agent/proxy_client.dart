@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../services/api_log.dart';
@@ -196,16 +197,33 @@ class ProxyClient {
   /// server knows they're wakeable. Best-effort, fire-and-forget.
   Future<void> pushRegister(String device, String platform) async {
     if (device.isEmpty) return;
-    try {
-      await http
-          .post(Uri.parse('$baseUrl/push/register'),
-              headers: {
-                'Authorization': 'Bearer $token',
-                'Content-Type': 'application/json',
-              },
-              body: jsonEncode({'device': device, 'platform': platform}))
-          .timeout(const Duration(seconds: 10));
-    } catch (_) {/* offline → retries next boot */}
+    
+    int attempt = 0;
+    while (attempt < 5) {
+      try {
+        final r = await http
+            .post(Uri.parse('$baseUrl/push/register'),
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Content-Type': 'application/json',
+                },
+                body: jsonEncode({'device': device, 'platform': platform}))
+            .timeout(const Duration(seconds: 10));
+            
+        debugPrint('[push] /push/register (attempt ${attempt + 1}) → ${r.statusCode} ${r.body}');
+        if (r.statusCode == 200) {
+          return; // Success!
+        }
+      } catch (e) {
+        debugPrint('[push] /push/register (attempt ${attempt + 1}) FAILED: $e');
+      }
+      
+      attempt++;
+      if (attempt < 5) {
+        // Exponential backoff: 1s, 2s, 4s, 8s
+        await Future.delayed(Duration(seconds: 1 << (attempt - 1)));
+      }
+    }
   }
 
   /// Force an immediate blind wake to this device (dev test) — no poller wait.

@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import '../agent/agent_config.dart';
 import '../agent/agent_session.dart';
@@ -19,7 +19,7 @@ import 'prefs.dart';
 ///   • Android → FCM data message → [fcmBackgroundHandler] (closed) / onMessage
 ///     (foreground). Android also keeps the exact-AlarmManager path as fallback.
 /// Either way the wake just triggers [runDueAgenticJobs] on-device.
-class PushService {
+class PushService with WidgetsBindingObserver {
   PushService._();
   static final PushService instance = PushService._();
 
@@ -33,6 +33,15 @@ class PushService {
   String get platform => Platform.isIOS ? 'apns' : 'fcm';
 
   Future<void> init() async {
+    // Re-register on every foreground. Boot is racy (FCM token, session restore
+    // and network readiness all land at different times, and the token can
+    // rotate between launches), so a single boot/login attempt often misses.
+    // Resume guarantees session + token + network are up; the upsert is
+    // idempotent. This is the reliable catch-all.
+    WidgetsBinding.instance.addObserver(this);
+    // Cold-start catch: by ~4s the token, session restore and network are up
+    // (boot itself is too early — DNS often isn't ready yet).
+    Future.delayed(const Duration(seconds: 4), _refreshAndRegister);
     if (Platform.isAndroid) {
       await _initFcm();
       return;
@@ -93,7 +102,30 @@ class PushService {
   Future<void> registerWithServer() async {
     final tok = deviceToken;
     if (tok == null || tok.isEmpty) return;
-    await devProxy().pushRegister(tok, platform);
+    
+    final proxy = devProxy();
+    // Do not register if the matrix session hasn't restored yet (empty token).
+    // The matrix_service will trigger this again once it's ready.
+    if (proxy.token.isEmpty) return;
+    
+    await proxy.pushRegister(tok, platform);
+  }
+
+  /// Re-fetch the FCM token if it's missing (Android getToken is flaky at cold
+  /// start — sometimes never returns), then register. The reliable catch-all,
+  /// driven by app-resume + a post-boot timer.
+  Future<void> _refreshAndRegister() async {
+    if (Platform.isAndroid && (deviceToken == null || deviceToken!.isEmpty)) {
+      try {
+        deviceToken = await FirebaseMessaging.instance.getToken();
+      } catch (_) {/* still no token — try again next resume */}
+    }
+    await registerWithServer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshAndRegister();
   }
 
   Future<void> _runDue({bool force = false}) async {
