@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use std::path::PathBuf;
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
 use axum::body::Body;
@@ -111,10 +110,6 @@ impl GoogleAuth {
             fcm_project_id,
             cache: RwLock::new(None),
         }
-    }
-
-    pub fn project_id(&self) -> &str {
-        &self.fcm_project_id
     }
 
     pub async fn get_access_token(&self) -> Option<String> {
@@ -243,10 +238,6 @@ impl Scheduler {
 
     pub async fn cancel(&self, job_id: &str) -> bool {
         self.store.remove_scheduled_job(job_id).await.unwrap_or(false)
-    }
-
-    pub async fn list_for(&self, device: &str) -> Vec<Value> {
-        self.store.get_scheduled_jobs_for_device(device).await.unwrap_or_default()
     }
 
     pub async fn push(&self, device: &str, job_id: &str, platform: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {

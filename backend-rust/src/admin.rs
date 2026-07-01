@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use time;
 use axum::{
-    http::{HeaderMap, StatusCode, header},
+    http::{StatusCode, header},
     response::{Html, IntoResponse, Redirect, Response},
     extract::{Path, Query, State},
     Form,
@@ -13,13 +13,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use tracing::{info, error, warn};
+use tracing::{error, warn};
 
 use crate::store::Store;
 use crate::emails;
 use crate::proxy::Scheduler;
 use sqlx::Row;
-use chrono::TimeZone;
 
 const COOKIE_NAME: &str = "pin_admin";
 
@@ -87,9 +86,9 @@ pub async fn login_page(State(state): State<AdminState>, jar: CookieJar, Query(p
     render(&state.jinja_env, "login.html", json!({ "error": error }))
 }
 
-pub async fn logout(jar: CookieJar) -> impl IntoResponse {
+pub async fn logout(_jar: CookieJar) -> impl IntoResponse {
     let mut resp = Redirect::to("/admin/login").into_response();
-    let mut cookie = Cookie::build((COOKIE_NAME, ""))
+    let cookie = Cookie::build((COOKIE_NAME, ""))
         .path("/admin")
         .http_only(true)
         .build();
@@ -121,7 +120,7 @@ pub async fn sso_login() -> Response {
 /// issue the admin cookie. The ephemeral Matrix session is logged out right after.
 pub async fn sso_callback(
     State(state): State<AdminState>,
-    jar: CookieJar,
+    _jar: CookieJar,
     Query(params): Query<HashMap<String, String>>
 ) -> Response {
     let login_token = match params.get("loginToken") {
@@ -209,13 +208,11 @@ async fn get_dashboard_counts(store: &Store) -> Result<Value, sqlx::Error> {
     let capabilities = store.all_capabilities().await?;
     let mut tools = 0;
     let mut skills = 0;
-    let mut mcps = 0;
-    
+
     for cap in capabilities {
         match cap.get("kind").and_then(|v| v.as_str()) {
             Some("tool") => tools += 1,
             Some("skill") => skills += 1,
-            Some("mcp") => mcps += 1,
             _ => {}
         }
     }

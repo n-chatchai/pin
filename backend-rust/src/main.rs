@@ -1,19 +1,17 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
-use std::path::PathBuf;
 use axum::{
-    http::{HeaderMap, StatusCode, header},
-    response::{Html, IntoResponse, Redirect, Response},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post},
-    extract::{Path, Query, State, Multipart},
+    extract::{Path, Multipart},
     Json, Router,
 };
-use axum_extra::extract::cookie::CookieJar;
 use serde_json::{json, Value};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 mod display;

@@ -83,7 +83,7 @@ impl Store {
         self.seed_default_assistants().await?;
 
         // Seed settings
-        let settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
+        let _settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
             .fetch_one(&self.pool)
             .await?;
         if std::env::var("PIN_FREE_MODEL").is_ok() {
@@ -589,7 +589,7 @@ impl Store {
         Ok(out)
     }
 
-    pub async fn installed_names(&self, table: &str) -> Result<std::collections::HashSet<String>, sqlx::Error> {
+    pub async fn installed_names(&self, _table: &str) -> Result<std::collections::HashSet<String>, sqlx::Error> {
         // Fallback for old callers that specify 'tools', 'skills', etc. We just pull all capability names.
         let query = "SELECT name FROM capabilities";
         let rows = sqlx::query(query).fetch_all(&self.pool).await?;
@@ -639,7 +639,7 @@ impl Store {
                 }
             }
 
-            let mut seen: std::collections::HashSet<String> = params.iter().map(|p| p["key"].as_str().unwrap_or("").to_string()).collect();
+            let seen: std::collections::HashSet<String> = params.iter().map(|p| p["key"].as_str().unwrap_or("").to_string()).collect();
             for k in defaults.keys() {
                 if !seen.contains(k) {
                     params.push(json!({
@@ -1174,17 +1174,3 @@ fn split_csv(s: &str) -> Option<Vec<String>> {
     }
 }
 
-fn src_string(item: &Value) -> String {
-    if let Some(s) = item.get("source") {
-        let list = s.get("list").and_then(|v| v.as_str()).unwrap_or("");
-        let repo = s.get("repo").and_then(|v| v.as_str()).unwrap_or("");
-        let parts: Vec<&str> = vec![list, repo].into_iter().filter(|x| !x.is_empty()).collect();
-        parts.join(" · ")
-    } else {
-        "".to_string()
-    }
-}
-
-fn pj_string(item: &Value) -> Option<String> {
-    item.get("pricing").map(|p| p.to_string())
-}

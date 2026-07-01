@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 pub fn convert_file(data: &[u8], filename: &str) -> Result<Value, String> {
     // Extract file extension
