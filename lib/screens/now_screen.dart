@@ -173,27 +173,33 @@ class NowView extends StatelessWidget {
     required int timedCount,
   }) {
     final newWatches = watches.where((w) => w.hasNew).toList();
-    final call = PrefsController.instance.value.userCall.trim();
-    final name = call.isEmpty ? 'พี่' : call;
 
     String msg;
     VoidCallback? onTap;
-    Color color = _ink2;
+    Color color = _ink;
+    Color bgColor = _ink.withOpacity(0.05);
+    IconData? icon;
 
     if (newWatches.isNotEmpty) {
-      msg = 'ปิ่นมีอัปเดตใหม่เรื่อง "${newWatches.first.topic}" มาแจ้งให้ทราบครับ แตะเพื่อดูรายละเอียดได้เลย';
+      msg = 'มีอัปเดตเรื่อง "${newWatches.first.topic}"';
       onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WatchScreen()));
       color = Theme.of(context).colorScheme.primary;
-    } else if (events.isNotEmpty) {
-      msg = 'วันนี้$nameมีนัดหมาย ${events.length} รายการครับ อย่าลืมเผื่อเวลาเดินทางด้วยนะครับ';
-      onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
+      bgColor = color.withOpacity(0.08);
+      icon = PhosphorIconsRegular.bellRinging;
     } else if (overdue.isNotEmpty) {
-      msg = 'ยังมีงานค้างอยู่ ${overdue.length} เรื่องที่เลยกำหนดแล้ว ให้ปิ่นช่วยจัดการไหมครับ?';
+      msg = 'มีงานค้าง ${overdue.length} เรื่องที่เลยกำหนดแล้ว';
       onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
       color = _neg;
-    } else if (pending.isNotEmpty || timedCount > 0) {
-      msg = 'วันนี้มีงานที่ต้องทำ ${pending.length} อย่างครับ ค่อยๆ ทยอยทำไปนะครับ';
+      bgColor = color.withOpacity(0.08);
+      icon = PhosphorIconsRegular.warning;
+    } else if (timedCount > 0) {
+      msg = 'มีกำหนดการ/นัดหมาย $timedCount รายการวันนี้';
       onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
+      icon = PhosphorIconsRegular.calendarCheck;
+    } else if (pending.isNotEmpty) {
+      msg = 'มีงานที่ต้องทำ ${pending.length} อย่างวันนี้';
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
+      icon = PhosphorIconsRegular.checkCircle;
     } else {
       return Column(
         children: [
@@ -207,7 +213,29 @@ class NowView extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Text(msg, style: TextStyle(fontSize: 14, color: color, height: 1.5)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(msg,
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: color,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500)),
+            ),
+            Icon(PhosphorIconsRegular.caretRight,
+                size: 16, color: color.withOpacity(0.5)),
+          ],
+        ),
+      ),
     );
   }
 
