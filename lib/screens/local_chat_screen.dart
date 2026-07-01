@@ -34,7 +34,9 @@ import '../services/now_controllers.dart';
 import '../services/prefs.dart';
 import '../services/tasks_controller.dart';
 import '../theme/theme_controller.dart';
+import '../widgets/boot_loading.dart';
 import '../widgets/pin_toast.dart';
+import '../widgets/pin_welcome.dart';
 import 'chat_screen.dart' show ChatScaffold;
 
 /// The main ปิ่น chat — same polished UI (ChatScaffold) but backed by the
@@ -104,7 +106,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // The encrypted DM room is the single source of truth for the transcript —
     // no local chat copy that can diverge across devices. The chat stays blank
     // (status pill below) until _loadFromDm paginates the room.
-    if (mounted) setState(() => _loading = 'กำลังเตรียม$botName…');
+    if (mounted) setState(() => _loading = 'กำลังเตรียมแชท...');
     // Bring up the ปิ่น companion session + encrypted DM (2-account chat).
     // Best-effort: on failure (e.g. registration gated) the chat stays on the
     // local transcript so nothing breaks. The status pill shows each step.
@@ -164,7 +166,6 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // Warm the settings-only plugins (cold platform channels) while idle, so the
     // first ⋯→ตั้งค่า tap doesn't jank on first use.
     unawaited(PackageInfo.fromPlatform());
-    unawaited(MatrixService.instance.e2eeStatus());
   }
 
   /// Pull the "ตอนนี้" data (reminders/tasks/events/files/memory) from the ปิ่น
@@ -719,12 +720,28 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     }
     await PrefsController.instance.update(p.copyWith(personaSetup: true));
     if (!mounted) return;
+    _showWelcome();
     setState(() {
       _messages.add(_text(
           'ตั้งค่าเสร็จเรียบร้อย$_pt ${p.pinSelf}พร้อมช่วย${p.userCall}แล้วนะ — '
           'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะตั้งค่า ⋯ ได้ตลอด',
           me: false));
     });
+  }
+
+  /// Full-screen one-shot welcome over the chat the instant onboarding finishes.
+  void _showWelcome() {
+    final p = PrefsController.instance.value;
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => PinWelcome(
+        name: p.pinName,
+        ending: p.pinEnding,
+        accent: ThemeController.instance.value.accent,
+        onDone: () => entry.remove(),
+      ),
+    );
+    Overlay.of(context).insert(entry);
   }
 
   ChatViewMessage _text(String body, {required bool me}) => ChatViewMessage(
@@ -1310,22 +1327,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           onReact: _onReact,
           onFlexAction: _onFlexAction,
           onOnboardAction: _handleOnboardTap,
+          loading: _loading,
         ),
-        if (_loading != null)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: _LoadingPill(_loading!),
-                ),
-              ),
-            ),
-          ),
         if (_companionLocked && _loading == null)
           Positioned(
             top: 0,
@@ -1361,6 +1364,10 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   /// unverified device: cross-signing not ready here, but a key backup exists on
   /// the server (so another device/identity is out there to verify against).
   Future<void> _checkVerifyNeeded() async {
+    // Defer the heavy crypto check so it doesn't peg the CPU during chat boot
+    // and cause UI stuttering.
+    await Future.delayed(const Duration(seconds: 7));
+    if (!mounted) return;
     try {
       final st = await MatrixService.instance.e2eeStatus();
       if (st.crossSigningReady) return;
@@ -1490,50 +1497,6 @@ class _VerifyDeviceBanner extends StatelessWidget {
               icon: Icon(Icons.close, size: 18, color: scheme.onPrimaryContainer),
               onPressed: onDismiss,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadingPill extends StatelessWidget {
-  const _LoadingPill(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: scheme.primary),
-            ),
-            const SizedBox(width: 9),
-            Text(text,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: scheme.onSurface)),
           ],
         ),
       ),

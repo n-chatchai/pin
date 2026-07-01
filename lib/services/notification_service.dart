@@ -131,11 +131,13 @@ class NotificationService {
   Future<void> rescheduleFromRoom() async {
     final rid = await MatrixService.instance.pinRoomId();
     if (rid == null) return;
-    final items =
+    final reminders =
         await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.reminders');
     await _plugin.cancelAll();
     final now = DateTime.now();
-    for (final r in items) {
+    
+    // 1. Reschedule Reminders
+    for (final r in reminders) {
       if (r['kind'] == 'agentic') continue; // runs in-app, not an OS notification
       final text = '${r['text'] ?? ''}';
       if (text.isEmpty) continue;
@@ -153,8 +155,55 @@ class NotificationService {
         if (at != null) when = DateTime.fromMillisecondsSinceEpoch(at);
       }
       if (when == null) continue;
-      if (!daily && when.isBefore(now)) continue; // past one-shot — skip
-      await scheduleReminder(id: id, body: text, when: when, daily: daily);
+      
+      // Handle advance notice if requested
+      final advanceText = r['advance_text']?.toString();
+      if (advanceText != null && advanceText.isNotEmpty) {
+        // 1. Advance notification (1 hour)
+        final notifyTime = when.subtract(const Duration(hours: 1));
+        if (daily || !notifyTime.isBefore(now)) {
+          final advanceId = (id.toString() + 'adv').hashCode & 0x7fffffff;
+          await scheduleReminder(id: advanceId, body: advanceText, when: notifyTime, daily: daily);
+        }
+        // 2. Check-in notification (5 minutes before)
+        final checkinTime = when.subtract(const Duration(minutes: 5));
+        if (daily || !checkinTime.isBefore(now)) {
+          await scheduleReminder(id: id, body: text, when: checkinTime, daily: daily);
+        }
+      } else {
+        // Standard on-time reminder
+        if (!daily && when.isBefore(now)) continue; // past one-shot — skip
+        await scheduleReminder(id: id, body: text, when: when, daily: daily);
+      }
+    }
+
+    // 2. Schedule Events (1 hour in advance)
+    final events =
+        await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.events');
+    for (final e in events) {
+      final text = '${e['title'] ?? ''}';
+      if (text.isEmpty) continue;
+      final id = int.tryParse('${e['id']}') ?? ('${e['id']}'.hashCode & 0x7fffffff);
+      
+      final hm = '${e['time'] ?? ''}'.split(':');
+      if (hm.length != 2) continue;
+      
+      final when = DateTime(now.year, now.month, now.day,
+          int.tryParse(hm[0]) ?? 8, int.tryParse(hm[1]) ?? 0);
+          
+      final notifyTime = when.subtract(const Duration(hours: 1));
+      
+      // 1. Advance notification (1 hour)
+      if (!notifyTime.isBefore(now)) {
+        final advanceId = (id.toString() + 'adv').hashCode & 0x7fffffff;
+        await scheduleReminder(id: advanceId, body: 'อีก 1 ชั่วโมง: $text', when: notifyTime, daily: false);
+      }
+      
+      // 2. Check-in notification (5 minutes before)
+      final checkinTime = when.subtract(const Duration(minutes: 5));
+      if (!checkinTime.isBefore(now)) {
+        await scheduleReminder(id: id, body: 'อีก 5 นาที $text พร้อมหรือยัง', when: checkinTime, daily: false);
+      }
     }
   }
 

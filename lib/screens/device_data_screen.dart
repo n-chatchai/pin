@@ -4,6 +4,11 @@ import '../services/matrix_service.dart';
 import '../services/prefs.dart';
 import '../theme/theme_controller.dart';
 import '../theme/pin_theme.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import '../widgets/pin_toast.dart';
+import '../agent/agent_store.dart';
+import '../services/now_controllers.dart';
+import '../services/notification_service.dart';
 
 class DeviceDataScreen extends StatefulWidget {
   const DeviceDataScreen({super.key});
@@ -27,6 +32,35 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
     _load();
   }
 
+  void _refresh() {
+    _load();
+  }
+
+  Future<void> _clearReminders() async {
+    final s = AgentStore();
+    await s.load();
+    // Delete one by one to clear OS alarms and local cache too
+    final list = JobsController.instance.value.toList();
+    for (final j in list) {
+      await s.removeReminder(j.id);
+      final nid = int.tryParse(j.id);
+      if (nid != null) await NotificationService.instance.cancel(nid);
+    }
+    
+    // Fallback: forcefully clear room state in case AgentStore failed
+    final m = MatrixService.instance;
+    final rid = await m.pinRoomId();
+    if (rid != null) {
+      await m.saveListToRoom(rid, 'io.tokens2.reminders', []);
+    }
+    JobsController.instance.updateFromJson('[]');
+
+    if (mounted) {
+      PinToast.show(context, 'ลบ Reminders ทั้งหมดแล้ว');
+      _refresh();
+    }
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     final m = MatrixService.instance;
@@ -40,6 +74,7 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
         'io.tokens2.reminders',
         'io.tokens2.tasks',
         'io.tokens2.events',
+        'io.tokens2.watches',
         'io.tokens2.files',
         'io.tokens2.capability_requests',
       ]) {
@@ -85,6 +120,7 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
   /// tabs (ทั่วไป always shows); the label carries the row count so you see at a
   /// glance what's there. Tabs follow the data instead of a fixed list of 8.
   List<({String label, List<dynamic>? items})> _dataSections() => [
+        (label: 'Watches', items: _storeRaw['io.tokens2.watches']),
         (label: 'Reminders', items: _storeRaw['io.tokens2.reminders']),
         (label: 'Tasks', items: _storeRaw['io.tokens2.tasks']),
         (label: 'Events', items: _storeRaw['io.tokens2.events']),
@@ -106,7 +142,7 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('ข้อมูล / debug'),
+          title: const Text('ข้อมูลห้องแชต / debug'),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -114,15 +150,14 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
     }
 
     // ทั่วไป always present; data tabs only when they hold rows.
-    final sections =
-        _dataSections().where((s) => (s.items?.isNotEmpty ?? false)).toList();
+    final sections = _dataSections();
     final tabs = <Tab>[
       const Tab(text: 'ทั่วไป'),
-      for (final s in sections) Tab(text: '${s.label} (${s.items!.length})'),
+      for (final s in sections) Tab(text: '${s.label} (${s.items?.length ?? 0})'),
     ];
     final views = <Widget>[
       _buildOverviewTab(m, p),
-      for (final s in sections) _buildDataTable(s.items),
+      for (final s in sections) _buildDataTable(s.items ?? []),
     ];
 
     return DefaultTabController(
@@ -130,12 +165,17 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('ข้อมูล / debug'),
+          title: const Text('ข้อมูลห้องแชต / debug'),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           actions: [
             IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loading ? null : _load,
+              icon: Icon(PhosphorIconsRegular.trash),
+              tooltip: 'ลบ Reminders ทั้งหมด',
+              onPressed: _clearReminders,
+            ),
+            IconButton(
+              icon: Icon(PhosphorIconsRegular.arrowsClockwise),
+              onPressed: _refresh,
             ),
           ],
           bottom: TabBar(
@@ -196,7 +236,6 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
       );
     }
 
-    // Extract all unique keys to form columns
     final Set<String> keys = {};
     for (final item in items) {
       if (item is Map) {
@@ -205,7 +244,6 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
     }
     
     if (keys.isEmpty) {
-      // Not a list of maps, just list of values
       return ListView.builder(
         itemCount: items.length,
         itemBuilder: (context, index) => ListTile(
@@ -215,19 +253,29 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
     }
 
     final columns = keys.toList();
+    
+    // Format helper for human-readable values
+    String _fmt(dynamic v) {
+      if (v == null) return '—';
+      if (v is num && v > 1000000000000) {
+        // Likely ms timestamp
+        final d = DateTime.fromMillisecondsSinceEpoch(v.toInt());
+        return '${d.day}/${d.month} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+      }
+      final s = v.toString();
+      return s.length > 60 ? '${s.substring(0, 60)}…' : s;
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          dataRowMinHeight: 48,
-          dataRowMaxHeight: 120,
-          columns: columns
-              .map((c) => DataColumn(
-                    label: Text(c, style: const TextStyle(fontWeight: FontWeight.bold, color: PinPalette.ink2)),
-                  ))
-              .toList(),
+          dataRowMinHeight: 40,
+          dataRowMaxHeight: 80,
+          columnSpacing: 24,
+          headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: PinPalette.ink2, fontSize: 13),
+          columns: columns.map((c) => DataColumn(label: Text(c))).toList(),
           rows: items.map((item) {
             final map = item is Map ? item : {};
             return DataRow(
@@ -235,13 +283,13 @@ class _DeviceDataScreenState extends State<DeviceDataScreen> {
                 final val = map[c];
                 return DataCell(
                   Container(
-                    constraints: const BoxConstraints(maxWidth: 300), // Prevent super wide columns
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        val?.toString() ?? '—',
-                        style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                      ),
+                    constraints: const BoxConstraints(maxWidth: 240),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      _fmt(val),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace', height: 1.3),
                     ),
                   ),
                 );

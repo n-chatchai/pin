@@ -57,15 +57,7 @@ class NowView extends StatelessWidget {
     return call.isEmpty ? base : '$base, $call';
   }
 
-  /// One-line ปิ่น summary under the greeting. Quiet days get an invitation to
-  /// rest; busy days lead with the count. ponytail: rule-based, no LLM.
-  static String _summary(int overdue, int timed) {
-    final parts = <String>[];
-    if (timed > 0) parts.add('มีนัด $timed');
-    if (overdue > 0) parts.add('งานค้าง $overdue เรื่องเลยกำหนด');
-    if (parts.isEmpty) return 'วันนี้โล่ง ๆ ไม่มีอะไรด่วน — พักได้เลย ☕';
-    return 'วันนี้${parts.join(' กับ ')} นะ ที่เหลือเบา ๆ';
-  }
+  // Conversational summary moved to _buildAtAGlance()
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +82,7 @@ class NowView extends StatelessWidget {
             // One-time nudges land in "วันนี้"; recurring/agentic jobs are
             // background routine and stay out of the glance.
             final reminders = JobsController.instance.value
-                .where((j) => !j.isAgentic && j.repeat != 'daily')
+                .where((j) => !j.isAgentic)
                 .toList();
             final watches = WatchesController.instance.value;
             // Accent follows the active palette (green/clay/slate/…).
@@ -106,22 +98,19 @@ class NowView extends StatelessWidget {
               children: [
                 Text(_greet(), style: _serif(27)),
                 const SizedBox(height: 7),
-                if (overdue.isEmpty && pending.isEmpty && timedCount == 0) ...[
-                  const SizedBox(height: 28),
-                  _emptyState(PhosphorIconsRegular.coffee,
-                      'วันนี้โล่ง ๆ ไม่มีอะไรด่วน', 'พักได้เลย'),
-                  const SizedBox(height: 28),
-                ] else ...[
-                  Text(_summary(overdue.length, timedCount),
-                      style: const TextStyle(
-                          fontSize: 14, color: _ink2, height: 1.5)),
-                  const SizedBox(height: 20),
-                ],
+                _buildAtAGlance(
+                    context: context,
+                    watches: watches,
+                    events: events,
+                    overdue: overdue,
+                    pending: pending,
+                    timedCount: timedCount),
+                const SizedBox(height: 20),
                 _menuCard([
                   _menuRow(
                     icon: PhosphorIconsRegular.calendarCheck,
                     iconColor: overdue.isNotEmpty ? _neg : accent,
-                    label: 'งานวันนี้',
+                    label: 'งานและนัดหมาย',
                     hint: (overdue.length + timedCount + pending.length) == 0
                         ? 'ว่าง'
                         : '${overdue.length + timedCount + pending.length}',
@@ -173,6 +162,53 @@ class NowView extends StatelessWidget {
       }
     }
     return Column(children: children);
+  }
+
+  Widget _buildAtAGlance({
+    required BuildContext context,
+    required List<PinWatch> watches,
+    required List<PinEvent> events,
+    required List<PinTask> overdue,
+    required List<PinTask> pending,
+    required int timedCount,
+  }) {
+    final newWatches = watches.where((w) => w.hasNew).toList();
+    final call = PrefsController.instance.value.userCall.trim();
+    final name = call.isEmpty ? 'พี่' : call;
+
+    String msg;
+    VoidCallback? onTap;
+    Color color = _ink2;
+
+    if (newWatches.isNotEmpty) {
+      msg = 'ปิ่นมีอัปเดตใหม่เรื่อง "${newWatches.first.topic}" มาแจ้งให้ทราบครับ แตะเพื่อดูรายละเอียดได้เลย';
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WatchScreen()));
+      color = Theme.of(context).colorScheme.primary;
+    } else if (events.isNotEmpty) {
+      msg = 'วันนี้$nameมีนัดหมาย ${events.length} รายการครับ อย่าลืมเผื่อเวลาเดินทางด้วยนะครับ';
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
+    } else if (overdue.isNotEmpty) {
+      msg = 'ยังมีงานค้างอยู่ ${overdue.length} เรื่องที่เลยกำหนดแล้ว ให้ปิ่นช่วยจัดการไหมครับ?';
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
+      color = _neg;
+    } else if (pending.isNotEmpty || timedCount > 0) {
+      msg = 'วันนี้มีงานที่ต้องทำ ${pending.length} อย่างครับ ค่อยๆ ทยอยทำไปนะครับ';
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DayScreen()));
+    } else {
+      return Column(
+        children: [
+          const SizedBox(height: 28),
+          _emptyState(PhosphorIconsRegular.coffee, 'วันนี้โล่ง ๆ ไม่มีอะไรด่วน', 'พักได้เลย'),
+          const SizedBox(height: 28),
+        ],
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Text(msg, style: TextStyle(fontSize: 14, color: color, height: 1.5)),
+    );
   }
 
   /// A uniform section row — icon · label · optional count hint · chevron. Same
@@ -671,19 +707,32 @@ Future<void> _removeReminder(String id) async {
   await s.removeReminder(id);
 }
 
-Future<void> _removeRoomItem(String type, bool Function(Map<String, dynamic>) drop,
+Future<bool> _removeRoomItem(String type, bool Function(Map<String, dynamic>) drop,
     void Function(String) refresh) async {
   final rid = await MatrixService.instance.pinRoomId();
-  if (rid == null) return;
+  if (rid == null) return false;
+  
   final list = await MatrixService.instance.loadListFromRoom(rid, type);
+  final before = list.length;
   list.removeWhere(drop);
-  await MatrixService.instance.saveListToRoom(rid, type, list);
-  refresh(jsonEncode(list));
+  if (list.length == before) return true; // already gone
+  
+  final ok = await MatrixService.instance.saveListToRoom(rid, type, list);
+  if (ok) {
+    refresh(jsonEncode(list));
+    return true;
+  } else {
+    // Revert refresh so UI restores the item if network failed
+    final oldList = await MatrixService.instance.loadListFromRoom(rid, type);
+    refresh(jsonEncode(oldList));
+    return false;
+  }
 }
 
 Future<void> _removeWatch(String id) async {
-  await _removeRoomItem('io.tokens2.watches', (w) => '${w['id']}' == id,
+  final ok = await _removeRoomItem('io.tokens2.watches', (w) => '${w['id']}' == id,
       WatchesController.instance.updateFromJson);
+  if (!ok) return; // If Matrix save failed, stop here (UI reverts)
   await _removeReminder(id); // the watch's checker job shares the id
   await devProxy().scheduleCancel(id);
   await AndroidJobAlarm.cancel(id);
@@ -764,7 +813,7 @@ class _DayScreen extends StatelessWidget {
         backgroundColor: bg,
         surfaceTintColor: bg,
         elevation: 0,
-        title: const Text('งานวันนี้'),
+        title: const Text('งานและนัดหมาย'),
       ),
       body: SafeArea(
         child: AnimatedBuilder(
@@ -779,7 +828,7 @@ class _DayScreen extends StatelessWidget {
             final pending = now.where((t) => !t.overdue).toList();
             final events = EventsController.instance.value;
             final reminders = JobsController.instance.value
-                .where((j) => !j.isAgentic && j.repeat != 'daily')
+                .where((j) => !j.isAgentic)
                 .toList();
 
             final tiles = <Widget>[
@@ -912,18 +961,30 @@ class _WatchScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: WatchesController.instance,
+          animation: Listenable.merge([WatchesController.instance, JobsController.instance]),
           builder: (context, _) {
             final watches = WatchesController.instance.value;
+            final jobs = JobsController.instance.value;
             if (watches.isEmpty) {
               return _emptyState(PhosphorIconsRegular.eye, 'ยังไม่มีเรื่องที่เฝ้า',
                   'บอกปิ่นในแชตว่าสนใจเรื่องไหน เดี๋ยวคอยดูให้');
             }
+            
+            final sortedWatches = watches.toList()..sort((a, b) {
+              final ja = jobs.where((j) => j.id == a.id).firstOrNull;
+              final jb = jobs.where((j) => j.id == b.id).firstOrNull;
+              final ia = (ja == null || ja.intervalSec <= 0) ? 999999999 : ja.intervalSec;
+              final ib = (jb == null || jb.intervalSec <= 0) ? 999999999 : jb.intervalSec;
+              if (ia != ib) return ia.compareTo(ib);
+              if (a.hasNew != b.hasNew) return a.hasNew ? -1 : 1;
+              return a.topic.compareTo(b.topic);
+            });
+
             return ListView(
               padding: EdgeInsets.fromLTRB(
                   16, 12, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
               children: [
-                for (final w in watches)
+                for (final w in sortedWatches)
                   Dismissible(
                     key: ValueKey('watch_${w.id}'),
                     direction: DismissDirection.endToStart,
