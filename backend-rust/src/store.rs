@@ -239,18 +239,24 @@ impl Store {
         let display_map = display::get_display();
 
         // 1. Seed Assistants (ผู้ช่วย = delegate/handoff agents; config in metadata_json)
+        // Assistants mirror the site use-cases (site/index.html): งาน/เรียน/บ้าน/ครีเอทีฟ/ร้าน.
         // description = user-facing blurb (friendly); system = the agent's prompt (technical).
+        // status 'soon' = shown as "เร็วๆนี้" in the app (waitlist framing).
         let assistants = vec![
-            ("researcher", "นักวิจัย", "ค้นข้อมูลเชิงลึกหลายแหล่ง สรุปให้ครบ เชื่อถือได้",
-             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ค้นคว้า", "toolNames": ["web_search", "recall_knowledge"], "system": "ค้นเว็บและความรู้ที่เก็บไว้หลายรอบ แล้วสรุปครบถ้วน ตรวจสอบได้. ห้ามมโน."})),
-            ("shopper", "ผู้ช่วยช้อป", "เทียบราคาและรีวิวหลายร้าน แนะนำตัวเลือกที่คุ้มที่สุด",
-             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ช้อปปิ้ง", "toolNames": ["web_search", "get_currency"], "system": "เทียบราคาและรีวิวหลายแหล่ง แล้วสรุปตัวเลือกที่ดีที่สุด."})),
-            ("tutor", "ติวเตอร์", "สอนและอธิบายทีละขั้น ฝึกจนเข้าใจจริง",
-             json!({"model": "gemini-2.5-pro", "interaction_mode": "handoff", "system": "You are a patient tutor."})),
+            ("study", "ติวและทบทวน", "อธิบายทีละขั้น สรุปโน้ต เตือนส่งงาน", "active",
+             json!({"model": "gemini-2.5-pro", "interaction_mode": "handoff", "category": "เรียน", "toolNames": ["web_search", "recall_knowledge", "add_watch"], "system": "คุณเป็นติวเตอร์ใจดี อดทน. อธิบายทีละขั้น ยกตัวอย่างใกล้ตัว เช็กความเข้าใจเป็นระยะ. อย่าเฉลยตรงๆ ให้ผู้เรียนคิดก่อน."})),
+            ("home", "ดูแลบ้าน", "เตือนกินยา จดของซื้อ เช็กอากาศ", "active",
+             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "บ้าน", "toolNames": ["get_weather", "add_watch", "remember_fact"], "system": "ช่วยดูแลเรื่องในบ้าน: เตือนกินยา/นัดหมาย, จดของที่ต้องซื้อ, เช็กอากาศ. กระชับ ใช้ได้จริง."})),
+            ("creative", "งานครีเอทีฟ", "ร่างแคปชัน วาดรูป คิดไอเดีย", "active",
+             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ครีเอทีฟ", "toolNames": ["generate_image", "web_search"], "system": "ช่วยงานครีเอทีฟ: ร่างแคปชัน/คอนเทนต์, วาดรูปประกอบ, ระดมไอเดีย. เสนอหลายทางเลือก."})),
+            ("work", "จัดการงาน", "สรุปอีเมล นัดประชุม ทวงงานให้", "soon",
+             json!({"interaction_mode": "delegation", "category": "งาน"})),
+            ("shop", "ดูแลร้านค้า", "สรุปยอด เช็กค่าเงิน ตอบแชตลูกค้า", "soon",
+             json!({"interaction_mode": "delegation", "category": "ร้านค้า"})),
         ];
-        for (name, label, desc, meta) in assistants {
-            sqlx::query("INSERT INTO assistants(name, label, description, status, metadata_json) VALUES(?, ?, ?, 'active', ?)")
-                .bind(name).bind(label).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
+        for (name, label, desc, status, meta) in assistants {
+            sqlx::query("INSERT INTO assistants(name, label, description, status, metadata_json) VALUES(?, ?, ?, ?, ?)")
+                .bind(name).bind(label).bind(desc).bind(status).bind(meta.to_string()).execute(&self.pool).await?;
         }
 
         // 2. Seed Connectors (with usage guide — policy for driving its tools)
@@ -291,10 +297,13 @@ impl Store {
         }
 
         // 5. Bind assistants -> the tool capabilities they use (M:M).
+        // Only existing capabilities bind here; on-device tools (add_watch,
+        // recall_knowledge, remember_fact) live in metadata.toolNames.
         let mappings = vec![
-            ("researcher", "web_search"),
-            ("shopper", "web_search"),
-            ("shopper", "get_currency"),
+            ("study", "web_search"),
+            ("home", "get_weather"),
+            ("creative", "generate_image"),
+            ("creative", "web_search"),
         ];
         for (ast, cap) in mappings {
             sqlx::query("INSERT INTO assistant_capabilities(assistant_name, capability_name) VALUES(?, ?)")
@@ -351,7 +360,8 @@ impl Store {
     }
 
     pub async fn enabled_assistants(&self) -> Result<Vec<Value>, sqlx::Error> {
-        let rows = sqlx::query("SELECT * FROM assistants WHERE status='active'")
+        // include 'soon' so the app can show coming-soon use-cases (waitlist framing)
+        let rows = sqlx::query("SELECT * FROM assistants WHERE status IN ('active','soon')")
             .fetch_all(&self.pool)
             .await?;
             

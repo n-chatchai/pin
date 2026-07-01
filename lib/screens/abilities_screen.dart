@@ -99,6 +99,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     final label = '${a['label'] ?? name}';
     final desc = '${a['description'] ?? ''}';
     final handoff = '${a['interaction_mode'] ?? 'delegation'}' == 'handoff';
+    final soon = '${a['status'] ?? 'active'}' == 'soon';
     final on = !_optedOut.contains(name);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -131,17 +132,19 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 15)),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                    decoration: BoxDecoration(
-                        color: PinPalette.line,
-                        borderRadius: BorderRadius.circular(9)),
-                    child: Text(handoff ? 'คุยตรง' : 'ช่วยเบื้องหลัง',
-                        style: const TextStyle(
-                            fontSize: 11, color: PinPalette.ink2)),
-                  ),
+                  if (!soon) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 1),
+                      decoration: BoxDecoration(
+                          color: PinPalette.line,
+                          borderRadius: BorderRadius.circular(9)),
+                      child: Text(handoff ? 'คุยตรง' : 'ช่วยเบื้องหลัง',
+                          style: const TextStyle(
+                              fontSize: 11, color: PinPalette.ink2)),
+                    ),
+                  ],
                 ]),
                 if (desc.isNotEmpty) ...[
                   const SizedBox(height: 2),
@@ -153,22 +156,35 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
+          if (soon)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: PinPalette.line,
+                  borderRadius: BorderRadius.circular(20)),
+              child: const Text('เร็วๆนี้',
                   style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: on ? primary : PinPalette.ink3)),
-              Switch.adaptive(
-                value: on,
-                activeTrackColor: primary,
-                onChanged: (_) => _toggle(name, label, on),
-              ),
-            ],
-          ),
+                      color: PinPalette.ink3)),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: on ? primary : PinPalette.ink3)),
+                Switch.adaptive(
+                  value: on,
+                  activeTrackColor: primary,
+                  onChanged: (_) => _toggle(name, label, on),
+                ),
+              ],
+            ),
         ],
       ),
     );
