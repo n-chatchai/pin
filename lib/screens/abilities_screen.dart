@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import '../agent/abilities.dart' show capabilitiesRevision;
 import '../agent/agent_config.dart';
 import '../agent/catalog_client.dart';
-import '../services/matrix_service.dart';
 import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
-import '../widgets/pin_toast.dart';
 
-/// "ผู้ช่วย" — the assistants (ผู้ช่วยเฉพาะทาง) the user can turn on for $botName
-/// to use: นักวิจัย, ผู้ช่วยช้อป, ติวเตอร์ … Delegation ones $botName uses behind
-/// the scenes; handoff ones the user can talk to directly. Plumbing (tools /
-/// skills / connectors) is hidden — that's admin-only.
+/// "ทีม$botName" — the assistants (specialist helpers) $botName can call on:
+/// ติวและทบทวน, ดูแลบ้าน, งานครีเอทีฟ … Availability is admin-controlled (status
+/// active / soon); the app just reflects it, so there's no per-user toggle to
+/// drift out of sync. Plumbing (tools / skills / connectors) stays admin-only.
 class AbilitiesScreen extends StatefulWidget {
   const AbilitiesScreen({super.key});
 
@@ -20,10 +18,8 @@ class AbilitiesScreen extends StatefulWidget {
 }
 
 class _AbilitiesScreenState extends State<AbilitiesScreen> {
-  List<Map<String, dynamic>> _items = const []; // assistants
+  List<Map<String, dynamic>> _items = const []; // assistants (from catalog)
   bool _loading = true;
-  String? _roomId;
-  Set<String> _optedOut = {}; // assistants the user turned off
 
   @override
   void initState() {
@@ -32,16 +28,9 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   }
 
   Future<void> _load() async {
-    final roomId = await MatrixService.instance.pinRoomId();
-    final rawList = roomId != null
-        ? await MatrixService.instance
-            .loadListFromRoom(roomId, 'io.tokens2.opted_out_capabilities')
-        : [];
     final items = await CatalogClient(devProxy()).fetchAssistants();
     if (!mounted) return;
     setState(() {
-      _roomId = roomId;
-      _optedOut = rawList.map((e) => '${e['name']}').toSet();
       _items = items;
       _loading = false;
     });
@@ -66,8 +55,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text(
-                        'หาคนช่วย$botName',
+                    child: Text('หาคนช่วย$botName',
                         style: const TextStyle(
                             color: PinPalette.ink2, fontSize: 13.5)),
                   ),
@@ -99,8 +87,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     final label = '${a['label'] ?? name}';
     final desc = '${a['description'] ?? ''}';
     final handoff = '${a['interaction_mode'] ?? 'delegation'}' == 'handoff';
-    final soon = '${a['status'] ?? 'active'}' == 'soon';
-    final on = !_optedOut.contains(name);
+    // Admin is the single source: active = ready; soon/off both show as "เร็วๆนี้".
+    final ready = '${a['status'] ?? 'active'}' == 'active';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -117,8 +105,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
             decoration: BoxDecoration(
                 color: primary.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(12)),
-            child: Icon(handoff ? Icons.forum_outlined : Icons.auto_awesome,
-                size: 22, color: primary),
+            child: Icon(_icon('${a['icon'] ?? ''}'), size: 22, color: primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -132,7 +119,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 15)),
                   ),
-                  if (!soon) ...[
+                  if (ready) ...[
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -156,7 +143,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          if (soon)
+          if (!ready)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
@@ -169,46 +156,28 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                       color: PinPalette.ink3)),
             )
           else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(on ? 'เปิดอยู่' : 'ปิดอยู่',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: on ? primary : PinPalette.ink3)),
-                Switch.adaptive(
-                  value: on,
-                  activeTrackColor: primary,
-                  onChanged: (_) => _toggle(name, label, on),
-                ),
-              ],
-            ),
+            Icon(PhosphorIconsFill.checkCircle, size: 24, color: primary),
         ],
       ),
     );
   }
 
-  Future<void> _toggle(String name, String label, bool currentlyOn) async {
-    if (_roomId == null) return;
-    setState(() {
-      if (currentlyOn) {
-        _optedOut.add(name);
-      } else {
-        _optedOut.remove(name);
-      }
-    });
-    await MatrixService.instance.saveListToRoom(
-        _roomId!,
-        'io.tokens2.opted_out_capabilities',
-        _optedOut.map((e) => {'name': e}).toList());
-    capabilitiesRevision.value++;
-    if (!mounted) return;
-    PinToast.show(
-        context,
-        currentlyOn
-            ? 'ปิด "$label" แล้ว — $botNameจะไม่เรียกใช้'
-            : 'เปิดใช้ "$label" แล้ว');
+  // Map an assistant's icon name (set in admin/metadata) to a Phosphor glyph —
+  // one per use-case so cards don't all share the same icon. Falls back to a star.
+  static IconData _icon(String n) {
+    switch (n) {
+      case 'briefcase':
+        return PhosphorIconsRegular.briefcase;
+      case 'books':
+        return PhosphorIconsRegular.books;
+      case 'house':
+        return PhosphorIconsRegular.house;
+      case 'penNib':
+        return PhosphorIconsRegular.penNib;
+      case 'storefront':
+        return PhosphorIconsRegular.storefront;
+      default:
+        return PhosphorIconsRegular.sparkle;
+    }
   }
 }

@@ -94,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
               _navRow(
                 context,
                 PhosphorIconsRegular.smiley,
-                'บุคลิกของ${p.userCall}',
+                'บุคลิกของ${p.pinName}',
                 '${p.pinName} · เรียก${p.userCall}',
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => PersonalityScreen(onSave: _updatePersona))),
@@ -104,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 PhosphorIconsRegular.sparkle,
                 'ทีม$botName',
-                'หาคนช่วย$botName — ติว ดูแลบ้าน ครีเอทีฟ',
+                'หาคนช่วย$botName',
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
               ),
@@ -416,7 +416,7 @@ class _SecurityStatusState extends State<_SecurityStatus> {
         final s = snap.data!;
         final hasRecovery = s.recovery == 'enabled';
         final incomplete = s.recovery == 'incomplete';
-        return Column(children: [
+        final rows = <Widget>[
           // Recovery key + server backup are one feature → one row. Tappable to
           // set it up when it's not on yet (no dead-end warning).
           _row(
@@ -439,6 +439,14 @@ class _SecurityStatusState extends State<_SecurityStatus> {
           _row(PhosphorIconsRegular.eyeSlash, 'ความเป็นส่วนตัวของเอไอ',
               'การเข้ารหัสแชทและการใช้งานเอไอ', true,
               onTap: () => _showPrivacy(context)),
+        ];
+        return Column(children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                  height: 1, thickness: 1, color: PinPalette.line),
+            rows[i],
+          ],
         ]);
       },
     );

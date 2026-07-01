@@ -244,15 +244,15 @@ impl Store {
         // status 'soon' = shown as "เร็วๆนี้" in the app (waitlist framing).
         let assistants = vec![
             ("study", "ติวและทบทวน", "อธิบายทีละขั้น สรุปโน้ต เตือนส่งงาน", "active",
-             json!({"model": "gemini-2.5-pro", "interaction_mode": "handoff", "category": "เรียน", "toolNames": ["web_search", "recall_knowledge", "add_watch"], "system": "คุณเป็นติวเตอร์ใจดี อดทน. อธิบายทีละขั้น ยกตัวอย่างใกล้ตัว เช็กความเข้าใจเป็นระยะ. อย่าเฉลยตรงๆ ให้ผู้เรียนคิดก่อน."})),
+             json!({"icon": "books", "model": "gemini-2.5-pro", "interaction_mode": "handoff", "category": "เรียน", "toolNames": ["web_search", "recall_knowledge", "add_watch"], "system": "คุณเป็นติวเตอร์ใจดี อดทน. อธิบายทีละขั้น ยกตัวอย่างใกล้ตัว เช็กความเข้าใจเป็นระยะ. อย่าเฉลยตรงๆ ให้ผู้เรียนคิดก่อน."})),
             ("home", "ดูแลบ้าน", "เตือนกินยา จดของซื้อ เช็กอากาศ", "active",
-             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "บ้าน", "toolNames": ["get_weather", "add_watch", "remember_fact"], "system": "ช่วยดูแลเรื่องในบ้าน: เตือนกินยา/นัดหมาย, จดของที่ต้องซื้อ, เช็กอากาศ. กระชับ ใช้ได้จริง."})),
+             json!({"icon": "house", "model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "บ้าน", "toolNames": ["get_weather", "add_watch", "remember_fact"], "system": "ช่วยดูแลเรื่องในบ้าน: เตือนกินยา/นัดหมาย, จดของที่ต้องซื้อ, เช็กอากาศ. กระชับ ใช้ได้จริง."})),
             ("creative", "งานครีเอทีฟ", "ร่างแคปชัน วาดรูป คิดไอเดีย", "active",
-             json!({"model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ครีเอทีฟ", "toolNames": ["generate_image", "web_search"], "system": "ช่วยงานครีเอทีฟ: ร่างแคปชัน/คอนเทนต์, วาดรูปประกอบ, ระดมไอเดีย. เสนอหลายทางเลือก."})),
+             json!({"icon": "penNib", "model": "haiku", "interaction_mode": "delegation", "maxSteps": 6, "category": "ครีเอทีฟ", "toolNames": ["generate_image", "web_search"], "system": "ช่วยงานครีเอทีฟ: ร่างแคปชัน/คอนเทนต์, วาดรูปประกอบ, ระดมไอเดีย. เสนอหลายทางเลือก."})),
             ("work", "จัดการงาน", "สรุปอีเมล นัดประชุม ทวงงานให้", "soon",
-             json!({"interaction_mode": "delegation", "category": "งาน"})),
+             json!({"icon": "briefcase", "interaction_mode": "delegation", "category": "งาน"})),
             ("shop", "ดูแลร้านค้า", "สรุปยอด เช็กค่าเงิน ตอบแชตลูกค้า", "soon",
-             json!({"interaction_mode": "delegation", "category": "ร้านค้า"})),
+             json!({"icon": "storefront", "interaction_mode": "delegation", "category": "ร้านค้า"})),
         ];
         for (name, label, desc, status, meta) in assistants {
             sqlx::query("INSERT INTO assistants(name, label, description, status, metadata_json) VALUES(?, ?, ?, ?, ?)")
@@ -359,9 +359,10 @@ impl Store {
         Ok(out)
     }
 
-    /// Catalog view — active + coming-soon (app shows soon with a "เร็วๆนี้" badge).
+    /// Catalog view — all assistants; the app shows non-active (soon/off) with a
+    /// "เร็วๆนี้" badge. Admin is the single source of truth (no per-user toggle).
     pub async fn enabled_assistants(&self) -> Result<Vec<Value>, sqlx::Error> {
-        self.assistants_query("SELECT * FROM assistants WHERE status IN ('active','soon')").await
+        self.assistants_query("SELECT * FROM assistants WHERE status IN ('active','soon','off')").await
     }
 
     /// Admin view — every assistant incl. disabled ('off'), so admin can re-enable.
