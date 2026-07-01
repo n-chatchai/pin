@@ -5,24 +5,21 @@ use serde_json::{json, Value};
 use crate::display;
 
 const SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS tools(
-  name TEXT PRIMARY KEY, kind TEXT, description TEXT,
-  parameters_json TEXT, arg_keys_json TEXT, source TEXT,
-  enabled INTEGER DEFAULT 1, updated_at REAL,
-  label TEXT, blurb TEXT, category TEXT, provider TEXT, pricing_json TEXT);
-CREATE TABLE IF NOT EXISTS skills(
-  name TEXT PRIMARY KEY, description TEXT, instructions TEXT,
-  requires_json TEXT, enabled INTEGER DEFAULT 1, category TEXT, source TEXT);
-CREATE TABLE IF NOT EXISTS subagents(
-  name TEXT PRIMARY KEY, description TEXT, system TEXT,
-  tool_names_json TEXT, model TEXT, max_steps INTEGER DEFAULT 6,
-  category TEXT, source TEXT);
-CREATE TABLE IF NOT EXISTS mcp_servers(
-  name TEXT PRIMARY KEY, url TEXT, headers_json TEXT, status TEXT,
-  category TEXT, source TEXT);
-CREATE TABLE IF NOT EXISTS mcp_tools(
-  server TEXT, name TEXT PRIMARY KEY, description TEXT,
-  parameters_json TEXT, arg_keys_json TEXT, enabled INTEGER DEFAULT 1);
+CREATE TABLE IF NOT EXISTS assistants(
+  name TEXT PRIMARY KEY, label TEXT, description TEXT, version TEXT, status TEXT);
+CREATE TABLE IF NOT EXISTS connectors(
+  name TEXT PRIMARY KEY, kind TEXT, endpoint TEXT, auth_json TEXT, status TEXT);
+CREATE TABLE IF NOT EXISTS capabilities(
+  name TEXT PRIMARY KEY, kind TEXT, connector_name TEXT, description TEXT,
+  system_prompt TEXT, metadata_json TEXT, enabled INTEGER DEFAULT 1,
+  FOREIGN KEY(connector_name) REFERENCES connectors(name) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS assistant_capabilities(
+  assistant_name TEXT, capability_name TEXT,
+  PRIMARY KEY(assistant_name, capability_name),
+  FOREIGN KEY(assistant_name) REFERENCES assistants(name) ON DELETE CASCADE,
+  FOREIGN KEY(capability_name) REFERENCES capabilities(name) ON DELETE CASCADE);
+
+-- Other system tables
 CREATE TABLE IF NOT EXISTS admin_users(
   email TEXT PRIMARY KEY, pw_hash TEXT, role TEXT);
 CREATE TABLE IF NOT EXISTS tool_logs(
@@ -68,12 +65,8 @@ impl Store {
             }
         }
 
-        // 2. Run migrations (add columns if missing)
+        // 2. Run migrations (system tables only)
         let migrations = [
-            ("tools", vec!["label", "blurb", "category", "provider", "pricing_json", "endpoint", "status", "config_json", "render", "ask_params"]),
-            ("skills", vec!["label", "provider", "pricing_json", "category", "status"]),
-            ("subagents", vec!["label", "provider", "pricing_json", "category", "status"]),
-            ("mcp_tools", vec!["label", "category", "provider", "pricing_json", "defaults_json", "status", "render", "ask_params"]),
             ("waitlist", vec!["sent_at", "unsubscribed_at"]),
         ];
 
@@ -86,40 +79,18 @@ impl Store {
             }
         }
 
-        // 3. Seed tools if empty
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tools")
-            .fetch_one(&self.pool)
-            .await?;
-        if count == 0 {
-            self.seed_tools().await?;
-        }
-
-        // 4. Seed MCP servers from env if empty
-        let mcp_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM mcp_servers")
-            .fetch_one(&self.pool)
-            .await?;
-        if mcp_count == 0 {
-            if let Ok(raw_mcp) = std::env::var("PIN_MCP_SERVERS") {
-                let _ = self.seed_mcp_from_json(&raw_mcp).await;
-            }
-        }
-
-        // 5. Seed paid skills
-        self.seed_paid_skills().await?;
+        // 3. Seed Assistants and Capabilities
+        self.seed_default_assistants().await?;
 
         // Seed settings
         let settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
             .fetch_one(&self.pool)
             .await?;
-        if settings_count == 0 {
+        if std::env::var("PIN_FREE_MODEL").is_ok() {
             let free_model = std::env::var("PIN_FREE_MODEL").unwrap_or_else(|_| "gemini-flash-lite-latest".to_string());
-            let embed_model = std::env::var("PIN_EMBED_MODEL").unwrap_or_else(|_| "gemini-embedding-001".to_string());
-            let embed_dim = std::env::var("PIN_EMBED_DIM").unwrap_or_else(|_| "256".to_string());
-            sqlx::query("INSERT INTO system_settings (key, value) VALUES (?, ?), (?, ?), (?, ?)")
+            let _ = sqlx::query("INSERT OR IGNORE INTO system_settings (key, value) VALUES (?, ?)")
                 .bind("pin_free_model").bind(free_model)
-                .bind("pin_embed_model").bind(embed_model)
-                .bind("pin_embed_dim").bind(embed_dim)
-                .execute(&self.pool).await?;
+                .execute(&self.pool).await;
         }
 
         // Seed admins
@@ -251,312 +222,218 @@ impl Store {
         Ok(false)
     }
 
-    async fn seed_tools(&self) -> Result<(), sqlx::Error> {
-        let now = now_secs();
-        let seed_tools = vec![
-            ("get_weather", "remote", "ดูพยากรณ์อากาศของเมืองที่ระบุ",
-             json!({
-                 "type": "object",
-                 "properties": {
-                     "place": {"type": "string", "description": "ชื่อเมือง"},
-                     "days": {"type": "integer", "description": "จำนวนวัน 1-7"}
-                 },
-                 "required": ["place"]
-             }),
-             json!(["place", "days"])),
-            ("get_currency", "remote", "ดูอัตราแลกเปลี่ยน เช่น USD/THB",
-             json!({
-                 "type": "object",
-                 "properties": {
-                     "base": {"type": "string", "description": "สกุลฐาน"},
-                     "quote": {"type": "string", "description": "สกุลเทียบ"}
-                 }
-             }),
-             json!(["base", "quote"])),
-            ("web_search", "remote", "ค้นข้อมูลสด/ปัจจุบันจากเว็บ (ข่าว/ผลบอล/ราคา)",
-             json!({
-                 "type": "object",
-                 "properties": {
-                     "query": {"type": "string", "description": "คำค้น"}
-                 },
-                 "required": ["query"]
-             }),
-             json!(["query"])),
-        ];
+    async fn seed_default_assistants(&self) -> Result<(), sqlx::Error> {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM assistants")
+            .fetch_one(&self.pool)
+            .await?;
+        if count > 0 {
+            return Ok(());
+        }
 
         let display_map = display::get_display();
-        for (name, kind, desc, params, keys) in seed_tools {
-            let d = display_map.get(name).cloned().unwrap_or(json!({}));
-            sqlx::query(
-                "INSERT INTO tools(name,kind,description,parameters_json,arg_keys_json,source,enabled,updated_at,label,blurb,category,provider,pricing_json) \
-                 VALUES(?,?,?,?,?,?,1,?,?,?,?,?,?)"
-            )
-            .bind(name)
-            .bind(kind)
-            .bind(desc)
-            .bind(params.to_string())
-            .bind(keys.to_string())
-            .bind("hosted")
-            .bind(now)
-            .bind(d.get("label").and_then(|v| v.as_str()))
-            .bind(d.get("blurb").and_then(|v| v.as_str()))
-            .bind(d.get("category").and_then(|v| v.as_str()))
-            .bind(d.get("provider").and_then(|v| v.as_str()))
-            .bind(d.get("pricing").map(|v| v.to_string()))
-            .execute(&self.pool)
-            .await?;
-        }
-        Ok(())
-    }
 
-    async fn seed_paid_skills(&self) -> Result<(), sqlx::Error> {
-        let seed_paid = vec![
-            json!({
-                "name": "email_triage", "label": "คัดกรองอีเมล", "category": "เชื่อมบัญชี",
-                "provider": "Google", "description": "สรุปเมลด่วน ร่างตอบให้",
-                "pricing": {"tier": "subscription", "amount": 59, "currency": "THB", "period": "month"},
-                "instructions": ""
-            }),
-            json!({
-                "name": "line_assistant", "label": "ผู้ช่วยผ่าน LINE", "category": "เชื่อมบัญชี",
-                "provider": "LINE", "description": "คุยกับปิ่นผ่าน LINE + เตือนเข้า LINE",
-                "pricing": {"tier": "subscription", "amount": 39, "currency": "THB", "period": "month"},
-                "instructions": ""
-            }),
+        // 1. Seed Packages (Assistants)
+        sqlx::query("INSERT INTO assistants(name, label, description, status) VALUES ('tutor', 'ติวเตอร์', 'ติวเตอร์ส่วนตัว', 'active')").execute(&self.pool).await?;
+
+        // 2. Seed Connectors
+        sqlx::query("INSERT INTO connectors(name, kind, endpoint, status) VALUES ('lakkana', 'mcp', 'http://localhost:3000', 'active')").execute(&self.pool).await?;
+
+        // 3. Seed Capabilities (Tools)
+        let tools = vec![
+            ("get_weather", "tool", "ดูพยากรณ์อากาศของเมืองที่ระบุ", json!({"parameters": {"type": "object", "properties": {"place": {"type": "string"}, "days": {"type": "integer"}}}})),
+            ("get_currency", "tool", "ดูอัตราแลกเปลี่ยน เช่น USD/THB", json!({"parameters": {"type": "object", "properties": {"base": {"type": "string"}, "quote": {"type": "string"}}}})),
+            ("web_search", "tool", "ค้นข้อมูลสด/ปัจจุบันจากเว็บ (ข่าว/ผลบอล/ราคา)", json!({"parameters": {"type": "object", "properties": {"query": {"type": "string"}}}})),
+            ("news", "tool", "ผู้สื่อข่าว", json!({})),
+            ("generate_image", "tool", "วาดรูป", json!({})),
+        ];
+        
+        for (name, kind, desc, meta) in tools {
+            let mut metadata = meta;
+            if let Some(d) = display_map.get(name) {
+                metadata["display"] = d.clone();
+            }
+            sqlx::query("INSERT INTO capabilities(name, kind, description, metadata_json, enabled) VALUES(?, ?, ?, ?, 1)")
+                .bind(name).bind(kind).bind(desc).bind(metadata.to_string()).execute(&self.pool).await?;
+        }
+
+        // 4. Seed Capabilities (Skills)
+        let skills = vec![
+            ("email_triage", "skill", "คัดกรองอีเมล", json!({})),
+            ("fortune", "skill", "ดูดวง", json!({})),
+            ("joke", "skill", "เล่าเรื่องตลก", json!({})),
+            ("line_assistant", "skill", "ผู้ช่วยผ่าน LINE", json!({})),
+            ("watch", "skill", "นาฬิกา", json!({})),
         ];
 
-        for s in seed_paid {
-            let name = s["name"].as_str().unwrap_or("");
-            let desc = s["description"].as_str().unwrap_or("");
-            let inst = s["instructions"].as_str().unwrap_or("");
-            let cat = s["category"].as_str().unwrap_or("");
-            let label = s["label"].as_str().unwrap_or("");
-            let prov = s["provider"].as_str().unwrap_or("");
-            let pricing = s["pricing"].to_string();
-
-            sqlx::query(
-                "INSERT OR IGNORE INTO skills(name,description,instructions,requires_json,enabled,category,source,label,provider,pricing_json) \
-                 VALUES(?,?,?,?,1,?,?,?,?,?)"
-            )
-            .bind(name)
-            .bind(desc)
-            .bind(inst)
-            .bind("{}")
-            .bind(cat)
-            .bind("hosted")
-            .bind(label)
-            .bind(prov)
-            .bind(pricing)
-            .execute(&self.pool)
-            .await?;
+        for (name, kind, desc, meta) in skills {
+            sqlx::query("INSERT INTO capabilities(name, kind, description, metadata_json, enabled) VALUES(?, ?, ?, ?, 1)")
+                .bind(name).bind(kind).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
         }
-        Ok(())
-    }
 
-    async fn seed_mcp_from_json(&self, raw_mcp: &str) -> Result<(), sqlx::Error> {
-        if let Ok(servers) = serde_json::from_str::<Vec<Value>>(raw_mcp) {
-            for srv in servers {
-                let name = srv["name"].as_str().unwrap_or("");
-                let url = srv["url"].as_str().unwrap_or("");
-                let headers = srv.get("headers").unwrap_or(&json!({})).to_string();
+        // 5. Seed Capabilities (Subagents with Interaction Mode)
+        let subagents = vec![
+            ("tutor_agent", "subagent", "ติวเตอร์: ช่วยอธิบายบทเรียน", json!({"interaction_mode": "handoff", "model": "gemini-2.5-pro", "system": "You are a patient tutor."})),
+        ];
 
-                sqlx::query(
-                    "INSERT OR REPLACE INTO mcp_servers(name,url,headers_json,status,category,source) VALUES(?,?,?,?,?,?)"
-                )
-                .bind(name)
-                .bind(url)
-                .bind(headers)
-                .bind("configured")
-                .bind("")
-                .bind("env")
-                .execute(&self.pool)
-                .await?;
-
-                if let Some(tools) = srv.get("tools").and_then(|v| v.as_array()) {
-                    for t in tools {
-                        let t_name = t["name"].as_str().unwrap_or("");
-                        let t_desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
-                        let t_params = t.get("parameters").unwrap_or(&json!({})).to_string();
-                        let t_keys = t.get("argKeys").unwrap_or(&json!([])).to_string();
-
-                        sqlx::query(
-                            "INSERT OR REPLACE INTO mcp_tools(server,name,description,parameters_json,arg_keys_json,enabled) VALUES(?,?,?,?,?,1)"
-                        )
-                        .bind(name)
-                        .bind(t_name)
-                        .bind(t_desc)
-                        .bind(t_params)
-                        .bind(t_keys)
-                        .execute(&self.pool)
-                        .await?;
-                    }
-                }
-            }
+        for (name, kind, desc, meta) in subagents {
+            sqlx::query("INSERT INTO capabilities(name, kind, description, metadata_json, enabled) VALUES(?, ?, ?, ?, 1)")
+                .bind(name).bind(kind).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
         }
+
+        // 6. Bind Capabilities to Assistants (M:M)
+        let mappings = vec![
+            ("tutor", "tutor_agent"),
+        ];
+
+        for (ast, cap) in mappings {
+            sqlx::query("INSERT INTO assistant_capabilities(assistant_name, capability_name) VALUES(?, ?)")
+                .bind(ast).bind(cap).execute(&self.pool).await?;
+        }
+
         Ok(())
     }
 
     // ---- reads used by the catalog / MCP layers --------------------------------
 
     pub async fn enabled_hosted_tools(&self) -> Result<Vec<Value>, sqlx::Error> {
-        let rows = sqlx::query("SELECT * FROM tools WHERE enabled=1 AND kind!='mcp'")
+        let rows = sqlx::query("SELECT * FROM capabilities WHERE enabled=1 AND kind='tool'")
             .fetch_all(&self.pool)
             .await?;
         let mut out = Vec::new();
         for r in rows {
-            out.push(self.tool_row_to_dict(r));
+            out.push(self.capability_to_dict(&r));
         }
         Ok(out)
     }
 
     pub async fn enabled_mcp_tools(&self) -> Result<Vec<Value>, sqlx::Error> {
-        let rows = sqlx::query("SELECT * FROM mcp_tools WHERE enabled=1")
+        let rows = sqlx::query("SELECT * FROM capabilities WHERE enabled=1 AND kind='mcp'")
             .fetch_all(&self.pool)
             .await?;
         let mut out = Vec::new();
         for r in rows {
-            let mut val = json!({
-                "name": r.get::<String, _>("name"),
-                "kind": "mcp",
-                "description": r.get::<Option<String>, _>("description").unwrap_or_default(),
-                "parameters": serde_json::from_str::<Value>(&r.get::<Option<String>, _>("parameters_json").unwrap_or_default()).unwrap_or(json!({})),
-                "argKeys": serde_json::from_str::<Value>(&r.get::<Option<String>, _>("arg_keys_json").unwrap_or_default()).unwrap_or(json!([])),
-                "server": r.get::<String, _>("server"),
-            });
-            self.enrich_row_metadata(&r, &mut val);
-            out.push(val);
+            out.push(self.capability_to_dict(&r));
         }
         Ok(out)
     }
 
     pub async fn enabled_skills(&self) -> Result<Vec<Value>, sqlx::Error> {
-        let rows = sqlx::query("SELECT * FROM skills WHERE enabled=1")
+        let rows = sqlx::query("SELECT * FROM capabilities WHERE enabled=1 AND kind='skill'")
             .fetch_all(&self.pool)
             .await?;
         let mut out = Vec::new();
         for r in rows {
-            let mut val = json!({
-                "name": r.get::<String, _>("name"),
-                "kind": "skill",
-                "description": r.get::<Option<String>, _>("description").unwrap_or_default(),
-                "instructions": r.get::<Option<String>, _>("instructions").unwrap_or_default(),
-                "requires": serde_json::from_str::<Value>(&r.get::<Option<String>, _>("requires_json").unwrap_or_default()).unwrap_or(json!({})),
-            });
-            self.enrich_row_metadata(&r, &mut val);
-            out.push(val);
+            out.push(self.capability_to_dict(&r));
         }
         Ok(out)
     }
 
     pub async fn enabled_subagents(&self) -> Result<Vec<Value>, sqlx::Error> {
-        let rows = sqlx::query("SELECT * FROM subagents")
+        let rows = sqlx::query("SELECT * FROM capabilities WHERE enabled=1 AND kind='subagent'")
             .fetch_all(&self.pool)
             .await?;
         let mut out = Vec::new();
         for r in rows {
-            let mut val = json!({
-                "name": r.get::<String, _>("name"),
-                "kind": "subagent",
-                "description": r.get::<Option<String>, _>("description").unwrap_or_default(),
-                "system": r.get::<Option<String>, _>("system").unwrap_or_default(),
-                "toolNames": serde_json::from_str::<Value>(&r.get::<Option<String>, _>("tool_names_json").unwrap_or_default()).unwrap_or(json!([])),
-                "model": r.get::<Option<String>, _>("model").unwrap_or_default(),
-                "maxSteps": r.get::<i32, _>("max_steps"),
-            });
-            self.enrich_row_metadata(&r, &mut val);
-            out.push(val);
+            out.push(self.capability_to_dict(&r));
         }
         Ok(out)
     }
 
-    fn tool_row_to_dict(&self, r: sqlx::sqlite::SqliteRow) -> Value {
-        let mut out = json!({
-            "name": r.get::<String, _>("name"),
-            "kind": r.get::<Option<String>, _>("kind").unwrap_or_default(),
-            "description": r.get::<Option<String>, _>("description").unwrap_or_default(),
-            "parameters": serde_json::from_str::<Value>(&r.get::<Option<String>, _>("parameters_json").unwrap_or_default()).unwrap_or(json!({})),
-            "argKeys": serde_json::from_str::<Value>(&r.get::<Option<String>, _>("arg_keys_json").unwrap_or_default()).unwrap_or(json!([])),
-        });
-
-        if let Ok(label) = r.try_get::<String, _>("label") { if !label.is_empty() { out["label"] = json!(label); } }
-        if let Ok(blurb) = r.try_get::<String, _>("blurb") { if !blurb.is_empty() { out["blurb"] = json!(blurb); } }
-        if let Ok(category) = r.try_get::<String, _>("category") { if !category.is_empty() { out["category"] = json!(category); } }
-        if let Ok(provider) = r.try_get::<String, _>("provider") { if !provider.is_empty() { out["provider"] = json!(provider); } }
-        
-        if let Ok(pricing_str) = r.try_get::<Option<String>, _>("pricing_json") {
-            if let Some(p) = pricing_str.and_then(|s| serde_json::from_str::<Value>(&s).ok()) {
-                out["pricing"] = p;
+    pub async fn enabled_assistants(&self) -> Result<Vec<Value>, sqlx::Error> {
+        let rows = sqlx::query("SELECT * FROM assistants WHERE status='active'")
+            .fetch_all(&self.pool)
+            .await?;
+            
+        let mut out = Vec::new();
+        for r in rows {
+            let name: String = r.get("name");
+            
+            // fetch capabilities for this assistant
+            let caps_rows = sqlx::query("SELECT capability_name FROM assistant_capabilities WHERE assistant_name=?")
+                .bind(&name)
+                .fetch_all(&self.pool)
+                .await?;
+                
+            let mut capabilities = Vec::new();
+            for cr in caps_rows {
+                let c_name: String = cr.get("capability_name");
+                capabilities.push(c_name);
             }
+            
+            out.push(json!({
+                "name": name,
+                "label": r.get::<String, _>("label"),
+                "description": r.get::<Option<String>, _>("description").unwrap_or_default(),
+                "status": r.get::<String, _>("status"),
+                "capabilities": capabilities
+            }));
         }
-        if let Ok(config_str) = r.try_get::<Option<String>, _>("config_json") {
-            if let Some(c) = config_str.and_then(|s| serde_json::from_str::<Value>(&s).ok()) {
-                out["config"] = c;
-            }
-        }
-        if let Ok(render) = r.try_get::<Option<String>, _>("render") {
-            if let Some(ren) = render { out["render"] = json!(ren); }
-        }
-        if let Ok(ask_params) = r.try_get::<Option<String>, _>("ask_params") {
-            if let Some(ap) = ask_params.and_then(|s| split_csv(&s)) {
-                out["askParams"] = json!(ap);
-            }
-        }
-        out
+        Ok(out)
     }
 
-    fn enrich_row_metadata(&self, r: &sqlx::sqlite::SqliteRow, val: &mut Value) {
-        if let Ok(label) = r.try_get::<String, _>("label") { if !label.is_empty() { val["label"] = json!(label); } }
-        if let Ok(provider) = r.try_get::<String, _>("provider") { if !provider.is_empty() { val["provider"] = json!(provider); } }
-        if let Ok(category) = r.try_get::<String, _>("category") { if !category.is_empty() { val["category"] = json!(category); } }
-        if let Ok(status) = r.try_get::<String, _>("status") { if !status.is_empty() { val["status"] = json!(status); } }
-        if let Ok(render) = r.try_get::<Option<String>, _>("render") {
-            if let Some(ren) = render { val["render"] = json!(ren); }
+    pub fn capability_to_dict(&self, r: &sqlx::sqlite::SqliteRow) -> Value {
+        let meta_str = r.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+        let mut meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+        
+        meta["name"] = json!(r.get::<String, _>("name"));
+        meta["kind"] = json!(r.get::<String, _>("kind"));
+        meta["description"] = json!(r.get::<Option<String>, _>("description").unwrap_or_default());
+        
+        if let Ok(connector) = r.try_get::<Option<String>, _>("connector_name") {
+            if let Some(c) = connector { meta["server"] = json!(c); }
         }
-        if let Ok(ask_params) = r.try_get::<Option<String>, _>("ask_params") {
-            if let Some(ap) = ask_params.and_then(|s| split_csv(&s)) {
-                val["askParams"] = json!(ap);
-            }
-        }
-        if let Ok(pricing_str) = r.try_get::<Option<String>, _>("pricing_json") {
-            if let Some(p) = pricing_str.and_then(|s| serde_json::from_str::<Value>(&s).ok()) {
-                val["pricing"] = p;
-            }
-        }
+        
+        // Ensure defaults are present for legacy client expectation
+        if meta.get("parameters").is_none() { meta["parameters"] = json!({}); }
+        if meta.get("argKeys").is_none() { meta["argKeys"] = json!([]); }
+        
+        meta
     }
 
     pub async fn get_tool(&self, name: &str) -> Result<Option<Value>, sqlx::Error> {
-        let r = sqlx::query("SELECT * FROM tools WHERE name=?")
+        let r = sqlx::query("SELECT * FROM capabilities WHERE name=?")
             .bind(name)
             .fetch_optional(&self.pool)
             .await?;
-        Ok(r.map(|row| self.tool_row_to_dict(row)))
+        Ok(r.map(|row| self.capability_to_dict(&row)))
     }
 
     pub async fn remote_endpoint(&self, name: &str) -> Result<Option<String>, sqlx::Error> {
-        let r = sqlx::query("SELECT endpoint FROM tools WHERE name=? AND enabled=1")
-            .bind(name)
-            .fetch_optional(&self.pool)
-            .await?;
+        // Find if this capability uses a connector
+        let r = sqlx::query(
+            "SELECT c.endpoint FROM capabilities cap LEFT JOIN connectors c ON cap.connector_name = c.name WHERE cap.name=? AND cap.enabled=1"
+        )
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(r.and_then(|row| row.get::<Option<String>, _>("endpoint")))
     }
 
     pub async fn get_tool_config(&self, name: &str) -> Result<Value, sqlx::Error> {
-        let r = sqlx::query("SELECT config_json FROM tools WHERE name=?")
+        let r = sqlx::query("SELECT metadata_json FROM capabilities WHERE name=?")
             .bind(name)
             .fetch_optional(&self.pool)
             .await?;
-        Ok(r.and_then(|row| row.get::<Option<String>, _>("config_json"))
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-            .unwrap_or(json!({})))
+        
+        let meta_str = r.and_then(|row| row.get::<Option<String>, _>("metadata_json")).unwrap_or_else(|| "{}".to_string());
+        let meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+        Ok(meta.get("config").cloned().unwrap_or(json!({})))
     }
 
     pub async fn set_tool_config(&self, name: &str, config: &Value) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE tools SET config_json=?,updated_at=? WHERE name=?")
-            .bind(config.to_string())
-            .bind(now_secs())
-            .bind(name)
-            .execute(&self.pool)
-            .await?;
+        // Read existing meta
+        let r = sqlx::query("SELECT metadata_json FROM capabilities WHERE name=?").bind(name).fetch_optional(&self.pool).await?;
+        if let Some(row) = r {
+            let meta_str = row.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+            let mut meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+            meta["config"] = config.clone();
+            
+            sqlx::query("UPDATE capabilities SET metadata_json=? WHERE name=?")
+                .bind(meta.to_string())
+                .bind(name)
+                .execute(&self.pool)
+                .await?;
+        }
         Ok(())
     }
 
@@ -564,30 +441,35 @@ impl Store {
         &self, name: &str, label: Option<&str>, blurb: Option<&str>, category: Option<&str>,
         provider: Option<&str>, tier: Option<&str>, amount: Option<&str>, period: Option<&str>
     ) -> Result<(), sqlx::Error> {
-        let mut pricing = json!({"tier": tier.unwrap_or("free")});
-        let t = tier.unwrap_or("free");
-        if (t == "onetime" || t == "subscription") && amount.is_some() {
-            if let Some(amt) = amount.and_then(|s| s.parse::<i32>().ok()) {
-                pricing["amount"] = json!(amt);
-                pricing["currency"] = json!("THB");
-                if t == "subscription" {
-                    pricing["period"] = json!(period.unwrap_or("month"));
+        let r = sqlx::query("SELECT metadata_json FROM capabilities WHERE name=?").bind(name).fetch_optional(&self.pool).await?;
+        if let Some(row) = r {
+            let meta_str = row.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+            let mut meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+            
+            if let Some(l) = label { meta["label"] = json!(l); }
+            if let Some(b) = blurb { meta["blurb"] = json!(b); }
+            if let Some(c) = category { meta["category"] = json!(c); }
+            if let Some(p) = provider { meta["provider"] = json!(p); }
+            
+            let t = tier.unwrap_or("free");
+            let mut pricing = json!({"tier": t});
+            if (t == "onetime" || t == "subscription") && amount.is_some() {
+                if let Some(amt) = amount.and_then(|s| s.parse::<i32>().ok()) {
+                    pricing["amount"] = json!(amt);
+                    pricing["currency"] = json!("THB");
+                    if t == "subscription" {
+                        pricing["period"] = json!(period.unwrap_or("month"));
+                    }
                 }
             }
-        }
+            meta["pricing"] = pricing;
 
-        sqlx::query(
-            "UPDATE tools SET label=?,blurb=?,category=?,provider=?,pricing_json=?,updated_at=? WHERE name=?"
-        )
-        .bind(label)
-        .bind(blurb)
-        .bind(category)
-        .bind(provider)
-        .bind(pricing.to_string())
-        .bind(now_secs())
-        .bind(name)
-        .execute(&self.pool)
-        .await?;
+            sqlx::query("UPDATE capabilities SET metadata_json=? WHERE name=?")
+                .bind(meta.to_string())
+                .bind(name)
+                .execute(&self.pool)
+                .await?;
+        }
         Ok(())
     }
 
@@ -595,68 +477,28 @@ impl Store {
 
     pub async fn all_capabilities(&self) -> Result<Vec<Value>, sqlx::Error> {
         let internal_caps = vec!["forget_end_user", "get_transits"];
+        let rows = sqlx::query("SELECT * FROM capabilities").fetch_all(&self.pool).await?;
         let mut out = Vec::new();
-
-        for (tbl, kind) in [("tools", "tool"), ("skills", "skill"), ("mcp_tools", "mcp")] {
-            let query_str = format!("SELECT * FROM {}", tbl);
-            let rows = sqlx::query(&query_str).fetch_all(&self.pool).await?;
-            for r in rows {
-                let name: String = r.get("name");
-                if internal_caps.contains(&name.as_str()) {
-                    continue;
-                }
-                let enabled = if self.has_column(tbl, "enabled").await? {
-                    r.get::<i32, _>("enabled") == 1
-                } else {
-                    true
-                };
-                let desc = if self.has_column(tbl, "description").await? {
-                    r.get::<Option<String>, _>("description").unwrap_or_default()
-                } else {
-                    "".to_string()
-                };
-
-                let mut extra = json!({});
-                self.enrich_row_metadata(&r, &mut extra);
-
-                let mut d = json!({
-                    "name": name,
-                    "kind": kind,
-                    "enabled": enabled,
-                    "description": desc,
-                });
-
-                if let Some(obj) = extra.as_object() {
-                    for (k, v) in obj {
-                        d[k] = v.clone();
-                    }
-                }
-
-                if self.has_column(tbl, "server").await? {
-                    d["server"] = json!(r.get::<Option<String>, _>("server"));
-                }
-
-                out.push(display::enrich(d));
-            }
+        
+        for r in rows {
+            let name: String = r.get("name");
+            if internal_caps.contains(&name.as_str()) { continue; }
+            out.push(display::enrich(self.capability_to_dict(&r)));
         }
         Ok(out)
     }
 
     pub async fn toggle_capability(&self, name: &str) -> Result<bool, sqlx::Error> {
-        for tbl in ["tools", "skills", "mcp_tools"] {
-            let query = format!("SELECT 1 FROM {} WHERE name=? LIMIT 1", tbl);
-            let exists: Option<i32> = sqlx::query_scalar(&query)
+        let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM capabilities WHERE name=? LIMIT 1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await?;
+        if exists.is_some() {
+            sqlx::query("UPDATE capabilities SET enabled=1-enabled WHERE name=?")
                 .bind(name)
-                .fetch_optional(&self.pool)
+                .execute(&self.pool)
                 .await?;
-            if exists.is_some() {
-                let update = format!("UPDATE {} SET enabled=1-enabled WHERE name=?", tbl);
-                sqlx::query(&update)
-                    .bind(name)
-                    .execute(&self.pool)
-                    .await?;
-                return Ok(true);
-            }
+            return Ok(true);
         }
         Ok(false)
     }
@@ -666,76 +508,46 @@ impl Store {
         tier: Option<&str>, amount: Option<&str>, period: Option<&str>,
         render: Option<&str>, ask_params: Option<&str>
     ) -> Result<(), sqlx::Error> {
-        for tbl in ["tools", "skills", "subagents", "mcp_tools"] {
-            let exists_query = format!("SELECT 1 FROM {} WHERE name=? LIMIT 1", tbl);
-            let exists: Option<i32> = sqlx::query_scalar(&exists_query)
-                .bind(name)
-                .fetch_optional(&self.pool)
-                .await?;
-            if exists.is_none() {
-                continue;
-            }
-
-            let mut sets = Vec::new();
-            if category.is_some() { sets.push("category=?"); }
-            if status.is_some() { sets.push("status=?"); }
-            if render.is_some() && (tbl == "tools" || tbl == "mcp_tools") { sets.push("render=?"); }
-            if ask_params.is_some() && (tbl == "tools" || tbl == "mcp_tools") { sets.push("ask_params=?"); }
-            if tier.is_some() { sets.push("pricing_json=?"); }
-
-            if !sets.is_empty() {
-                self.execute_store_meta_update(tbl, name, category, status, tier, amount, period, render, ask_params).await?;
-            }
-            break;
-        }
-        Ok(())
-    }
-
-    async fn execute_store_meta_update(
-        &self, tbl: &str, name: &str, category: Option<&str>, status: Option<&str>,
-        tier: Option<&str>, amount: Option<&str>, period: Option<&str>,
-        render: Option<&str>, ask_params: Option<&str>
-    ) -> Result<(), sqlx::Error> {
-        let mut sets = Vec::new();
-        if category.is_some() { sets.push("category=?"); }
-        if status.is_some() { sets.push("status=?"); }
-        if render.is_some() && (tbl == "tools" || tbl == "mcp_tools") { sets.push("render=?"); }
-        if ask_params.is_some() && (tbl == "tools" || tbl == "mcp_tools") { sets.push("ask_params=?"); }
-        if tier.is_some() { sets.push("pricing_json=?"); }
-
-        if sets.is_empty() {
-            return Ok(());
-        }
-
-        let query = format!("UPDATE {} SET {} WHERE name=?", tbl, sets.join(","));
-        let mut q = sqlx::query::<sqlx::Sqlite>(&query);
-        if let Some(cat) = category { q = q.bind(cat); }
-        if let Some(st) = status { q = q.bind(st); }
-        if render.is_some() && (tbl == "tools" || tbl == "mcp_tools") {
-            q = q.bind(render.and_then(|r| if r.is_empty() { None } else { Some(r) }));
-        }
-        if ask_params.is_some() && (tbl == "tools" || tbl == "mcp_tools") {
-            q = q.bind(ask_params.and_then(|r| if r.is_empty() { None } else { Some(r) }));
-        }
-        if let Some(t) = tier {
-            let mut pricing = json!({"tier": t, "currency": "THB"});
-            if (t == "onetime" || t == "subscription") && amount.is_some() {
-                if let Some(amt) = amount.and_then(|s| s.parse::<i32>().ok()) {
-                    pricing["amount"] = json!(amt);
+        let r = sqlx::query("SELECT metadata_json FROM capabilities WHERE name=?").bind(name).fetch_optional(&self.pool).await?;
+        if let Some(row) = r {
+            let meta_str = row.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+            let mut meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+            
+            if let Some(c) = category { meta["category"] = json!(c); }
+            if let Some(s) = status { meta["status"] = json!(s); }
+            if let Some(ren) = render { meta["render"] = json!(ren); }
+            
+            if let Some(ap) = ask_params {
+                if let Some(ap_list) = split_csv(ap) {
+                    meta["askParams"] = json!(ap_list);
                 }
             }
-            if t == "subscription" {
-                pricing["period"] = json!(period.unwrap_or("month"));
+            
+            if let Some(t) = tier {
+                let mut pricing = json!({"tier": t, "currency": "THB"});
+                if (t == "onetime" || t == "subscription") && amount.is_some() {
+                    if let Some(amt) = amount.and_then(|s| s.parse::<i32>().ok()) {
+                        pricing["amount"] = json!(amt);
+                    }
+                }
+                if t == "subscription" {
+                    pricing["period"] = json!(period.unwrap_or("month"));
+                }
+                meta["pricing"] = pricing;
             }
-            q = q.bind(pricing.to_string());
+
+            sqlx::query("UPDATE capabilities SET metadata_json=? WHERE name=?")
+                .bind(meta.to_string())
+                .bind(name)
+                .execute(&self.pool)
+                .await?;
         }
-        q.bind(name).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn mcp_index(&self) -> Result<HashMap<String, Value>, sqlx::Error> {
         let mut out = HashMap::new();
-        let servers_rows = sqlx::query("SELECT * FROM mcp_servers")
+        let servers_rows = sqlx::query("SELECT * FROM connectors WHERE kind='mcp'")
             .fetch_all(&self.pool)
             .await?;
         let mut servers = HashMap::new();
@@ -744,22 +556,28 @@ impl Store {
             servers.insert(name, r);
         }
 
-        let tools_rows = sqlx::query("SELECT * FROM mcp_tools WHERE enabled=1")
+        let tools_rows = sqlx::query("SELECT * FROM capabilities WHERE enabled=1 AND kind='mcp'")
             .fetch_all(&self.pool)
             .await?;
         for t in tools_rows {
-            let server_name: String = t.get("server");
+            let server_name = t.get::<Option<String>, _>("connector_name").unwrap_or_default();
             if let Some(s) = servers.get(&server_name) {
                 let t_name: String = t.get("name");
+                let meta_str = t.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+                let meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+                
+                let s_auth_str = s.get::<Option<String>, _>("auth_json").unwrap_or_else(|| "{}".to_string());
+                let s_auth: Value = serde_json::from_str(&s_auth_str).unwrap_or(json!({}));
+                
                 out.insert(t_name.clone(), json!({
                     "server": {
                         "name": s.get::<String, _>("name"),
-                        "url": s.get::<String, _>("url"),
-                        "headers": serde_json::from_str::<Value>(&s.get::<Option<String>, _>("headers_json").unwrap_or_default()).unwrap_or(json!({}))
+                        "url": s.get::<String, _>("endpoint"),
+                        "headers": s_auth.get("headers").cloned().unwrap_or(json!({}))
                     },
                     "tool": {
                         "name": t_name,
-                        "defaults": serde_json::from_str::<Value>(&t.get::<Option<String>, _>("defaults_json").unwrap_or_default()).unwrap_or(json!({}))
+                        "defaults": meta.get("defaults").cloned().unwrap_or(json!({}))
                     }
                 }));
             }
@@ -768,8 +586,9 @@ impl Store {
     }
 
     pub async fn installed_names(&self, table: &str) -> Result<std::collections::HashSet<String>, sqlx::Error> {
-        let query = format!("SELECT name FROM {}", table);
-        let rows = sqlx::query(&query).fetch_all(&self.pool).await?;
+        // Fallback for old callers that specify 'tools', 'skills', etc. We just pull all capability names.
+        let query = "SELECT name FROM capabilities";
+        let rows = sqlx::query(query).fetch_all(&self.pool).await?;
         let mut set = std::collections::HashSet::new();
         for r in rows {
             set.insert(r.get("name"));
@@ -779,24 +598,30 @@ impl Store {
 
     pub async fn mcp_tools_for_server(&self, server: &str) -> Result<Vec<Value>, sqlx::Error> {
         let rows = sqlx::query(
-            "SELECT name,description,label,parameters_json,defaults_json FROM mcp_tools WHERE server=?"
+            "SELECT name,description,metadata_json FROM capabilities WHERE connector_name=? AND kind='mcp'"
         )
         .bind(server)
         .fetch_all(&self.pool)
         .await?;
+        
         let mut out = Vec::new();
         for r in rows {
             let name: String = r.get("name");
-            let label: String = r.get::<Option<String>, _>("label").unwrap_or(name.clone());
             let description: String = r.get::<Option<String>, _>("description").unwrap_or_default();
-            let props = serde_json::from_str::<Value>(&r.get::<Option<String>, _>("parameters_json").unwrap_or_default())
-                .ok()
-                .and_then(|v| v.get("properties").cloned())
+            
+            let meta_str = r.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+            let meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+            
+            let label = meta.get("label").and_then(|v| v.as_str()).unwrap_or(&name).to_string();
+            
+            let props = meta.get("parameters")
+                .and_then(|v| v.get("properties"))
+                .cloned()
                 .unwrap_or(json!({}));
             
-            let defaults = serde_json::from_str::<Value>(&r.get::<Option<String>, _>("defaults_json").unwrap_or_default())
-                .ok()
-                .and_then(|v| v.as_object().cloned())
+            let defaults = meta.get("defaults")
+                .and_then(|v| v.as_object())
+                .cloned()
                 .unwrap_or(serde_json::Map::new());
 
             let mut params = Vec::new();
@@ -832,52 +657,76 @@ impl Store {
     }
 
     pub async fn set_mcp_defaults(&self, name: &str, defaults: &Value) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE mcp_tools SET defaults_json=? WHERE name=?")
-            .bind(defaults.to_string())
-            .bind(name)
-            .execute(&self.pool)
-            .await?;
+        let r = sqlx::query("SELECT metadata_json FROM capabilities WHERE name=?").bind(name).fetch_optional(&self.pool).await?;
+        if let Some(row) = r {
+            let meta_str = row.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+            let mut meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+            meta["defaults"] = defaults.clone();
+            
+            sqlx::query("UPDATE capabilities SET metadata_json=? WHERE name=?")
+                .bind(meta.to_string())
+                .bind(name)
+                .execute(&self.pool)
+                .await?;
+        }
         Ok(())
     }
 
     pub async fn get_mcp_server(&self, name: &str) -> Result<Option<Value>, sqlx::Error> {
-        let r = sqlx::query("SELECT name,url,headers_json FROM mcp_servers WHERE name=?")
+        let r = sqlx::query("SELECT name,endpoint,auth_json FROM connectors WHERE name=? AND kind='mcp'")
             .bind(name)
             .fetch_optional(&self.pool)
             .await?;
-        Ok(r.map(|row| json!({
-            "name": row.get::<String, _>("name"),
-            "url": row.get::<String, _>("url"),
-            "headers": serde_json::from_str::<Value>(&row.get::<Option<String>, _>("headers_json").unwrap_or_default()).unwrap_or(json!({}))
-        })))
+        Ok(r.map(|row| {
+            let auth_str = row.get::<Option<String>, _>("auth_json").unwrap_or_else(|| "{}".to_string());
+            let auth: Value = serde_json::from_str(&auth_str).unwrap_or(json!({}));
+            json!({
+                "name": row.get::<String, _>("name"),
+                "url": row.get::<String, _>("endpoint"),
+                "headers": auth.get("headers").cloned().unwrap_or(json!({}))
+            })
+        }))
     }
 
     pub async fn refresh_mcp_tool(
         &self, server: &str, name: &str, description: &str,
         parameters: &Value, arg_keys: &Value
     ) -> Result<bool, sqlx::Error> {
-        let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM mcp_tools WHERE name=?")
+        let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM capabilities WHERE name=? AND kind='mcp'")
             .bind(name)
             .fetch_optional(&self.pool)
             .await?;
+            
+        let mut meta = json!({
+            "parameters": parameters.clone(),
+            "argKeys": arg_keys.clone()
+        });
+            
         if exists.is_some() {
-            sqlx::query("UPDATE mcp_tools SET parameters_json=?,arg_keys_json=? WHERE name=?")
-                .bind(parameters.to_string())
-                .bind(arg_keys.to_string())
+            // Need to merge with existing meta
+            let r = sqlx::query("SELECT metadata_json FROM capabilities WHERE name=?").bind(name).fetch_optional(&self.pool).await?;
+            if let Some(row) = r {
+                let meta_str = row.get::<Option<String>, _>("metadata_json").unwrap_or_else(|| "{}".to_string());
+                let mut existing_meta: Value = serde_json::from_str(&meta_str).unwrap_or(json!({}));
+                existing_meta["parameters"] = parameters.clone();
+                existing_meta["argKeys"] = arg_keys.clone();
+                meta = existing_meta;
+            }
+            
+            sqlx::query("UPDATE capabilities SET metadata_json=? WHERE name=?")
+                .bind(meta.to_string())
                 .bind(name)
                 .execute(&self.pool)
                 .await?;
             Ok(false)
         } else {
             sqlx::query(
-                "INSERT INTO mcp_tools(server,name,description,parameters_json,arg_keys_json,enabled,defaults_json) \
-                 VALUES(?,?,?,?,?,1,'{}')"
+                "INSERT INTO capabilities(name, kind, connector_name, description, metadata_json, enabled) VALUES(?, 'mcp', ?, ?, ?, 1)"
             )
-            .bind(server)
             .bind(name)
+            .bind(server)
             .bind(description)
-            .bind(parameters.to_string())
-            .bind(arg_keys.to_string())
+            .bind(meta.to_string())
             .execute(&self.pool)
             .await?;
             Ok(true)
@@ -885,39 +734,36 @@ impl Store {
     }
 
     pub async fn uninstall_mcp(&self, name: &str) -> Result<(), sqlx::Error> {
-        sqlx::query("DELETE FROM mcp_tools WHERE server=?").bind(name).execute(&self.pool).await?;
-        sqlx::query("DELETE FROM mcp_servers WHERE name=?").bind(name).execute(&self.pool).await?;
+        sqlx::query("DELETE FROM capabilities WHERE connector_name=? AND kind='mcp'").bind(name).execute(&self.pool).await?;
+        sqlx::query("DELETE FROM connectors WHERE name=?").bind(name).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn uninstall_skill(&self, name: &str) -> Result<(), sqlx::Error> {
-        sqlx::query("DELETE FROM skills WHERE name=?").bind(name).execute(&self.pool).await?;
+        sqlx::query("DELETE FROM capabilities WHERE name=? AND kind='skill'").bind(name).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn uninstall_subagent(&self, name: &str) -> Result<(), sqlx::Error> {
-        sqlx::query("DELETE FROM subagents WHERE name=?").bind(name).execute(&self.pool).await?;
+        sqlx::query("DELETE FROM capabilities WHERE name=? AND kind='subagent'").bind(name).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn install_mcp(&self, srv: &Value) -> Result<(), sqlx::Error> {
         let name = srv["name"].as_str().unwrap_or("");
         let url = srv["url"].as_str().unwrap_or("");
-        let headers = srv.get("headers").unwrap_or(&json!({})).to_string();
+        let headers = srv.get("headers").cloned().unwrap_or(json!({}));
         let status = if srv.get("audited").and_then(|v| v.as_bool()).unwrap_or(false) { "audited" } else { "review" };
-        let category = srv.get("category").and_then(|v| v.as_str()).unwrap_or("");
-        let source = src_string(srv);
-        let prov = srv.get("provider").and_then(|v| v.as_str()).unwrap_or("");
+        
+        let auth_json = json!({"headers": headers});
 
         sqlx::query(
-            "INSERT OR REPLACE INTO mcp_servers(name,url,headers_json,status,category,source) VALUES(?,?,?,?,?,?)"
+            "INSERT OR REPLACE INTO connectors(name,kind,endpoint,auth_json,status) VALUES(?,'mcp',?,?,?)"
         )
         .bind(name)
         .bind(url)
-        .bind(headers)
+        .bind(auth_json.to_string())
         .bind(status)
-        .bind(category)
-        .bind(&source)
         .execute(&self.pool)
         .await?;
 
@@ -925,27 +771,17 @@ impl Store {
             for t in tools {
                 let t_name = t["name"].as_str().unwrap_or("");
                 let t_desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
-                let t_params = t.get("parameters").unwrap_or(&json!({})).to_string();
-                let t_keys = t.get("argKeys").unwrap_or(&json!([])).to_string();
-                let t_label = t.get("label").and_then(|v| v.as_str()).unwrap_or("");
-                let t_prov = t.get("provider").and_then(|v| v.as_str()).unwrap_or(prov);
-                let pricing = pj_string(t).or_else(|| pj_string(srv)).unwrap_or_default();
-                let defaults = t.get("defaults").unwrap_or(&json!({})).to_string();
-
+                
+                let mut meta = t.clone();
+                meta["provider"] = srv.get("provider").cloned().unwrap_or(json!(""));
+                
                 sqlx::query(
-                    "INSERT OR REPLACE INTO mcp_tools(server,name,description,parameters_json,arg_keys_json,enabled,label,category,provider,pricing_json,defaults_json) \
-                     VALUES(?,?,?,?,?,1,?,?,?,?,?)"
+                    "INSERT OR REPLACE INTO capabilities(name,kind,connector_name,description,metadata_json,enabled) VALUES(?,'mcp',?,?,?,1)"
                 )
-                .bind(name)
                 .bind(t_name)
+                .bind(name)
                 .bind(t_desc)
-                .bind(t_params)
-                .bind(t_keys)
-                .bind(t_label)
-                .bind(category)
-                .bind(t_prov)
-                .bind(pricing)
-                .bind(defaults)
+                .bind(meta.to_string())
                 .execute(&self.pool)
                 .await?;
             }
@@ -955,34 +791,14 @@ impl Store {
 
     pub async fn install_tool(&self, t: &Value) -> Result<(), sqlx::Error> {
         let name = t["name"].as_str().unwrap_or("");
-        let kind = t.get("kind").and_then(|v| v.as_str()).unwrap_or("remote");
         let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
-        let params = t.get("parameters").unwrap_or(&json!({"type": "object", "properties": {}})).to_string();
-        let keys = t.get("argKeys").unwrap_or(&json!([])).to_string();
-        let label = t.get("label").and_then(|v| v.as_str());
-        let blurb = t.get("blurb").and_then(|v| v.as_str());
-        let cat = t.get("category").and_then(|v| v.as_str());
-        let prov = t.get("provider").and_then(|v| v.as_str());
-        let pricing = pj_string(t);
-        let endpoint = t.get("endpoint").and_then(|v| v.as_str());
-
+        
         sqlx::query(
-            "INSERT OR REPLACE INTO tools(name,kind,description,parameters_json,arg_keys_json,source,enabled,updated_at,label,blurb,category,provider,pricing_json,endpoint) \
-             VALUES(?,?,?,?,?,?,1,?,?,?,?,?,?,?)"
+            "INSERT OR REPLACE INTO capabilities(name,kind,description,metadata_json,enabled) VALUES(?,'tool',?,?,1)"
         )
         .bind(name)
-        .bind(kind)
         .bind(desc)
-        .bind(params)
-        .bind(keys)
-        .bind("dev")
-        .bind(now_secs())
-        .bind(label)
-        .bind(blurb)
-        .bind(cat)
-        .bind(prov)
-        .bind(pricing)
-        .bind(endpoint)
+        .bind(t.to_string())
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -991,27 +807,13 @@ impl Store {
     pub async fn install_skill(&self, s: &Value) -> Result<(), sqlx::Error> {
         let name = s["name"].as_str().unwrap_or("");
         let desc = s.get("description").and_then(|v| v.as_str()).unwrap_or("");
-        let inst = s.get("instructions").and_then(|v| v.as_str()).unwrap_or("");
-        let reqs = s.get("requires").unwrap_or(&json!({})).to_string();
-        let cat = s.get("category").and_then(|v| v.as_str()).unwrap_or("");
-        let source = src_string(s);
-        let label = s.get("label").and_then(|v| v.as_str());
-        let prov = s.get("provider").and_then(|v| v.as_str());
-        let pricing = pj_string(s);
-
+        
         sqlx::query(
-            "INSERT OR REPLACE INTO skills(name,description,instructions,requires_json,enabled,category,source,label,provider,pricing_json) \
-             VALUES(?,?,?,?,1,?,?,?,?,?)"
+            "INSERT OR REPLACE INTO capabilities(name,kind,description,metadata_json,enabled) VALUES(?,'skill',?,?,1)"
         )
         .bind(name)
         .bind(desc)
-        .bind(inst)
-        .bind(reqs)
-        .bind(cat)
-        .bind(source)
-        .bind(label)
-        .bind(prov)
-        .bind(pricing)
+        .bind(s.to_string())
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -1020,33 +822,43 @@ impl Store {
     pub async fn install_subagent(&self, s: &Value) -> Result<(), sqlx::Error> {
         let name = s["name"].as_str().unwrap_or("");
         let desc = s.get("description").and_then(|v| v.as_str()).unwrap_or("");
-        let system = s.get("system").and_then(|v| v.as_str()).unwrap_or("");
-        let tools = s.get("toolNames").unwrap_or(&json!([])).to_string();
-        let model = s.get("model").and_then(|v| v.as_str()).unwrap_or("");
-        let steps = s.get("maxSteps").and_then(|v| v.as_i64()).unwrap_or(6);
-        let cat = s.get("category").and_then(|v| v.as_str()).unwrap_or("");
-        let source = src_string(s);
-        let label = s.get("label").and_then(|v| v.as_str());
-        let prov = s.get("provider").and_then(|v| v.as_str());
-        let pricing = pj_string(s);
-
+        
         sqlx::query(
-            "INSERT OR REPLACE INTO subagents(name,description,system,tool_names_json,model,max_steps,category,source,label,provider,pricing_json) \
-             VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+            "INSERT OR REPLACE INTO capabilities(name,kind,description,metadata_json,enabled) VALUES(?,'subagent',?,?,1)"
         )
         .bind(name)
         .bind(desc)
-        .bind(system)
-        .bind(tools)
-        .bind(model)
-        .bind(steps)
-        .bind(cat)
-        .bind(source)
-        .bind(label)
-        .bind(prov)
-        .bind(pricing)
+        .bind(s.to_string())
         .execute(&self.pool)
         .await?;
+        Ok(())
+    }
+
+    pub async fn install_assistant(&self, ast: &Value) -> Result<(), sqlx::Error> {
+        let name = ast["name"].as_str().unwrap_or("");
+        let label = ast.get("label").and_then(|v| v.as_str()).unwrap_or("");
+        let desc = ast.get("description").and_then(|v| v.as_str()).unwrap_or("");
+        
+        sqlx::query(
+            "INSERT OR REPLACE INTO assistants(name,label,description,status) VALUES(?,?,?,'active')"
+        )
+        .bind(name)
+        .bind(label)
+        .bind(desc)
+        .execute(&self.pool)
+        .await?;
+        
+        if let Some(caps) = ast.get("capabilities").and_then(|v| v.as_array()) {
+            for cap in caps {
+                if let Some(cap_name) = cap.as_str() {
+                    sqlx::query("INSERT OR IGNORE INTO assistant_capabilities(assistant_name, capability_name) VALUES(?,?)")
+                        .bind(name)
+                        .bind(cap_name)
+                        .execute(&self.pool)
+                        .await?;
+                }
+            }
+        }
         Ok(())
     }
 

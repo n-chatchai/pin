@@ -3,6 +3,7 @@ name: Build & Deploy
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch: {}
 
 env:
   REGISTRY: ghcr.io
@@ -56,6 +57,9 @@ jobs:
   deploy:
     name: Deploy to k3s (VPS)
     needs: build-and-push
+    # Push builds+pushes the image only; the prod rollout runs on explicit
+    # manual dispatch so route/secret prep can happen first (see k8s/caddy_to_traefik_migration.md).
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:

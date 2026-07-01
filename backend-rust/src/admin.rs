@@ -361,6 +361,32 @@ pub async fn push_wake(
     render(&state.jinja_env, "_push.html", json!({ "rows": rows, "flash": msg }))
 }
 
+pub async fn push_catalog(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    
+    let devices = state.store.list_push_devices().await.unwrap_or_default();
+    let mut sent = 0;
+    
+    for d in devices {
+        let token = d.get("device").and_then(|v| v.as_str()).unwrap_or("");
+        let platform = d.get("platform").and_then(|v| v.as_str()).unwrap_or("apns");
+        if !token.is_empty() {
+            // We use 'catalog_update' as the payload, keeping is_silent = true
+            let _ = state.scheduler.push(token, "catalog_update", platform, true).await;
+            sent += 1;
+        }
+    }
+    
+    let msg = format!("ส่งคำสั่งอัปเดต Catalog ไป {} เครื่องเรียบร้อยแล้ว", sent);
+    let rows = get_push_rows(&state.store).await;
+    render(&state.jinja_env, "_push.html", json!({ "rows": rows, "flash": msg }))
+}
+
 async fn get_push_rows(store: &Store) -> Vec<Value> {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
     let mut rows = store.list_push_devices().await.unwrap_or_default();
@@ -481,6 +507,25 @@ pub async fn store_save(
     ).await;
     
     tab_store(State(state), jar).await
+}
+
+// --- MCP Config ---
+
+/// Live-refresh an MCP server's tool schemas (tools/list → capabilities).
+pub async fn mcp_refresh(State(state): State<AdminState>, jar: CookieJar, Path(server): Path<String>) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    axum::Json(crate::mcp::refresh_server(&state.store, &server).await).into_response()
+}
+
+/// List an MCP server's stored tools (name, params, defaults) for the admin UI.
+pub async fn mcp_server_tools(State(state): State<AdminState>, jar: CookieJar, Path(server): Path<String>) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let tools = state.store.mcp_tools_for_server(&server).await.unwrap_or_default();
+    axum::Json(serde_json::json!({ "server": server, "tools": tools })).into_response()
 }
 
 // --- Waitlist Tab ---
@@ -885,4 +930,19 @@ pub async fn tab_generic(
     };
 
     render(&state.jinja_env, "_simple.html", json!({ "tab": tab, "rows": rows_val }))
+}
+
+pub async fn install_assistant(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    axum::Json(payload): axum::Json<Value>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    
+    match state.store.install_assistant(&payload).await {
+        Ok(_) => axum::Json(json!({"ok": true})).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
 }

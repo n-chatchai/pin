@@ -1,5 +1,9 @@
-<div class="sec-h"><h3>ปลุกอุปกรณ์</h3><span class="hint">{{ rows|length }} เครื่อง</span></div>
-<p class="hint" style="margin:-4px 0 12px">อุปกรณ์ที่เปิดรับการแจ้งเตือน — "ปลุกเลย" สั่งให้เครื่องรันงานเฝ้าทั้งหมดทันที (ข้ามตารางเวลา)</p>
+<div class="sec-h"><h3>ปลุกอุปกรณ์</h3>
+  <span style="margin-left:auto">
+    <button class="btn" hx-post="/admin/push/catalog" hx-target="#panel">ส่งอัปเดต Catalog ให้ทุกเครื่อง</button>
+  </span>
+</div>
+<p class="hint" style="margin:-4px 0 12px">{{ rows|length }} เครื่องที่เปิดรับการแจ้งเตือน — "ปลุกเลย" สั่งให้เครื่องรันงานเฝ้าทั้งหมดทันที (ข้ามตารางเวลา)</p>
 {% if flash %}<div class="rcard" style="margin-bottom:10px;border-color:var(--green-d)"><b style="color:var(--green-d)">{{ flash }}</b></div>{% endif %}
 {% if rows %}
 {% for r in rows %}

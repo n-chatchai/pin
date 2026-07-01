@@ -10,7 +10,8 @@ metadata:
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   rules:
-    - host: pin.tokens2.io
+    # Canonical single host: proxy at /, admin UI under /admin.
+    - host: pin-backend.tokens2.io
       http:
         paths:
           - path: /
@@ -20,7 +21,9 @@ spec:
                 name: pin-backend-svc
                 port:
                   number: 8088
-    - host: pin-admin.tokens2.io
+    # Compat alias for already-shipped app installs still pointing at pin-gateway
+    # (old lib/agent/agent_config.dart default). Retire once all clients update.
+    - host: pin-gateway.tokens2.io
       http:
         paths:
           - path: /
@@ -32,6 +35,6 @@ spec:
                   number: 8088
   tls:
     - hosts:
-        - pin.tokens2.io
-        - pin-admin.tokens2.io
+        - pin-backend.tokens2.io
+        - pin-gateway.tokens2.io
       secretName: pin-backend-tls

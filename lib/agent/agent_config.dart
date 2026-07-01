@@ -6,7 +6,7 @@ import 'proxy_client.dart';
 /// Override at build time with `--dart-define=PIN_PROXY_URL=...`.
 const _kProxyBase = String.fromEnvironment(
   'PIN_PROXY_URL',
-  defaultValue: 'https://pin-gateway.tokens2.io',
+  defaultValue: 'https://pin-backend.tokens2.io',
 );
 
 /// An opt-in special persona (role-play overlay). The character sets the address

@@ -20,6 +20,7 @@ reqwest = { version = "0.12", features = ["json", "multipart"] }
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+urlencoding = "2.1"
 
 # Database (SQLite Async)
 sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "sqlite"] }
@@ -32,6 +33,7 @@ argon2 = "0.5"
 jsonwebtoken = "9.3"
 rand = "0.8"
 base64 = "0.22"
+sha2 = "0.10"
 
 # Python execution (PyO3)
 pyo3 = { version = "0.22", features = ["auto-initialize"] }

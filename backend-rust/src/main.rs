@@ -22,6 +22,7 @@ mod proxy;
 mod emails;
 mod admin;
 mod converter;
+mod mcp;
 
 use store::Store;
 use proxy::{MatrixAuth, GoogleAuth, Scheduler, LLMForwarder};
@@ -90,9 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // LLM Models
     let free_model = store.get_setting("pin_free_model").await.unwrap_or(None).unwrap_or_else(|| "gemini-flash-lite-latest".to_string());
-    let embed_model = store.get_setting("pin_embed_model").await.unwrap_or(None).unwrap_or_else(|| "gemini-embedding-001".to_string());
-    let embed_dim = store.get_setting("pin_embed_dim").await.unwrap_or(None).and_then(|s| s.parse().ok()).unwrap_or(256);
-    let forwarder = LLMForwarder::new(free_model, embed_model, embed_dim);
+    let forwarder = LLMForwarder::new(free_model);
 
     // 5. Initialize Python (PyO3) and test markitdown import
     pyo3::prepare_freethreaded_python();
@@ -149,7 +148,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/catalog/categories", get(catalog_categories))
         .route("/tool/:name", post(tool_call))
         .route("/infer", post(infer_call))
-        .route("/embed", post(embed_call))
         .route("/debug/log", post(debug_log))
         // Admin UI routes
         .route("/admin/login", get(admin::login_page))
@@ -161,7 +159,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/capability/:id/status/:status", post(admin::set_backlog_status))
         .route("/admin/tab/push", get(admin::tab_push))
         .route("/admin/push/wake", post(admin::push_wake))
+        .route("/admin/push/catalog", post(admin::push_catalog))
         .route("/admin/tab/store", get(admin::tab_store))
+        .route("/admin/mcp/server/:server/refresh", post(admin::mcp_refresh))
+        .route("/admin/mcp/server/:server/tools", get(admin::mcp_server_tools))
         .route("/admin/store/:name/toggle", post(admin::store_toggle))
         .route("/admin/store/:name", post(admin::store_save))
         .route("/admin/tab/waitlist", get(admin::tab_waitlist))
@@ -170,6 +171,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/waitlist/:wid/preview", get(admin::waitlist_preview))
         .route("/admin/waitlist/:wid/send", post(admin::waitlist_send))
         .route("/admin/waitlist/send-unsent", post(admin::waitlist_send_unsent))
+        .route("/admin/assistant/install", post(admin::install_assistant))
         .route("/admin/tab/:tab", get(admin::tab_generic))
         .with_state(admin_state)
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -468,14 +470,18 @@ async fn catalog(
     if let Ok(mut subagents) = state.store.enabled_subagents().await {
         tools.append(&mut subagents);
     }
+    
+    let mut assistants = Vec::new();
+    if let Ok(mut a) = state.store.enabled_assistants().await {
+        assistants.append(&mut a);
+    }
 
     // Enrich displaycopy
     let enriched_tools: Vec<Value> = tools.into_iter().map(display::enrich).collect();
-    let version = std::env::var("PIN_CATALOG_VERSION").unwrap_or_else(|_| "1".to_string());
 
     Json(json!({
-        "version": version,
-        "tools": enriched_tools
+        "tools": enriched_tools,
+        "assistants": assistants
     })).into_response()
 }
 
@@ -528,32 +534,18 @@ async fn tool_call(
         Err((code, msg)) => return (code, msg).into_response(),
     };
 
+    // 0. Is it a built-in Native Tool?
+    if let Some(res) = handle_native_tool(&name, &args).await {
+        let _ = state.store.log_tool(&name, "native", &args.as_object().map_or(vec![], |o| o.keys().cloned().collect()), "call").await;
+        return Json(res).into_response();
+    }
+
     // 1. Is it an MCP tool?
     let mcp_idx = state.store.mcp_index().await.unwrap_or_default();
     if mcp_idx.contains_key(&name) {
         let _ = state.store.log_tool(&name, "mcp", &args.as_object().map_or(vec![], |o| o.keys().cloned().collect()), "call").await;
-        // In python, this calls the MCP layer: mcp.call(name, args, user)
-        // For now, since MCP client setup requires complex node/python server processes, we'll return a mock text or proxy call.
-        // Let's implement MCP tool routing. Since they are using Traefik / Caddy, let's call the MCP server URL if configured:
-        if let Some(srv_cfg) = mcp_idx.get(&name) {
-            let srv_url = srv_cfg["server"]["url"].as_str().unwrap_or("");
-            if !srv_url.is_empty() {
-                let client = reqwest::Client::new();
-                let headers_val = srv_cfg["server"]["headers"].as_object();
-                let mut req = client.post(format!("{}/tool/{}", srv_url, name));
-                if let Some(h_obj) = headers_val {
-                    for (k, v) in h_obj {
-                        if let Some(val_str) = v.as_str() {
-                            req = req.header(k, val_str);
-                        }
-                    }
-                }
-                if let Ok(res) = req.json(&args).send().await {
-                    if let Ok(resp_json) = res.json::<Value>().await {
-                        return Json(resp_json).into_response();
-                    }
-                }
-            }
+        if let Some(entry) = mcp_idx.get(&name) {
+            return Json(mcp::call(entry, &name, args, Some(&user_id)).await).into_response();
         }
         return Json(json!({ "text": "เรียกเครื่องมือ MCP ไม่สำเร็จ" })).into_response();
     }
@@ -593,26 +585,206 @@ async fn infer_call(
     state.forwarder.infer(headers, body).await
 }
 
-// Embeddings helper
-async fn embed_call(
-    axum::Extension(state): axum::Extension<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(body): Json<Value>
-) -> Response {
-    let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
-    if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
-        return (code, msg).into_response();
-    }
-
-    state.forwarder.embed(body).await
-}
-
 // Helper block for OnceLock initialization
 trait OnceLockExt<T> {
     fn get_or_init<F>(&mut self, f: F) -> &mut T
     where
         F: FnOnce() -> T;
 }
+
+// --- Native Tools Implementation ---
+
+async fn execute_web_search(args: &Value) -> Value {
+    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("").trim();
+    if query.is_empty() {
+        return json!({"text": "ไม่มีคำค้น"});
+    }
+    let key = match std::env::var("SERPER_API_KEY") {
+        Ok(k) if !k.is_empty() => k,
+        _ => return json!({"text": "ค้นไม่ได้ตอนนี้ (ไม่มี API Key)"}),
+    };
+
+    let client = reqwest::Client::builder()
+        .local_address(Some("0.0.0.0".parse().unwrap()))
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .unwrap_or_default();
+
+    let body = json!({"q": query, "gl": "th", "hl": "th", "num": 6});
+    let res = client.post("https://google.serper.dev/search")
+        .header("X-API-KEY", key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await;
+
+    match res {
+        Ok(r) => {
+            if let Ok(data) = r.json::<Value>().await {
+                let mut lines = Vec::new();
+                if let Some(ab) = data.get("answerBox") {
+                    let ans = ab.get("answer").or(ab.get("snippet")).and_then(|v| v.as_str()).unwrap_or("").trim();
+                    if !ans.is_empty() {
+                        lines.push(format!("คำตอบ: {}", ans));
+                    }
+                }
+                if let Some(organic) = data.get("organic").and_then(|v| v.as_array()) {
+                    for x in organic.iter().take(6) {
+                        let title = x.get("title").and_then(|v| v.as_str()).unwrap_or("").trim();
+                        let snip = x.get("snippet").and_then(|v| v.as_str()).unwrap_or("").trim();
+                        let url = x.get("link").and_then(|v| v.as_str()).unwrap_or("").trim();
+                        lines.push(format!("• {}\n  {}\n  {}", title, snip, url));
+                    }
+                }
+                if lines.is_empty() {
+                    json!({"text": "ไม่พบข้อมูล"})
+                } else {
+                    json!({"text": format!("ผลค้นหาเว็บ:\n{}", lines.join("\n"))})
+                }
+            } else {
+                json!({"text": "ค้นไม่ได้ตอนนี้ (ข้อมูลไม่ถูกต้อง)"})
+            }
+        },
+        Err(_) => json!({"text": "ค้นไม่ได้ตอนนี้"}),
+    }
+}
+
+async fn execute_generate_image(args: &Value) -> Value {
+    let prompt = args.get("prompt").and_then(|v| v.as_str()).unwrap_or("").trim();
+    if prompt.is_empty() {
+        return json!({"text": "อยากให้วาดอะไรบอกได้เลยค่ะ"});
+    }
+    let enc = urlencoding::encode(prompt);
+    let url = format!("https://image.pollinations.ai/prompt/{}?width=1024&height=1024&nologo=true", enc);
+    let img = format!("<img src=\"{}\" alt=\"generated\" style=\"width:100%;border-radius:12px;display:block\"/>", url);
+    json!({
+        "flex": {
+            "header": {"icon": "sparkles", "title": "รูปที่วาดให้"},
+            "body": [{"type": "html", "html": img}]
+        }
+    })
+}
+
+async fn execute_currency(args: &Value) -> Value {
+    let base = args.get("base").and_then(|v| v.as_str()).unwrap_or("USD").trim().to_uppercase();
+    let quote = args.get("quote").and_then(|v| v.as_str()).unwrap_or("THB").trim().to_uppercase();
+    
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap_or_default();
+    let url = format!("https://api.frankfurter.dev/v1/latest?base={}&symbols={}", base, quote);
+    
+    match client.get(&url).send().await {
+        Ok(r) => {
+            if let Ok(data) = r.json::<Value>().await {
+                if let Some(rates) = data.get("rates").and_then(|v| v.as_object()) {
+                    if let Some(val) = rates.get(&quote).and_then(|v| v.as_f64()) {
+                        return json!({
+                            "flex": {
+                                "header": {"icon": "money", "title": format!("{} → {}", base, quote)},
+                                "body": [
+                                    {"type": "bignum", "value": format!("{:.4}", val), "sub": format!("1 {} = {:.4} {}", base, val, quote)}
+                                ]
+                            }
+                        });
+                    }
+                }
+            }
+            json!({"text": format!("ดึงค่าเงิน {}/{} ไม่ได้", base, quote)})
+        },
+        Err(_) => json!({"text": "ดึงข้อมูลค่าเงินไม่ได้"})
+    }
+}
+
+async fn execute_weather(args: &Value) -> Value {
+    let place = args.get("place").and_then(|v| v.as_str()).unwrap_or("กรุงเทพ").trim();
+    let days = args.get("days").and_then(|v| v.as_i64()).unwrap_or(1).clamp(1, 7);
+    
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).build().unwrap_or_default();
+    let geo_url = format!("https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=th", urlencoding::encode(place));
+    
+    let (lat, lon, name) = match client.get(&geo_url).send().await {
+        Ok(r) => {
+            if let Ok(data) = r.json::<Value>().await {
+                if let Some(hits) = data.get("results").and_then(|v| v.as_array()) {
+                    if let Some(first) = hits.first() {
+                        let lat = first.get("latitude").and_then(|v| v.as_f64()).unwrap_or(13.75);
+                        let lon = first.get("longitude").and_then(|v| v.as_f64()).unwrap_or(100.5167);
+                        let n = first.get("name").and_then(|v| v.as_str()).unwrap_or(place).to_string();
+                        (lat, lon, n)
+                    } else {
+                        return json!({"text": format!("หาเมือง “{}” ไม่เจอ", place)});
+                    }
+                } else {
+                    return json!({"text": format!("หาเมือง “{}” ไม่เจอ", place)});
+                }
+            } else {
+                return json!({"text": format!("หาเมือง “{}” ไม่เจอ", place)});
+            }
+        },
+        Err(_) => return json!({"text": "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"})
+    };
+
+    let fc_url = format!("https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&timezone=Asia/Bangkok&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days={}", lat, lon, days);
+    match client.get(&fc_url).send().await {
+        Ok(r) => {
+            if let Ok(data) = r.json::<Value>().await {
+                if let Some(daily) = data.get("daily") {
+                    let dates = daily.get("time").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                    let t_max = daily.get("temperature_2m_max").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                    let t_min = daily.get("temperature_2m_min").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                    let pop = daily.get("precipitation_probability_max").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                    
+                    let mut cards = Vec::new();
+                    let day_labels = ["วันนี้", "พรุ่งนี้"];
+                    for i in 0..dates.len() {
+                        let label = if i < day_labels.len() {
+                            day_labels[i].to_string()
+                        } else {
+                            let d_str = dates[i].as_str().unwrap_or("");
+                            if d_str.len() > 5 { d_str[5..].replace("-", "/") } else { d_str.to_string() }
+                        };
+                        
+                        let mx = t_max.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let mn = t_min.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let rain = pop.get(i).and_then(|v| v.as_i64()).unwrap_or(0);
+                        
+                        cards.push(json!({
+                            "header": {"icon": "fx", "title": format!("{} · {}", name, label)},
+                            "body": [
+                                {"type": "bignum", "value": format!("{:.0}°", mx), "sub": format!("ต่ำสุด {:.0}°", mn)},
+                                {"type": "text", "text": format!("โอกาสฝน {}%", rain)}
+                            ]
+                        }));
+                    }
+                    if cards.is_empty() {
+                        return json!({"text": format!("ดึงอากาศ {} ไม่ได้", name)});
+                    }
+                    if cards.len() == 1 {
+                        return json!({"flex": cards[0]});
+                    }
+                    return json!({
+                        "flex": {
+                            "direction": "horizontal",
+                            "cards": cards
+                        }
+                    });
+                }
+            }
+            json!({"text": format!("ดึงอากาศ {} ไม่ได้", name)})
+        },
+        Err(_) => json!({"text": "ดึงข้อมูลอากาศไม่ได้"})
+    }
+}
+
+async fn handle_native_tool(name: &str, args: &Value) -> Option<Value> {
+    match name {
+        "web_search" => Some(execute_web_search(args).await),
+        "get_weather" => Some(execute_weather(args).await),
+        "get_currency" => Some(execute_currency(args).await),
+        "generate_image" => Some(execute_generate_image(args).await),
+        _ => None,
+    }
+}
+
 
 impl<T> OnceLockExt<T> for Option<T> {
     fn get_or_init<F>(&mut self, f: F) -> &mut T

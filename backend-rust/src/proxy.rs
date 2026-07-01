@@ -377,16 +377,12 @@ impl Scheduler {
 
 pub struct LLMForwarder {
     free_model: String,
-    embed_model: String,
-    embed_dim: usize,
 }
 
 impl LLMForwarder {
-    pub fn new(free_model: String, embed_model: String, embed_dim: usize) -> Self {
+    pub fn new(free_model: String) -> Self {
         Self {
             free_model,
-            embed_model,
-            embed_dim,
         }
     }
 
@@ -465,50 +461,7 @@ impl LLMForwarder {
         builder.body(Body::from(bytes)).unwrap()
     }
 
-    pub async fn embed(&self, body: Value) -> Response {
-        let gkey = match std::env::var("GEMINI_API_KEY") {
-            Ok(k) if !k.is_empty() => k,
-            _ => return (axum::http::StatusCode::SERVICE_UNAVAILABLE, "proxy not configured").into_response(),
-        };
 
-        let payload = json!({
-            "model": body.get("model").unwrap_or(&json!(self.embed_model)),
-            "input": body.get("input").unwrap_or(&json!("")),
-            "dimensions": body.get("dimensions").unwrap_or(&json!(self.embed_dim)),
-        });
-
-        let client = match reqwest::Client::builder()
-            .local_address(Some("0.0.0.0".parse().unwrap()))
-            .timeout(std::time::Duration::from_secs(30))
-            .build() 
-        {
-            Ok(c) => c,
-            Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "failed to build HTTP client").into_response(),
-        };
-
-        let res = match client.post("https://generativelanguage.googleapis.com/v1beta/openai/embeddings")
-            .header("Authorization", format!("Bearer {}", gkey))
-            .json(&payload)
-            .send()
-            .await 
-        {
-            Ok(r) => r,
-            Err(_) => return (axum::http::StatusCode::BAD_GATEWAY, "failed to contact provider").into_response(),
-        };
-
-        let status = res.status();
-        let content_type = res.headers().get("content-type").cloned();
-        let bytes = match res.bytes().await {
-            Ok(b) => b,
-            Err(_) => return (axum::http::StatusCode::BAD_GATEWAY, "failed to read provider response").into_response(),
-        };
-
-        let mut builder = Response::builder().status(status);
-        if let Some(ct) = content_type {
-            builder = builder.header("content-type", ct);
-        }
-        builder.body(Body::from(bytes)).unwrap()
-    }
 
     pub async fn transcribe(&self, name: Option<&str>, mime_type: Option<&str>, data: &[u8]) -> Result<String, String> {
         let gkey = std::env::var("GEMINI_API_KEY")
