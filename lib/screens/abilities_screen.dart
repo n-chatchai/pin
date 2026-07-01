@@ -67,7 +67,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: Text(
-                        'ผู้เชี่ยวชาญเฉพาะทางที่$botNameเรียกมาช่วยได้ — ติว ดูแลบ้าน ครีเอทีฟ…',
+                        'คนเก่ง ๆ ที่$botNameเรียกมาช่วยเรื่องที่ถนัด — ติว ดูแลบ้าน ครีเอทีฟ',
                         style: const TextStyle(
                             color: PinPalette.ink2, fontSize: 13.5)),
                   ),
@@ -75,7 +75,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                 if (_items.isEmpty)
                   const SliverFillRemaining(
                     child: Center(
-                      child: Text('ยังไม่มีผู้เชี่ยวชาญในทีม',
+                      child: Text('ยังไม่มีใครในทีม',
                           style: TextStyle(color: PinPalette.ink2)),
                     ),
                   )

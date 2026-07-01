@@ -104,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 PhosphorIconsRegular.sparkle,
                 'ทีมของ$botName',
-                'ผู้เชี่ยวชาญเฉพาะทาง — ติว ดูแลบ้าน ครีเอทีฟ',
+                'คนเก่ง ๆ ที่มาช่วยเรื่องที่ถนัด — ติว ดูแลบ้าน ครีเอทีฟ',
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
               ),
