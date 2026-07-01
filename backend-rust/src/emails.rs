@@ -98,9 +98,7 @@ pub fn build(use_text: &str) -> (String, String, String) {
          color:#2E2A24;max-width:560px;margin:0 auto;padding:28px 24px;\
          background:#FAF8F2\">\
          <img src=\"{}\" width=\"46\" height=\"46\" alt=\"ปิ่น\" \
-         style=\"border-radius:12px;display:block;margin:0 0 20px\">{}<p style=\"font-size:12px;color:#9A8F7E;margin-top:22px;\
-         border-top:1px solid #E7DCCB;padding-top:14px\">\
-         ไม่อยากรับอีเมลจากเรา ตอบกลับว่า “เลิกรับ” ได้เลยค่ะ</p></div>",
+         style=\"border-radius:12px;display:block;margin:0 0 20px\">{}</div>",
         LOGO_URL, body_html
     );
 
