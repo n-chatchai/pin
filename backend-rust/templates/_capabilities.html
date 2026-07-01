@@ -18,6 +18,7 @@
 <div class="grp">
   <div class="cat-h">{{ g.label }} · {{ g.items|length }}</div>
   {% for m in g.items %}
+  {% set pr = m.pricing|default({}) %}
   <div class="caprow">
     <div class="top">
       <b>{{ m.name }}</b>
@@ -25,7 +26,7 @@
       {% if m.server %}<span class="hint">· {{ m.server }}</span>{% endif %}
       {% if m.category %}<span class="hint">· {{ m.category }}</span>{% endif %}
       {% if m.provider %}<span class="hint">· {{ m.provider }}</span>{% endif %}
-      {% if m.pricing and m.pricing.tier and m.pricing.tier != 'free' %}<span class="hint">· ฿{{ m.pricing.amount|default('') }}</span>{% endif %}
+      {% if pr.tier and pr.tier != 'free' %}<span class="hint">· ฿{{ pr.amount|default('') }}</span>{% endif %}
       <span style="margin-left:auto">
         <button class="btn sm" hx-post="/admin/store/{{ m.name }}/toggle" hx-target="#panel">{% if m.enabled %}ปิด{% else %}เปิด{% endif %}</button>
       </span>
@@ -37,10 +38,10 @@
         {% for s in ['live','trial','soon'] %}<option value="{{ s }}" {% if (m.status|default('live'))==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
       </select></div>
       <div class="fl"><small>ค่าใช้จ่าย</small><select name="tier">
-        {% for t in ['free','onetime','subscription'] %}<option value="{{ t }}" {% if (m.pricing.tier|default('free'))==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        {% for t in ['free','onetime','subscription'] %}<option value="{{ t }}" {% if (pr.tier|default('free'))==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
       </select></div>
-      <div class="fl"><small>ราคา</small><input name="amount" value="{{ m.pricing.amount|default('') }}" style="width:60px"></div>
-      <div class="fl"><small>รอบ</small><input name="period" value="{{ m.pricing.period|default('month') }}" style="width:60px"></div>
+      <div class="fl"><small>ราคา</small><input name="amount" value="{{ pr.amount|default('') }}" style="width:60px"></div>
+      <div class="fl"><small>รอบ</small><input name="period" value="{{ pr.period|default('month') }}" style="width:60px"></div>
       <button class="btn sm g">บันทึก</button>
     </form>
   </div>
