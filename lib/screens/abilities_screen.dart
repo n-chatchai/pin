@@ -56,7 +56,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 20,
-        title: Text('ทีมของ$botName',
+        title: Text('ทีม$botName',
             style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
@@ -67,7 +67,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: Text(
-                        'คนเก่ง ๆ ที่$botNameเรียกมาช่วยเรื่องที่ถนัด — ติว ดูแลบ้าน ครีเอทีฟ',
+                        'หาคนช่วย$botName',
                         style: const TextStyle(
                             color: PinPalette.ink2, fontSize: 13.5)),
                   ),

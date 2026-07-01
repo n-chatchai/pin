@@ -94,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
               _navRow(
                 context,
                 PhosphorIconsRegular.smiley,
-                'บุคลิกของผู้ช่วย',
+                'บุคลิกของ${p.userCall}',
                 '${p.pinName} · เรียก${p.userCall}',
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => PersonalityScreen(onSave: _updatePersona))),
@@ -103,8 +103,8 @@ class SettingsScreen extends StatelessWidget {
               _navRow(
                 context,
                 PhosphorIconsRegular.sparkle,
-                'ทีมของ$botName',
-                'คนเก่ง ๆ ที่มาช่วยเรื่องที่ถนัด — ติว ดูแลบ้าน ครีเอทีฟ',
+                'ทีม$botName',
+                'หาคนช่วย$botName — ติว ดูแลบ้าน ครีเอทีฟ',
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
               ),
@@ -228,7 +228,8 @@ class SettingsScreen extends StatelessWidget {
     final rows = <Widget>[];
     for (var i = 0; i < children.length; i++) {
       if (i > 0) {
-        rows.add(const Divider(height: 1, indent: 56, color: PinPalette.line));
+        rows.add(const Divider(
+            height: 1, thickness: 1, indent: 0, endIndent: 0, color: PinPalette.line));
       }
       rows.add(children[i]);
     }
