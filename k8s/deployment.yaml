@@ -8,7 +8,14 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: Recreate # Required for SQLite single-writer Lock to prevent multiple pods writing to the same SQLite file
+    # Zero-downtime: bring the new pod up + Ready BEFORE the old is removed
+    # (maxUnavailable:0). SQLite WAL + busy_timeout tolerates the brief two-pod
+    # overlap on the same DB (writes serialize; reads concurrent). Single-node
+    # k3s → both pods mount the RWO PVC on the same node.
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: pin-backend
@@ -24,6 +31,17 @@ spec:
           ports:
             - containerPort: 8088
               name: http
+
+          # Gate traffic on /health so a rollout only shifts to the new pod once
+          # it's serving; the old pod keeps taking traffic until then.
+          startupProbe:
+            httpGet: { path: /health, port: 8088 }
+            periodSeconds: 2
+            failureThreshold: 20 # up to ~40s for pyo3/markitdown + DB init
+          readinessProbe:
+            httpGet: { path: /health, port: 8088 }
+            periodSeconds: 5
+            timeoutSeconds: 3
 
           env:
             - name: RUST_LOG

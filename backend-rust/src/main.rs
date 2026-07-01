@@ -65,7 +65,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_url = format!("sqlite://{}", db_path);
     let options = SqliteConnectOptions::from_str(&db_url)?
         .create_if_missing(true)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+        // Wait (don't error) if another connection holds the write lock — lets a
+        // rolling deploy briefly overlap two pods on the same WAL DB without
+        // "database is locked" flakes.
+        .busy_timeout(std::time::Duration::from_secs(5));
         
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
