@@ -381,7 +381,7 @@ pub async fn tab_capabilities(State(state): State<AdminState>, jar: CookieJar) -
     }
     let caps = state.store.all_capabilities_admin().await.unwrap_or_default();
     let mut groups = Vec::new();
-    for (kind, label) in [("tool", "เครื่องมือ"), ("skill", "ทักษะ"), ("subagent", "ซับเอเจนต์"), ("mcp", "MCP")] {
+    for (kind, label) in [("tool", "เครื่องมือ"), ("skill", "ทักษะ"), ("mcp", "MCP")] {
         let items: Vec<Value> = caps.iter()
             .filter(|c| c.get("kind").and_then(|v| v.as_str()) == Some(kind))
             .cloned().collect();
