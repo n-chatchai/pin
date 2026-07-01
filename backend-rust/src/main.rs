@@ -152,8 +152,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Admin UI routes
         .route("/admin/login", get(admin::login_page))
         .route("/admin/logout", post(admin::logout))
-        .route("/admin/auth/google", get(admin::auth_google))
-        .route("/admin/auth/google/callback", get(admin::auth_google_callback))
+        .route("/admin/sso/login", get(admin::sso_login))
+        .route("/admin/sso/callback", get(admin::sso_callback))
         .route("/admin", get(admin::dashboard))
         .route("/admin/tab/backlog", get(admin::tab_backlog))
         .route("/admin/capability/:id/status/:status", post(admin::set_backlog_status))

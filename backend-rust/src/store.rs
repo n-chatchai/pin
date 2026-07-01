@@ -139,10 +139,14 @@ impl Store {
         Ok(())
     }
 
-    pub async fn is_admin(&self, email: &str) -> Result<bool, sqlx::Error> {
-        let local = email.split('@').next().unwrap_or(email);
+    pub async fn is_admin(&self, ident: &str) -> Result<bool, sqlx::Error> {
+        // Accept a Matrix user_id (@local:domain), an email (local@domain), or a
+        // bare localpart. Owners in admin_users may be stored full or bare.
+        let ident = ident.trim();
+        let local = ident.trim_start_matches('@')
+            .split([':', '@']).next().unwrap_or(ident);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM admin_users WHERE email = ? OR email = ?")
-            .bind(email)
+            .bind(ident)
             .bind(local)
             .fetch_one(&self.pool)
             .await?;

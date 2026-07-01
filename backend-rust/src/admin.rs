@@ -39,28 +39,6 @@ pub struct AdminState {
 }
 
 // Google OAuth config
-fn get_google_creds() -> Option<(String, String)> {
-    if let (Ok(id), Ok(sec)) = (std::env::var("GOOGLE_CLIENT_ID"), std::env::var("GOOGLE_CLIENT_SECRET")) {
-        if !id.is_empty() && !sec.is_empty() {
-            return Some((id, sec));
-        }
-    }
-    // Fallback to client_secret_*.json
-    let dir = std::fs::read_dir(".").ok()?;
-    for entry in dir {
-        let entry = entry.ok()?;
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with("client_secret_") && name.ends_with(".json") {
-            let content = std::fs::read_to_string(entry.path()).ok()?;
-            let v: Value = serde_json::from_str(&content).ok()?;
-            let client_id = v["web"]["client_id"].as_str()?.to_string();
-            let client_secret = v["web"]["client_secret"].as_str()?.to_string();
-            return Some((client_id, client_secret));
-        }
-    }
-    None
-}
-
 // Helper to validate the admin session
 async fn get_admin_session(jar: &CookieJar, secret: &str, store: &Store) -> Option<String> {
     let cookie = jar.get(COOKIE_NAME)?;
@@ -122,101 +100,70 @@ pub async fn logout(jar: CookieJar) -> impl IntoResponse {
     resp
 }
 
-pub async fn auth_google(Query(params): Query<HashMap<String, String>>) -> Response {
-    let (client_id, _) = match get_google_creds() {
-        Some(creds) => creds,
-        None => return Redirect::to("/admin/login?error=google_failed").into_response(),
-    };
-    
-    let redirect_uri = std::env::var("PIN_ADMIN_GOOGLE_REDIRECT_URI")
-        .unwrap_or_else(|_| "http://localhost:8088/admin/auth/google/callback".to_string());
-        
-    let auth_url = format!(
-        "https://accounts.google.com/o/oauth2/auth?client_id={}&redirect_uri={}&response_type=code&scope=openid%20email%20profile&state={}",
-        client_id,
-        redirect_uri,
-        params.get("state").cloned().unwrap_or_default()
+/// Kick off admin login via the homeserver's SSO (which fronts Google) — the
+/// SAME tuwunel identity_provider the app uses. No separate admin Google client.
+/// The browser must hit the PUBLIC homeserver; the loginToken is exchanged
+/// server-side over the internal address in `sso_callback`.
+pub async fn sso_login() -> Response {
+    let hs_public = std::env::var("PIN_HOMESERVER_PUBLIC")
+        .unwrap_or_else(|_| "https://pin-chat.tokens2.io".to_string());
+    let callback = std::env::var("PIN_ADMIN_SSO_CALLBACK")
+        .unwrap_or_else(|_| "https://pin-backend.tokens2.io/admin/sso/callback".to_string());
+    let url = format!(
+        "{}/_matrix/client/v3/login/sso/redirect?redirectUrl={}",
+        hs_public, urlencoding::encode(&callback)
     );
-    Redirect::to(&auth_url).into_response()
+    Redirect::to(&url).into_response()
 }
 
-pub async fn auth_google_callback(
+/// Homeserver redirects here with `?loginToken=...`. Exchange it for a Matrix
+/// session (m.login.token), check the user_id against the owners allowlist, then
+/// issue the admin cookie. The ephemeral Matrix session is logged out right after.
+pub async fn sso_callback(
     State(state): State<AdminState>,
     jar: CookieJar,
     Query(params): Query<HashMap<String, String>>
 ) -> Response {
-    let code = match params.get("code") {
-        Some(c) => c,
-        None => return Redirect::to("/admin/login?error=google_failed").into_response(),
+    let login_token = match params.get("loginToken") {
+        Some(t) => t,
+        None => return Redirect::to("/admin/login?error=sso_failed").into_response(),
     };
 
-    let (client_id, client_secret) = match get_google_creds() {
-        Some(creds) => creds,
-        None => return Redirect::to("/admin/login?error=google_failed").into_response(),
-    };
-
-    let redirect_uri = std::env::var("PIN_ADMIN_GOOGLE_REDIRECT_URI")
-        .unwrap_or_else(|_| "http://localhost:8088/admin/auth/google/callback".to_string());
-
+    let hs = std::env::var("PIN_HOMESERVER")
+        .unwrap_or_else(|_| "http://10.42.0.1:6167".to_string());
     let client = reqwest::Client::new();
-    
-    // 1. Exchange authorization code for tokens
-    let token_res = match client.post("https://oauth2.googleapis.com/token")
-        .form(&[
-            ("code", code.as_str()),
-            ("client_id", &client_id),
-            ("client_secret", &client_secret),
-            ("redirect_uri", &redirect_uri),
-            ("grant_type", "authorization_code"),
-        ])
-        .send()
-        .await
+
+    let res = match client.post(format!("{}/_matrix/client/v3/login", hs))
+        .json(&json!({"type": "m.login.token", "token": login_token}))
+        .send().await
     {
         Ok(r) => r,
-        Err(_) => return Redirect::to("/admin/login?error=google_failed").into_response(),
+        Err(_) => return Redirect::to("/admin/login?error=sso_failed").into_response(),
     };
 
     #[derive(Deserialize)]
-    struct TokenResponse {
-        access_token: String,
+    struct LoginResp { user_id: String, access_token: Option<String> }
+
+    let body = match res.json::<LoginResp>().await {
+        Ok(b) => b,
+        Err(_) => return Redirect::to("/admin/login?error=sso_failed").into_response(),
+    };
+    let user_id = body.user_id;
+
+    // Best-effort logout of the throwaway Matrix session — we only needed identity.
+    if let Some(tok) = &body.access_token {
+        let _ = client.post(format!("{}/_matrix/client/v3/logout", hs))
+            .header("Authorization", format!("Bearer {}", tok)).send().await;
     }
 
-    let token_body = match token_res.json::<TokenResponse>().await {
-        Ok(body) => body,
-        Err(_) => return Redirect::to("/admin/login?error=google_failed").into_response(),
-    };
-
-    // 2. Fetch userinfo using access token
-    let user_info_res = match client.get("https://www.googleapis.com/oauth2/v3/userinfo")
-        .header("Authorization", format!("Bearer {}", token_body.access_token))
-        .send()
-        .await
-    {
-        Ok(r) => r,
-        Err(_) => return Redirect::to("/admin/login?error=google_failed").into_response(),
-    };
-
-    #[derive(Deserialize)]
-    struct UserInfoResponse {
-        email: String,
-    }
-
-    let user_info = match user_info_res.json::<UserInfoResponse>().await {
-        Ok(ui) => ui,
-        Err(_) => return Redirect::to("/admin/login?error=google_failed").into_response(),
-    };
-
-    // 3. Verify user email against DB
-    let email = user_info.email.to_lowercase();
-    if !state.store.is_admin(&email).await.unwrap_or(false) {
-        warn!("Unauthorized admin login attempt: {}", email);
+    if !state.store.is_admin(&user_id).await.unwrap_or(false) {
+        warn!("Unauthorized admin SSO attempt: {}", user_id);
         return Redirect::to("/admin/login?error=unauthorized").into_response();
     }
 
-    // 4. Set session cookie and redirect
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     let claims = AdminClaims {
-        email,
+        email: user_id, // holds the Matrix user_id
         exp: (now + 8 * 3600) as i64,
     };
     
