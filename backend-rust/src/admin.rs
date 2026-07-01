@@ -401,12 +401,16 @@ pub async fn tab_connectors(State(state): State<AdminState>, jar: CookieJar) -> 
     render(&state.jinja_env, "_connectors.html", json!({"connectors": connectors}))
 }
 
-/// Assistants (use-case packages) with their bound capabilities.
+/// ผู้ช่วย = subagents (delegate/handoff agents). Each is a brain the main bot
+/// hands work to; the assistants-package table isn't used yet (YAGNI).
 pub async fn tab_assistants(State(state): State<AdminState>, jar: CookieJar) -> Response {
     if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    let assistants = state.store.enabled_assistants().await.unwrap_or_default();
+    let caps = state.store.all_capabilities_admin().await.unwrap_or_default();
+    let assistants: Vec<Value> = caps.into_iter()
+        .filter(|c| c.get("kind").and_then(|v| v.as_str()) == Some("subagent"))
+        .collect();
     render(&state.jinja_env, "_assistants.html", json!({"assistants": assistants}))
 }
 
