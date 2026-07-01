@@ -4,9 +4,14 @@
   <aside class="side">
     <div class="brand"><div class="logo">ปิ่น</div><div><b>Admin</b><span>หลังบ้าน</span></div></div>
     <nav class="nav" id="nav">
-      <div class="lbl">จัดการ</div>
-      <a hx-get="/admin/tab/store" hx-target="#panel" class="on" onclick="act(this)">
+      <div class="lbl">แคตตาล็อก</div>
+      <a hx-get="/admin/tab/assistants" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg> ผู้ช่วย</a>
+      <a hx-get="/admin/tab/capabilities" hx-target="#panel" class="on" onclick="act(this)">
         <svg class="ic" viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M9 13h6"/></svg> ความสามารถ</a>
+      <a hx-get="/admin/tab/connectors" hx-target="#panel" onclick="act(this)">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M8 12h8M6 8a4 4 0 0 0 0 8M18 8a4 4 0 0 1 0 8"/></svg> ตัวเชื่อม</a>
+      <div class="lbl">จัดการ</div>
       <a hx-get="/admin/tab/backlog" hx-target="#panel" onclick="act(this)">
         <svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M12 8v4M12 16h.01"/></svg> คำขอความสามารถ</a>
       <div class="lbl">ระบบ</div>
@@ -26,7 +31,7 @@
       <div><h1>ภาพรวม</h1><p class="lead">เปิด/ปิดความสามารถได้เลย เครื่องลูกดึงไปใช้อัตโนมัติ</p></div>
     </div>
 
-    <div id="panel" hx-get="/admin/tab/store" hx-trigger="load"></div>
+    <div id="panel" hx-get="/admin/tab/capabilities" hx-trigger="load"></div>
   </main>
 </div>
 <script>

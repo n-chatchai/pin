@@ -483,11 +483,41 @@ impl Store {
         let internal_caps = vec!["forget_end_user", "get_transits"];
         let rows = sqlx::query("SELECT * FROM capabilities").fetch_all(&self.pool).await?;
         let mut out = Vec::new();
-        
+
         for r in rows {
             let name: String = r.get("name");
             if internal_caps.contains(&name.as_str()) { continue; }
             out.push(display::enrich(self.capability_to_dict(&r)));
+        }
+        Ok(out)
+    }
+
+    /// Admin view: every capability (no internal-tool filter), with its enabled flag.
+    pub async fn all_capabilities_admin(&self) -> Result<Vec<Value>, sqlx::Error> {
+        let rows = sqlx::query("SELECT * FROM capabilities ORDER BY kind, name").fetch_all(&self.pool).await?;
+        let mut out = Vec::new();
+        for r in rows {
+            let mut d = self.capability_to_dict(&r);
+            d["enabled"] = json!(r.get::<i64, _>("enabled") != 0);
+            out.push(d);
+        }
+        Ok(out)
+    }
+
+    /// Admin view: every connector with its MCP tool names.
+    pub async fn all_connectors(&self) -> Result<Vec<Value>, sqlx::Error> {
+        let rows = sqlx::query("SELECT * FROM connectors ORDER BY name").fetch_all(&self.pool).await?;
+        let mut out = Vec::new();
+        for r in rows {
+            let name: String = r.get("name");
+            let tools = self.mcp_tools_for_server(&name).await.unwrap_or_default();
+            out.push(json!({
+                "name": name,
+                "kind": r.get::<Option<String>, _>("kind").unwrap_or_default(),
+                "endpoint": r.get::<Option<String>, _>("endpoint").unwrap_or_default(),
+                "status": r.get::<Option<String>, _>("status").unwrap_or_default(),
+                "tools": tools,
+            }));
         }
         Ok(out)
     }

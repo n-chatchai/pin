@@ -1,0 +1,27 @@
+<style>
+  .caprow{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;background:#fff}
+  .caprow .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .caprow b{font-size:14px}
+  .caprow .hint{font-size:12px;color:var(--ink3)}
+  .pill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px;background:var(--green-soft);color:var(--green-d)}
+  .capchip{font-size:11px;background:#F0EDE5;color:var(--ink2);padding:1px 8px;border-radius:9px}
+</style>
+
+<p class="hint" style="margin:0 0 12px">ผู้ช่วย = แพ็กเกจ Use-Case. แต่ละคนผูกกับความสามารถที่จำเป็น (many-to-many).</p>
+
+{% for a in assistants %}
+<div class="caprow">
+  <div class="top">
+    <b>{{ a.label|default(a.name) }}</b>
+    <span class="hint">· {{ a.name }}</span>
+    {% if a.status %}<span class="pill">{{ a.status }}</span>{% endif %}
+  </div>
+  {% if a.description %}<div class="hint" style="margin-top:3px">{{ a.description }}</div>{% endif %}
+  <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">
+    {% for c in a.capabilities %}<span class="capchip">{{ c }}</span>{% endfor %}
+    {% if not a.capabilities %}<span class="hint">ยังไม่ได้ผูกความสามารถ</span>{% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% if not assistants %}<p class="hint">ยังไม่มีผู้ช่วย</p>{% endif %}

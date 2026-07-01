@@ -6,8 +6,8 @@
   <div class="rh">
     <b>{{ r.capability }}</b>
     <span class="b sub" style="margin-left:6px">×{{ r.count }}</span>
-    <span style="margin-left:auto;font-size:11.5px;color:{{ 'var(--green-d)' if r.status in ('building','done') else 'var(--ink3)' }}">
-      {{ {'requested':'รอเพิ่ม','building':'กำลังพัฒนา','done':'พร้อมใช้แล้ว'}.get(r.status, r.status) }}</span>
+    <span style="margin-left:auto;font-size:11.5px;color:{{ 'var(--green-d)' if r.status in ['building','done'] else 'var(--ink3)' }}">
+      {% if r.status == 'requested' %}รอเพิ่ม{% elif r.status == 'building' %}กำลังพัฒนา{% elif r.status == 'done' %}พร้อมใช้แล้ว{% else %}{{ r.status }}{% endif %}</span>
   </div>
   {% if r.detail %}<div style="margin:6px 0;font-size:12.5px;color:var(--ink2)">{{ r.detail }}</div>{% endif %}
   <div class="rfoot">

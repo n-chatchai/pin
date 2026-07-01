@@ -1,0 +1,51 @@
+<style>
+  .grp{margin-bottom:22px}
+  .cat-h{font-size:13px;font-weight:700;color:var(--ink2);margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+  .caprow{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;background:#fff}
+  .caprow .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .caprow b{font-size:14px}
+  .pill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px}
+  .pill.on{background:var(--green-soft);color:var(--green-d)}
+  .pill.off{background:#F0EDE5;color:var(--ink3)}
+  .caprow .hint{font-size:12px;color:var(--ink3)}
+  .edit{margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+  .edit .fl{display:flex;flex-direction:column;gap:2px}
+  .edit small{font-size:10px;color:var(--ink3)}
+  .edit input,.edit select{padding:5px 7px;border:1px solid var(--line);border-radius:7px;font-size:12px}
+</style>
+
+{% for g in groups %}
+<div class="grp">
+  <div class="cat-h">{{ g.label }} · {{ g.items|length }}</div>
+  {% for m in g.items %}
+  <div class="caprow">
+    <div class="top">
+      <b>{{ m.name }}</b>
+      {% if m.enabled %}<span class="pill on">เปิด</span>{% else %}<span class="pill off">ปิด</span>{% endif %}
+      {% if m.server %}<span class="hint">· {{ m.server }}</span>{% endif %}
+      {% if m.category %}<span class="hint">· {{ m.category }}</span>{% endif %}
+      {% if m.provider %}<span class="hint">· {{ m.provider }}</span>{% endif %}
+      {% if m.pricing and m.pricing.tier and m.pricing.tier != 'free' %}<span class="hint">· ฿{{ m.pricing.amount|default('') }}</span>{% endif %}
+      <span style="margin-left:auto">
+        <button class="btn sm" hx-post="/admin/store/{{ m.name }}/toggle" hx-target="#panel">{% if m.enabled %}ปิด{% else %}เปิด{% endif %}</button>
+      </span>
+    </div>
+    {% if m.description %}<div class="hint" style="margin-top:3px">{{ m.description }}</div>{% endif %}
+    <form class="edit" hx-post="/admin/store/{{ m.name }}" hx-target="#panel">
+      <div class="fl"><small>หมวด</small><input name="category" value="{{ m.category|default('') }}" style="width:110px"></div>
+      <div class="fl"><small>สถานะ</small><select name="status">
+        {% for s in ['live','trial','soon'] %}<option value="{{ s }}" {% if (m.status|default('live'))==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select></div>
+      <div class="fl"><small>ค่าใช้จ่าย</small><select name="tier">
+        {% for t in ['free','onetime','subscription'] %}<option value="{{ t }}" {% if (m.pricing.tier|default('free'))==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select></div>
+      <div class="fl"><small>ราคา</small><input name="amount" value="{{ m.pricing.amount|default('') }}" style="width:60px"></div>
+      <div class="fl"><small>รอบ</small><input name="period" value="{{ m.pricing.period|default('month') }}" style="width:60px"></div>
+      <button class="btn sm g">บันทึก</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+{% if not groups %}<p class="hint">ยังไม่มีความสามารถ</p>{% endif %}

@@ -2,11 +2,11 @@
 {% set H = {'email':'อีเมล','use':'อยากใช้','source':'ที่มา','created_at':'เวลา',
            'ts':'เวลา','tool':'เครื่องมือ','kind':'ชนิด','arg_keys':'arg keys','status':'สถานะ'} %}
 <table>
-  <thead><tr>{% for k in rows[0].keys() %}<th>{{ H.get(k, k) }}</th>{% endfor %}</tr></thead>
+  <thead><tr>{% for k, v in rows[0]|items %}<th>{{ H[k]|default(k) }}</th>{% endfor %}</tr></thead>
   <tbody>
     {% for r in rows %}
-    <tr>{% for k,v in r.items() %}
-      <td class="{{ 'mono' if k in ('url','arg_keys','ts') else '' }}">{{ v }}</td>
+    <tr>{% for k,v in r|items %}
+      <td class="{{ 'mono' if k in ['url','arg_keys','ts'] else '' }}">{{ v }}</td>
     {% endfor %}</tr>
     {% endfor %}
   </tbody>

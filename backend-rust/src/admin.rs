@@ -359,58 +359,9 @@ async fn get_push_rows(store: &Store) -> Vec<Value> {
 
 // --- Store Tab ---
 
+// Back-compat alias — the store tab is now the Capabilities view.
 pub async fn tab_store(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
-        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
-    }
-    let (by_cat, providers, commercial, categories, comm_cats) = get_store_metadata(&state.store).await;
-    render(&state.jinja_env, "_store.html", json!({
-        "by_cat": by_cat,
-        "providers": providers,
-        "commercial": commercial,
-        "categories": categories,
-        "comm_cats": comm_cats,
-    }))
-}
-
-async fn get_store_metadata(store: &Store) -> (HashMap<String, Vec<Value>>, Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
-    let mut by_cat: HashMap<String, Vec<Value>> = HashMap::new();
-    let mut providers = HashSet::new();
-    let mut commercial = HashSet::new();
-    let mut comm_cats = HashSet::new();
-
-    let capabilities = store.all_capabilities().await.unwrap_or_default();
-    for m in capabilities {
-        let cat = m.get("category").and_then(|v| v.as_str()).unwrap_or("อื่น ๆ").to_string();
-        
-        let pricing = m.get("pricing");
-        let paid = pricing.and_then(|p| p.get("tier").and_then(|t| t.as_str())).unwrap_or("free") != "free";
-        
-        if paid {
-            comm_cats.insert(cat.clone());
-        }
-        
-        if let Some(prov) = m.get("provider").and_then(|v| v.as_str()) {
-            if !prov.is_empty() {
-                providers.insert(prov.to_string());
-                if paid {
-                    commercial.insert(prov.to_string());
-                }
-            }
-        }
-        by_cat.entry(cat).or_default().push(m);
-    }
-
-    let mut prov_list: Vec<String> = providers.into_iter().collect();
-    prov_list.sort();
-    let mut comm_list: Vec<String> = commercial.into_iter().collect();
-    comm_list.sort();
-    let mut cat_list: Vec<String> = by_cat.keys().cloned().collect();
-    cat_list.sort();
-    let mut comm_cats_list: Vec<String> = comm_cats.into_iter().collect();
-    comm_cats_list.sort();
-
-    (by_cat, prov_list, comm_list, cat_list, comm_cats_list)
+    tab_capabilities(State(state), jar).await
 }
 
 pub async fn store_toggle(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>) -> Response {
@@ -418,7 +369,45 @@ pub async fn store_toggle(State(state): State<AdminState>, jar: CookieJar, Path(
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = state.store.toggle_capability(&name).await;
-    tab_store(State(state), jar).await
+    tab_capabilities(State(state), jar).await
+}
+
+// --- 3-entity admin: Capabilities / Connectors / Assistants ---
+
+/// Capabilities grouped by kind (tool/skill/subagent/mcp).
+pub async fn tab_capabilities(State(state): State<AdminState>, jar: CookieJar) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let caps = state.store.all_capabilities_admin().await.unwrap_or_default();
+    let mut groups = Vec::new();
+    for (kind, label) in [("tool", "เครื่องมือ"), ("skill", "ทักษะ"), ("subagent", "ซับเอเจนต์"), ("mcp", "MCP")] {
+        let items: Vec<Value> = caps.iter()
+            .filter(|c| c.get("kind").and_then(|v| v.as_str()) == Some(kind))
+            .cloned().collect();
+        if !items.is_empty() {
+            groups.push(json!({"kind": kind, "label": label, "items": items}));
+        }
+    }
+    render(&state.jinja_env, "_capabilities.html", json!({"groups": groups}))
+}
+
+/// Connectors (MCP servers etc.) with their tools + refresh.
+pub async fn tab_connectors(State(state): State<AdminState>, jar: CookieJar) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let connectors = state.store.all_connectors().await.unwrap_or_default();
+    render(&state.jinja_env, "_connectors.html", json!({"connectors": connectors}))
+}
+
+/// Assistants (use-case packages) with their bound capabilities.
+pub async fn tab_assistants(State(state): State<AdminState>, jar: CookieJar) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let assistants = state.store.enabled_assistants().await.unwrap_or_default();
+    render(&state.jinja_env, "_assistants.html", json!({"assistants": assistants}))
 }
 
 #[derive(Deserialize)]
@@ -460,7 +449,8 @@ pub async fn mcp_refresh(State(state): State<AdminState>, jar: CookieJar, Path(s
     if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    axum::Json(crate::mcp::refresh_server(&state.store, &server).await).into_response()
+    let _ = crate::mcp::refresh_server(&state.store, &server).await;
+    tab_connectors(State(state), jar).await
 }
 
 /// List an MCP server's stored tools (name, params, defaults) for the admin UI.
