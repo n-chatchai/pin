@@ -5,7 +5,7 @@ This document outlines the current state and pending issues of the "2 Matrix Use
 ## 1. Architecture Overview
 - **True On-Device E2EE:** The device runs two concurrent Matrix sessions via Rust (`role: "user"` and `role: "pin"`). This provides end-to-end encryption out of the box without requiring the server to decrypt messages.
 - **Single Source of Truth:** Dart UI selectively filters `recvRole == 'user'` for the chat history, ensuring messages aren't duplicated in the UI while the bot session is maintained purely for sending replies and managing keys.
-- **Stateless Proxy:** `pin_proxy` acts only as a router to the LLM (Gemini/OpenRouter), receiving Prompts + History securely without persisting chat state.
+- **Stateless Proxy:** the `backend-rust` service acts only as a router to the LLM (Gemini/OpenRouter), receiving Prompts + History securely without persisting chat state.
 
 ## 2. Resolved Issues
 

@@ -14,9 +14,8 @@ talks to.
 | Path | What it is | Stack |
 |------|------------|-------|
 | `lib/`, `android/`, `ios/`, `rust/` | **Flutter app** — E2EE chat (matrix-rust-sdk via flutter_rust_bridge) + on-device agent | Dart / Rust |
-| `proxy/` | **LLM proxy** — blind, stateless router to Gemini (free) / OpenRouter (paid) + hosted tool / MCP host. Holds no prompts. | Python (FastAPI) |
-| `admin/` | **Backoffice** — manage the catalog / skills / MCP / subagents and publish a signed catalog. Separate app; auth via the Matrix (tuwunel) account. | Python (FastAPI + HTMX) |
-| `services/` | Internal microservices (e.g. `markitdown-svc`) the proxy fans out to | Python |
+| `backend-rust/` | **Unified backend** — blind LLM proxy (Gemini free / OpenRouter paid), hosted tools + MCP host, catalog, push scheduler, and admin backoffice (auth via tuwunel SSO). Single binary; holds no prompts. | Rust (axum) |
+| `k8s/` | k3s manifests + deploy for `backend-rust` (Traefik ingress, cert-manager) | YAML |
 | `design/` | Design system — colours, fonts, voice, Flex card mockups | HTML |
 | `docs/` | Project docs | — |
 
