@@ -261,7 +261,9 @@ impl Store {
 
         // 2. Seed Connectors (with usage guide — policy for driving its tools)
         let lakkana_guide = "เมื่อผู้ใช้อยากดูดวง ใช้เครื่องมือดูดวงของอาจารย์ลักขณาที่มีในระบบ.\n- เก็บวันเกิด/เวลาเกิด(ไม่รู้ใช้ 12:00)/เมืองเกิด ให้ครบก่อนเรียก บอกว่าใช้คำนวณเท่านั้น\n- ถ้าเครื่องมือให้เลือกระบบหรือหัวข้อ ถามผู้ใช้ก่อน อย่าเดาเอง\n- ห้ามแต่งคำทำนายหรือตำแหน่งดาวเอง ใช้ผลจากเครื่องมือเท่านั้น\n- นำเสนออบอุ่น ให้กำลังใจ เตือนว่าเป็นความเชื่อส่วนบุคคล";
-        sqlx::query("INSERT INTO connectors(name, kind, endpoint, status, guide) VALUES ('lakkana', 'mcp', 'http://localhost:3000', 'active', ?)")
+        // Internal endpoint (bypass Cloudflare, which 403s server-to-server POSTs);
+        // pod reaches lakkana on the cni0 host IP. Auth = Bearer MCP_API_KEY (in auth_json).
+        sqlx::query("INSERT INTO connectors(name, kind, endpoint, status, guide) VALUES ('lakkana', 'mcp', 'http://10.42.0.1:9000/mcp/', 'active', ?)")
             .bind(lakkana_guide).execute(&self.pool).await?;
 
         // 3. Seed Capabilities (Tools)
