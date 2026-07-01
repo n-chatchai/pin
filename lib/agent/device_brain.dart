@@ -55,6 +55,7 @@ class DeviceBrain {
     final trace = <String>[]; // debug-bot: every step of the agent loop
     var usage = const TokenUsage(); // tokens summed over every model call
     Map<String, dynamic>? pendingFlex; // a card shown; ปิ่น still adds a caption
+    var nudgedCommit = false; // fired the "you promised but didn't create it" nudge once
     for (var step = 0; step < maxSteps; step++) {
       final resp = await proxy.infer(
         messages: messages,
@@ -86,6 +87,27 @@ class DeviceBrain {
                   usage: usage);
             }
           }
+        }
+        // Commitment guard: ปิ่น "รับปาก" to remind/watch but never called the
+        // tool → nudge it ONCE to actually create it (or ask for the missing
+        // time). Lets the model opt out if it wasn't a real commitment, so a
+        // stray "เตือน" in advice doesn't force an unwanted reminder.
+        const commitTools = {'schedule_reminder', 'add_watch', 'schedule_job'};
+        if (!nudgedCommit &&
+            _promisesNotify(content) &&
+            !used.any(commitTools.contains)) {
+          nudgedCommit = true;
+          trace.add('🛟 รับปากจะเตือน/เฝ้า แต่ยังไม่สร้าง — ย้ำให้ลงมือ');
+          messages.add(choice); // the toolless reply, so the model sees what it said
+          messages.add({
+            'role': 'user',
+            'content': 'ระบบ: ข้อความก่อนหน้าดูเหมือนรับปากว่าจะเตือน/เฝ้า/แจ้งให้. '
+                'ถ้าตั้งใจจริงและข้อมูลครบ ให้เรียก schedule_reminder หรือ add_watch '
+                'เดี๋ยวนี้; ถ้าขาดเวลา/รายละเอียด ให้ถามผู้ใช้สั้น ๆ; ถ้าเป็นแค่คำพูด '
+                'ทั่วไปไม่ได้จะตั้งเตือนจริง ตอบตามเดิมได้เลย. ห้ามยืนยันว่าเตือน/เฝ้าแล้ว '
+                'ถ้ายังไม่ได้สร้าง.',
+          });
+          continue;
         }
         trace.add(used.isEmpty
             ? '💬 ตอบข้อความ (ไม่เรียกเครื่องมือ)'
@@ -196,4 +218,11 @@ class DeviceBrain {
     }
     return {};
   }
+
+  // Detects a reply that commits to remind/watch/notify the user later, so the
+  // loop can verify a matching tool actually fired (schedule_reminder/add_watch).
+  static final RegExp _notifyRe = RegExp(
+      r'เตือน|แจ้ง|คอยดู|เฝ้า|ไว้จะ|เดี๋ยว.{0,12}ให้|remind|notif|keep an eye',
+      caseSensitive: false);
+  static bool _promisesNotify(String s) => _notifyRe.hasMatch(s);
 }
