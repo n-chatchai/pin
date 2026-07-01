@@ -1,5 +1,5 @@
 # --- Build Stage ---
-FROM rust:1.79-slim-bookworm AS builder
+FROM rust:1-slim-bookworm AS builder
 
 # Install system dependencies (build-essential, python3, pkg-config, libssl-dev)
 RUN apt-get update && apt-get install -y \
