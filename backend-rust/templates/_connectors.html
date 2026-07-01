@@ -20,6 +20,11 @@
   </div>
   <div class="hint" style="margin-top:4px">{{ c.endpoint }}</div>
   <div class="hint" style="margin-top:5px">เครื่องมือ ({{ c.tools|length }}): {% for t in c.tools %}{{ t.name }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+  <form hx-post="/admin/connector/{{ c.name }}/guide" hx-target="#panel" style="margin-top:9px">
+    <small style="font-size:10px;color:var(--ink3)">guide — วิธีให้ ปิ่น ใช้เครื่องมือชุดนี้ (policy/เสียง/guardrail, ไม่ต้องอธิบาย param)</small>
+    <textarea name="guide" rows="4" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:7px;font-size:12px;font-family:inherit">{{ c.guide|default('') }}</textarea>
+    <button class="btn sm g" style="margin-top:5px">บันทึก guide</button>
+  </form>
 </div>
 {% endfor %}
 

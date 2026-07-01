@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS assistants(
   name TEXT PRIMARY KEY, label TEXT, description TEXT, version TEXT, status TEXT,
   metadata_json TEXT);
 CREATE TABLE IF NOT EXISTS connectors(
-  name TEXT PRIMARY KEY, kind TEXT, endpoint TEXT, auth_json TEXT, status TEXT);
+  name TEXT PRIMARY KEY, kind TEXT, endpoint TEXT, auth_json TEXT, status TEXT,
+  guide TEXT);
 CREATE TABLE IF NOT EXISTS capabilities(
   name TEXT PRIMARY KEY, kind TEXT, connector_name TEXT, description TEXT,
   system_prompt TEXT, metadata_json TEXT, enabled INTEGER DEFAULT 1,
@@ -251,8 +252,10 @@ impl Store {
                 .bind(name).bind(label).bind(desc).bind(meta.to_string()).execute(&self.pool).await?;
         }
 
-        // 2. Seed Connectors
-        sqlx::query("INSERT INTO connectors(name, kind, endpoint, status) VALUES ('lakkana', 'mcp', 'http://localhost:3000', 'active')").execute(&self.pool).await?;
+        // 2. Seed Connectors (with usage guide — policy for driving its tools)
+        let lakkana_guide = "เมื่อผู้ใช้อยากดูดวง ใช้เครื่องมือดูดวงของอาจารย์ลักขณาที่มีในระบบ.\n- เก็บวันเกิด/เวลาเกิด(ไม่รู้ใช้ 12:00)/เมืองเกิด ให้ครบก่อนเรียก บอกว่าใช้คำนวณเท่านั้น\n- ถ้าเครื่องมือให้เลือกระบบหรือหัวข้อ ถามผู้ใช้ก่อน อย่าเดาเอง\n- ห้ามแต่งคำทำนายหรือตำแหน่งดาวเอง ใช้ผลจากเครื่องมือเท่านั้น\n- นำเสนออบอุ่น ให้กำลังใจ เตือนว่าเป็นความเชื่อส่วนบุคคล";
+        sqlx::query("INSERT INTO connectors(name, kind, endpoint, status, guide) VALUES ('lakkana', 'mcp', 'http://localhost:3000', 'active', ?)")
+            .bind(lakkana_guide).execute(&self.pool).await?;
 
         // 3. Seed Capabilities (Tools)
         let tools = vec![
@@ -519,11 +522,13 @@ impl Store {
         for r in rows {
             let name: String = r.get("name");
             let tools = self.mcp_tools_for_server(&name).await.unwrap_or_default();
+            let guide = r.try_get::<Option<String>, _>("guide").ok().flatten().unwrap_or_default();
             out.push(json!({
                 "name": name,
                 "kind": r.get::<Option<String>, _>("kind").unwrap_or_default(),
                 "endpoint": r.get::<Option<String>, _>("endpoint").unwrap_or_default(),
                 "status": r.get::<Option<String>, _>("status").unwrap_or_default(),
+                "guide": guide,
                 "tools": tools,
             }));
         }
@@ -534,6 +539,14 @@ impl Store {
     pub async fn set_prompt(&self, name: &str, prompt: &str) -> Result<(), sqlx::Error> {
         sqlx::query("UPDATE capabilities SET system_prompt=? WHERE name=?")
             .bind(prompt).bind(name).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    /// Edit a connector's usage guide (how the agent should drive its tools).
+    /// Untouched by MCP refresh — it's admin-owned policy, not live schema.
+    pub async fn set_connector_guide(&self, name: &str, guide: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE connectors SET guide=? WHERE name=?")
+            .bind(guide).bind(name).execute(&self.pool).await?;
         Ok(())
     }
 

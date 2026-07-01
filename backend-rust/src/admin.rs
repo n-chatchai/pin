@@ -475,6 +475,18 @@ pub async fn mcp_server_tools(State(state): State<AdminState>, jar: CookieJar, P
     axum::Json(serde_json::json!({ "server": server, "tools": tools })).into_response()
 }
 
+#[derive(Deserialize)]
+pub struct GuideForm { pub guide: String }
+
+/// Edit a connector's usage guide (the "how to use my tools" policy).
+pub async fn save_connector_guide(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>, Form(f): Form<GuideForm>) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let _ = state.store.set_connector_guide(&name, &f.guide).await;
+    tab_connectors(State(state), jar).await
+}
+
 // --- Waitlist Tab ---
 
 pub async fn tab_waitlist(State(state): State<AdminState>, jar: CookieJar) -> Response {

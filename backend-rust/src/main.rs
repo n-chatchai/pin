@@ -164,6 +164,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/tab/assistants", get(admin::tab_assistants))
         .route("/admin/mcp/server/:server/refresh", post(admin::mcp_refresh))
         .route("/admin/mcp/server/:server/tools", get(admin::mcp_server_tools))
+        .route("/admin/connector/:name/guide", post(admin::save_connector_guide))
         .route("/admin/store/:name/toggle", post(admin::store_toggle))
         .route("/admin/store/:name/prompt", post(admin::save_prompt))
         .route("/admin/store/:name", post(admin::store_save))
@@ -478,12 +479,28 @@ async fn catalog(
         assistants.append(&mut a);
     }
 
+    // Connector usage guides — the "how to drive my tools" policy, surfaced so the
+    // device can inject a connector's guide only when its tools are in play
+    // (progressive disclosure). Only connectors that actually have a guide set.
+    let connectors: Vec<Value> = state.store.all_connectors().await.unwrap_or_default()
+        .into_iter()
+        .filter(|c| c.get("guide").and_then(|v| v.as_str()).map_or(false, |g| !g.is_empty()))
+        .map(|c| json!({
+            "name": c.get("name").cloned().unwrap_or(Value::Null),
+            "guide": c.get("guide").cloned().unwrap_or(Value::Null),
+            "tools": c.get("tools").and_then(|t| t.as_array())
+                .map(|a| a.iter().filter_map(|t| t.get("name").cloned()).collect::<Vec<_>>())
+                .unwrap_or_default(),
+        }))
+        .collect();
+
     // Enrich displaycopy
     let enriched_tools: Vec<Value> = tools.into_iter().map(display::enrich).collect();
 
     Json(json!({
         "tools": enriched_tools,
-        "assistants": assistants
+        "assistants": assistants,
+        "connectors": connectors
     })).into_response()
 }
 
