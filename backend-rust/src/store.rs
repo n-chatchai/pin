@@ -506,6 +506,7 @@ impl Store {
         for r in rows {
             let mut d = self.capability_to_dict(&r);
             d["enabled"] = json!(r.get::<i64, _>("enabled") != 0);
+            d["system_prompt"] = json!(r.get::<Option<String>, _>("system_prompt").unwrap_or_default());
             out.push(d);
         }
         Ok(out)
@@ -527,6 +528,13 @@ impl Store {
             }));
         }
         Ok(out)
+    }
+
+    /// Edit a skill/subagent's prompt (system_prompt column).
+    pub async fn set_prompt(&self, name: &str, prompt: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE capabilities SET system_prompt=? WHERE name=?")
+            .bind(prompt).bind(name).execute(&self.pool).await?;
+        Ok(())
     }
 
     pub async fn toggle_capability(&self, name: &str) -> Result<bool, sqlx::Error> {

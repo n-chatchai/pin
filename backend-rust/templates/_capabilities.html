@@ -44,6 +44,16 @@
       <div class="fl"><small>รอบ</small><input name="period" value="{{ pr.period|default('month') }}" style="width:60px"></div>
       <button class="btn sm g">บันทึก</button>
     </form>
+    {% if g.kind == 'skill' %}
+    <form hx-post="/admin/store/{{ m.name }}/prompt" hx-target="#panel" style="margin-top:8px">
+      <small style="font-size:10px;color:var(--ink3)">prompt (คำสั่งของทักษะ)</small>
+      <textarea name="prompt" rows="4" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:7px;font-size:12px;font-family:inherit">{{ m.system_prompt|default('') }}</textarea>
+      {% if m.requires and m.requires.tools %}<div class="hint" style="margin:3px 0">ต้องใช้: {% for t in m.requires.tools %}<span class="capchip">{{ t }}</span> {% endfor %}</div>{% endif %}
+      <button class="btn sm g" style="margin-top:5px">บันทึก prompt</button>
+    </form>
+    {% elif m.parameters and m.parameters.properties %}
+    <div class="hint" style="margin-top:6px">พารามิเตอร์: {% for k, v in m.parameters.properties|items %}<span class="capchip">{{ k }}</span> {% endfor %}</div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>

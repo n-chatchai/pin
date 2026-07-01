@@ -372,6 +372,18 @@ pub async fn store_toggle(State(state): State<AdminState>, jar: CookieJar, Path(
     tab_capabilities(State(state), jar).await
 }
 
+#[derive(Deserialize)]
+pub struct PromptForm { pub prompt: String }
+
+/// Edit a skill's prompt (system_prompt) from the admin.
+pub async fn save_prompt(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>, Form(f): Form<PromptForm>) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+        return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    let _ = state.store.set_prompt(&name, &f.prompt).await;
+    tab_capabilities(State(state), jar).await
+}
+
 // --- 3-entity admin: Capabilities / Connectors / Assistants ---
 
 /// Capabilities grouped by kind (tool/skill/subagent/mcp).

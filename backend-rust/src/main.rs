@@ -165,6 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/mcp/server/:server/refresh", post(admin::mcp_refresh))
         .route("/admin/mcp/server/:server/tools", get(admin::mcp_server_tools))
         .route("/admin/store/:name/toggle", post(admin::store_toggle))
+        .route("/admin/store/:name/prompt", post(admin::save_prompt))
         .route("/admin/store/:name", post(admin::store_save))
         .route("/admin/tab/waitlist", get(admin::tab_waitlist))
         .route("/admin/waitlist/poll", post(admin::waitlist_poll))
