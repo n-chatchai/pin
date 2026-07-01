@@ -3,6 +3,10 @@ name: Build & Deploy
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'backend-rust/**'
+      - 'k8s/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch: {}
 
 env:
