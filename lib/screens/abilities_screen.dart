@@ -56,8 +56,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 20,
-        title: const Text('ผู้ช่วย',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text('ทีมของ$botName',
+            style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -67,7 +67,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: Text(
-                        'ผู้ช่วยเฉพาะทางของ$botName — เปิดให้$botNameเรียกใช้เมื่อเจองานที่เหมาะ',
+                        'ผู้เชี่ยวชาญเฉพาะทางที่$botNameเรียกมาช่วยได้ — ติว ดูแลบ้าน ครีเอทีฟ…',
                         style: const TextStyle(
                             color: PinPalette.ink2, fontSize: 13.5)),
                   ),
@@ -75,7 +75,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                 if (_items.isEmpty)
                   const SliverFillRemaining(
                     child: Center(
-                      child: Text('ยังไม่มีผู้ช่วย',
+                      child: Text('ยังไม่มีผู้เชี่ยวชาญในทีม',
                           style: TextStyle(color: PinPalette.ink2)),
                     ),
                   )
