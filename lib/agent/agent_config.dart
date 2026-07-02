@@ -163,11 +163,13 @@ final kPinSystem = kPinSystemFor();
 /// OpenRouter directly; otherwise it stays on the free blind proxy.
 ProxyClient devProxy() {
   final ai = AiSettings.instance.value;
+  final byo = ai.enabled; // a configured BYO provider
   return ProxyClient(
     baseUrl: _kProxyBase,
     token: MatrixService.instance.accessToken ?? '',
-    tier: ai.enabled ? 'paid' : 'free',
-    openrouterKey: ai.enabled ? ai.key : null,
-    model: ai.enabled ? ai.model : null,
+    provider: byo ? ai.provider : 'pin',
+    apiKey: byo ? ai.key : null,
+    model: byo ? ai.model : null,
+    providerBaseUrl: byo ? ai.baseUrl : null,
   );
 }

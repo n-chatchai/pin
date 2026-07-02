@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../services/api_log.dart';
+import 'llm_adapters.dart';
 
 /// Client for ปิ่น's LLM access. Speaks the OpenAI chat-completions schema.
 /// FREE tier → our blind proxy (Gemini, our key). PAID tier (the user's own
@@ -13,63 +14,133 @@ import '../services/api_log.dart';
 class ProxyClient {
   final String baseUrl; // e.g. https://proxy.tokens2.io  (or http://IP:8088 dev)
   final String token; // bearer (per-user later; dev: shared)
-  final String tier; // 'free' | 'paid'
-  final String? openrouterKey; // paid tier only
+  final String provider; // pin | openrouter | openai | gemini | claude
+  final String? apiKey; // BYO providers only
   final String? model;
+  final String? providerBaseUrl; // openai-compatible custom endpoint
 
-  /// OpenRouter direct endpoint (OpenAI-compatible) — bypasses our proxy.
   static const _openrouterUrl =
       'https://openrouter.ai/api/v1/chat/completions';
+  static const _anthropicUrl = 'https://api.anthropic.com/v1/messages';
+  static const _geminiBase =
+      'https://generativelanguage.googleapis.com/v1beta/models';
 
-  /// Fallback model for a paid user who didn't pick one. Cheap + tool-capable;
-  /// the user overrides it in settings.
+  /// Fallback model for a BYO user who didn't pick one. Cheap + tool-capable.
   static const defaultOpenRouterModel = 'openai/gpt-4o-mini';
 
   const ProxyClient({
     required this.baseUrl,
     required this.token,
-    this.tier = 'free',
-    this.openrouterKey,
+    this.provider = 'pin',
+    this.apiKey,
     this.model,
+    this.providerBaseUrl,
   });
 
   /// One chat-completions round. `messages`/`tools` are OpenAI-shaped maps.
-  /// Returns the parsed response; caller reads choices[0].message.
+  /// Returns an OpenAI-shaped response; caller reads choices[0].message.
+  /// Gemini/Claude are translated to/from their native shapes.
   Future<Map<String, dynamic>> infer({
     required List<Map<String, dynamic>> messages,
     List<Map<String, dynamic>>? tools,
   }) async {
-    final direct = tier == 'paid' &&
-        openrouterKey != null &&
-        openrouterKey!.isNotEmpty;
+    switch (provider) {
+      case 'gemini':
+        return _inferGemini(messages, tools);
+      case 'claude':
+        return _inferClaude(messages, tools);
+      default:
+        return _inferOpenAi(messages, tools);
+    }
+  }
+
+  /// OpenAI-compatible path: our proxy (pin), OpenRouter, OpenAI, or any custom
+  /// OpenAI-compatible endpoint (Groq/Together/DeepSeek/Ollama/LM Studio/…).
+  Future<Map<String, dynamic>> _inferOpenAi(
+    List<Map<String, dynamic>> messages,
+    List<Map<String, dynamic>>? tools,
+  ) async {
+    final byo = provider != 'pin';
     final body = <String, dynamic>{
       'messages': messages,
       if (tools != null && tools.isNotEmpty) ...{
         'tools': tools,
         'tool_choice': 'auto',
       },
-      // OpenRouter (direct) requires a model; default one if unset. The free
-      // proxy fills its own model, so only send it when chosen.
       if (model != null)
         'model': model
-      else if (direct)
+      else if (byo)
         'model': defaultOpenRouterModel,
     };
-    // PAID → device calls OpenRouter directly (key on-device, never our proxy).
-    // FREE → our blind proxy with our Gemini key.
-    final url = direct ? _openrouterUrl : '$baseUrl/infer';
-    final headers = direct
+    final url = switch (provider) {
+      'openrouter' => _openrouterUrl,
+      'openai' => '${(providerBaseUrl ?? '').replaceAll(RegExp(r'/+$'), '')}'
+          '/chat/completions',
+      _ => '$baseUrl/infer', // pin
+    };
+    final headers = byo
         ? <String, String>{
-            'Authorization': 'Bearer ${openrouterKey!}',
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://pin.tokens2.io',
-            'X-Title': 'Pin',
+            if (apiKey != null && apiKey!.isNotEmpty)
+              'Authorization': 'Bearer ${apiKey!}',
+            if (provider == 'openrouter') ...{
+              'HTTP-Referer': 'https://pin.tokens2.io',
+              'X-Title': 'Pin',
+            },
           }
         : <String, String>{
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
             'X-Pin-Tier': 'free',
           };
+    return _post(url, headers, body);
+  }
+
+  Future<Map<String, dynamic>> _inferGemini(
+    List<Map<String, dynamic>> messages,
+    List<Map<String, dynamic>>? tools,
+  ) async {
+    final m = (model == null || model!.isEmpty) ? 'gemini-2.0-flash' : model!;
+    final url = '$_geminiBase/$m:generateContent?key=${apiKey ?? ''}';
+    final resp = await _post(
+      url,
+      const {'Content-Type': 'application/json'},
+      openAiToGemini(messages, tools),
+      label: 'gemini',
+    );
+    return geminiToOpenAi(resp);
+  }
+
+  Future<Map<String, dynamic>> _inferClaude(
+    List<Map<String, dynamic>> messages,
+    List<Map<String, dynamic>>? tools,
+  ) async {
+    final m =
+        (model == null || model!.isEmpty) ? 'claude-3-5-sonnet-latest' : model!;
+    final body = openAiToClaude(messages, tools)
+      ..['model'] = m
+      ..['max_tokens'] = 4096;
+    final resp = await _post(
+      _anthropicUrl,
+      {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey ?? '',
+        'anthropic-version': '2023-06-01',
+      },
+      body,
+      label: 'claude',
+    );
+    return claudeToOpenAi(resp);
+  }
+
+  /// Shared POST + logging + error surface. Returns the parsed JSON body.
+  Future<Map<String, dynamic>> _post(
+    String url,
+    Map<String, String> headers,
+    Map<String, dynamic> body, {
+    String? label,
+  }) async {
+    final tag = label ?? (provider == 'pin' ? 'proxy' : provider);
     final sw = Stopwatch()..start();
     final reqJson = jsonEncode(body);
     final r = await http
@@ -84,8 +155,7 @@ class ProxyClient {
         reqBody: reqJson,
         respBody: respText);
     if (r.statusCode != 200) {
-      throw Exception(
-          '${direct ? "openrouter" : "proxy"} ${r.statusCode}: ${r.body}');
+      throw Exception('$tag ${r.statusCode}: ${r.body}');
     }
     return jsonDecode(respText) as Map<String, dynamic>;
   }

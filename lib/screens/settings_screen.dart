@@ -27,7 +27,7 @@ import '../agent/agent_session.dart';
 import '../agent/embedder.dart';
 import '../widgets/flex_card_view.dart';
 import 'abilities_screen.dart';
-import 'openrouter_screen.dart';
+import 'ai_provider_screen.dart';
 import '../services/ai_settings.dart';
 import 'device_data_screen.dart';
 import 'device_verify_screen.dart';
@@ -163,24 +163,20 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
             ]),
-            if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
-            _section('โมเดลเอไอ'),
+            _section('ผู้ให้บริการเอไอ'),
             _card([
               ValueListenableBuilder<AiConfig>(
                 valueListenable: AiSettings.instance,
                 builder: (context, ai, _) => _navRow(
                   context,
                   PhosphorIconsRegular.cpu,
-                  'โมเดลเอไอ',
-                  ai.enabled
-                      ? ai.model.split('/').last.replaceFirst(':free', '')
-                      : 'ปิ่น (ฟรี)',
+                  'ผู้ให้บริการเอไอ',
+                  ai.label,
                   () => Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => const OpenRouterScreen())),
+                      builder: (_) => const AiProviderScreen())),
                 ),
               ),
             ]),
-            ],
             _section('สถานะความปลอดภัย'),
             _card([_SecurityStatus()]),
             if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
