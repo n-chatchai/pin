@@ -155,7 +155,10 @@ class DeviceBrain {
                   'ดูดวง→ข้อควรระวัง). ห้ามพูดลอย ๆ ว่า "ตามนี้เลยค่ะ" หรือ '
                   '"นี่คือข้อมูล" และห้ามเอ่ยชื่อฟังก์ชัน.',
             });
-            break; // re-infer for the caption
+            // Don't break: keep answering the remaining tool_calls in this batch,
+            // else their tool_call_ids go unanswered and a strict provider
+            // (Gemini/Claude/OpenAI) rejects the next infer. Re-infer after (gotCard).
+            continue;
           }
           // Non-card terminal (e.g. plain reply) → done.
           trace.add('← $name: ผลลัพธ์ ✓');

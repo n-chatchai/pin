@@ -765,9 +765,14 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     if (!mounted) return;
     _showWelcome();
     setState(() {
+      // Close onboarding by SOLICITING what the user wants — ปิ่น does what it
+      // can right away and queues the rest (request_capability). This both feels
+      // welcoming and tells us what capabilities users actually want.
       _messages.add(_text(
-          'ตั้งค่าเสร็จเรียบร้อย$_pt ${p.pinSelf}พร้อมช่วย${p.userCall}แล้วนะ — '
-          'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะตั้งค่า ⋯ ได้ตลอด',
+          'ตั้งค่าเสร็จเรียบร้อย$_pt ก่อนเริ่ม ${p.pinSelf}อยากรู้ก่อนว่า — '
+          'อยากให้${p.pinSelf}ช่วยเรื่องอะไรบ้าง$_pt บอกมาได้เลยหลาย ๆ อย่าง '
+          '${p.pinSelf}จัดให้เท่าที่ทำได้ ที่เหลือจดไว้ให้ 🌱 '
+          '(เปลี่ยนชื่อ/คำเรียกทีหลังแตะ ⋯ ได้ตลอดนะ)',
           me: false));
     });
     // A share received during onboarding was held back; route it now.

@@ -9,7 +9,8 @@ import 'tools.dart';
 /// Remote tools hosted on our proxy — minimal-arg, blind. The brain sends ONLY
 /// the declared narrow args (place / base+quote / query); never identity,
 /// conversation, or preferences. Result text is fed back to the model.
-AgentTool _remote(ProxyClient proxy, Map<String, dynamic> decl) {
+AgentTool _remote(ProxyClient proxy, Map<String, dynamic> decl,
+    {int timeoutSec = 35}) {
   final name = decl['function']['name'] as String;
   return AgentTool(decl, kind: 'remote', (args) async {
     final r = await http
@@ -21,7 +22,7 @@ AgentTool _remote(ProxyClient proxy, Map<String, dynamic> decl) {
           },
           body: jsonEncode(args),
         )
-        .timeout(const Duration(seconds: 35));
+        .timeout(Duration(seconds: timeoutSec));
     if (r.statusCode != 200) {
       return ToolResult.feedback('เครื่องมือมีปัญหา (${r.statusCode})');
     }
@@ -60,5 +61,17 @@ List<AgentTool> remoteTools(ProxyClient proxy) => [
               'query': {'type': 'string', 'description': 'คำค้น'},
             },
             required: ['query']),
+      ),
+      // Built-in (not catalog-only) so วาดรูป never silently no-ops when the
+      // catalog is unavailable. A duplicate catalog entry is skipped by name.
+      _remote(
+        proxy,
+        fnDecl('generate_image',
+            'วาด/สร้างรูปจากคำบรรยาย (รวมสั่งอ้อม เช่น "ไม่ใช่ เอาผู้ชาย")',
+            properties: {
+              'prompt': {'type': 'string', 'description': 'คำบรรยายรูปที่ต้องการ'},
+            },
+            required: ['prompt']),
+        timeoutSec: 100,
       ),
     ];

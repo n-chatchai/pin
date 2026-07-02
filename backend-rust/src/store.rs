@@ -616,6 +616,16 @@ impl Store {
             meta["server"] = json!(c);
         }
 
+        // Skill instructions are edited via admin into the `system_prompt` column
+        // — surface them as `instructions` (what the app reads) so an admin-authored
+        // skill actually reaches the device. metadata_json may already carry one;
+        // the column wins when set.
+        if let Ok(Some(sp)) = r.try_get::<Option<String>, _>("system_prompt") {
+            if !sp.is_empty() {
+                meta["instructions"] = json!(sp);
+            }
+        }
+
         // Ensure defaults are present for legacy client expectation
         if meta.get("parameters").is_none() {
             meta["parameters"] = json!({});
