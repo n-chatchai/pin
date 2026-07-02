@@ -99,7 +99,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // APNs configurations
     let scheduler = Arc::new(Scheduler::new(store.clone(), google_auth));
 
-    // LLM Models
+    // LLM Models. flash-lite handles YouTube fileData video summaries (verified),
+    // so it stays the default. Override per-deploy with PIN_FREE_MODEL / the
+    // pin_free_model setting.
     let free_model = store
         .get_setting("pin_free_model")
         .await

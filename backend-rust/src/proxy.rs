@@ -448,51 +448,6 @@ impl LLMForwarder {
             .get("x-openrouter-referer")
             .and_then(|h| h.to_str().ok());
 
-        let url: String;
-        let mut client_headers = reqwest::header::HeaderMap::new();
-
-        let payload = if x_pin_tier == "paid" {
-            let key = match x_openrouter_key {
-                Some(k) => k,
-                None => {
-                    return (
-                        axum::http::StatusCode::BAD_REQUEST,
-                        "missing OpenRouter key",
-                    )
-                        .into_response()
-                }
-            };
-            url = "https://openrouter.ai/api/v1/chat/completions".to_string();
-            client_headers.insert("Authorization", format!("Bearer {}", key).parse().unwrap());
-            if let Some(ref_val) = x_openrouter_referer {
-                client_headers.insert("HTTP-Referer", ref_val.parse().unwrap());
-            }
-            body
-        } else {
-            let gkey = match std::env::var("GEMINI_API_KEY") {
-                Ok(k) if !k.is_empty() => k,
-                _ => {
-                    return (
-                        axum::http::StatusCode::SERVICE_UNAVAILABLE,
-                        "proxy not configured",
-                    )
-                        .into_response()
-                }
-            };
-            url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-                .to_string();
-            client_headers.insert("Authorization", format!("Bearer {}", gkey).parse().unwrap());
-
-            // Inject free model if missing
-            let mut payload = body;
-            if payload.get("model").is_none() {
-                if let Some(obj) = payload.as_object_mut() {
-                    obj.insert("model".to_string(), json!(self.free_model));
-                }
-            }
-            payload
-        };
-
         // We bind to 0.0.0.0 to force IPv4 (same as AsyncHTTPTransport(local_address="0.0.0.0") in Python)
         let client = match reqwest::Client::builder()
             .local_address(Some("0.0.0.0".parse().unwrap()))
@@ -509,10 +464,64 @@ impl LLMForwarder {
             }
         };
 
+        // Paid tier → OpenRouter passthrough (OpenAI-shaped both ways, BYO key).
+        if x_pin_tier == "paid" {
+            let key = match x_openrouter_key {
+                Some(k) => k,
+                None => {
+                    return (
+                        axum::http::StatusCode::BAD_REQUEST,
+                        "missing OpenRouter key",
+                    )
+                        .into_response()
+                }
+            };
+            let mut client_headers = reqwest::header::HeaderMap::new();
+            client_headers.insert("Authorization", format!("Bearer {}", key).parse().unwrap());
+            if let Some(ref_val) = x_openrouter_referer {
+                client_headers.insert("HTTP-Referer", ref_val.parse().unwrap());
+            }
+            return forward_passthrough(
+                &client,
+                "https://openrouter.ai/api/v1/chat/completions",
+                client_headers,
+                &body,
+            )
+            .await;
+        }
+
+        // Free tier ("ปิ่น") → NATIVE Gemini generateContent. We go native rather
+        // than the /openai/chat/completions compat endpoint so Gemini's built-in
+        // features survive — most visibly summarizing a YouTube link, which the
+        // OpenAI-shaped path drops (a URL is just text there). openai_to_gemini
+        // detects YouTube URLs and attaches them as fileData parts so the model
+        // actually watches the video; the response is mapped back to OpenAI shape
+        // so the client (which speaks OpenAI for `pin`) needs no change.
+        let gkey = match std::env::var("GEMINI_API_KEY") {
+            Ok(k) if !k.is_empty() => k,
+            _ => {
+                return (
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                    "proxy not configured",
+                )
+                    .into_response()
+            }
+        };
+        let model = body
+            .get("model")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&self.free_model)
+            .to_string();
+        let gbody = openai_to_gemini(&body);
+        let url = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+            model
+        );
         let res = match client
             .post(&url)
-            .headers(client_headers)
-            .json(&payload)
+            .query(&[("key", gkey.as_str())])
+            .json(&gbody)
             .send()
             .await
         {
@@ -525,10 +534,8 @@ impl LLMForwarder {
                     .into_response()
             }
         };
-
         let status = res.status();
-        let content_type = res.headers().get("content-type").cloned();
-        let bytes = match res.bytes().await {
+        let raw = match res.bytes().await {
             Ok(b) => b,
             Err(_) => {
                 return (
@@ -538,12 +545,32 @@ impl LLMForwarder {
                     .into_response()
             }
         };
-
-        let mut builder = Response::builder().status(status);
-        if let Some(ct) = content_type {
-            builder = builder.header("content-type", ct);
+        // Pass upstream errors straight through so the client can surface them.
+        if !status.is_success() {
+            return Response::builder()
+                .status(status)
+                .header("content-type", "application/json")
+                .body(Body::from(raw))
+                .unwrap();
         }
-        builder.body(Body::from(bytes)).unwrap()
+        let gresp: Value = match serde_json::from_slice(&raw) {
+            Ok(v) => v,
+            Err(_) => {
+                return (
+                    axum::http::StatusCode::BAD_GATEWAY,
+                    "invalid provider response",
+                )
+                    .into_response()
+            }
+        };
+        let openai = gemini_to_openai(&gresp);
+        Response::builder()
+            .status(axum::http::StatusCode::OK)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::to_vec(&openai).unwrap_or_default(),
+            ))
+            .unwrap()
     }
 
     pub async fn transcribe(
@@ -641,5 +668,315 @@ fn audio_mime(name: Option<&str>, ct: Option<&str>) -> String {
         "ogg" => "audio/ogg".to_string(),
         "flac" => "audio/flac".to_string(),
         _ => ct.unwrap_or("audio/mp4").to_string(),
+    }
+}
+
+// ─────────────────── OpenAI ⇄ native Gemini adapters ───────────────────
+// Rust port of lib/agent/llm_adapters.dart (openAiToGemini / geminiToOpenAi).
+// Keep the two in sync: the device speaks OpenAI chat-completions for `pin`, so
+// the proxy translates to Gemini's request shape and back. Tool-use must ride
+// through both directions — the agent is tool-heavy.
+
+/// Forward an OpenAI-shaped request to a compat endpoint, passing the response
+/// bytes (and content-type) straight back. Used for the OpenRouter paid tier.
+async fn forward_passthrough(
+    client: &reqwest::Client,
+    url: &str,
+    client_headers: reqwest::header::HeaderMap,
+    body: &Value,
+) -> Response {
+    let res = match client
+        .post(url)
+        .headers(client_headers)
+        .json(body)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                axum::http::StatusCode::BAD_GATEWAY,
+                format!("provider error: {:?}", e),
+            )
+                .into_response()
+        }
+    };
+    let status = res.status();
+    let content_type = res.headers().get("content-type").cloned();
+    let bytes = match res.bytes().await {
+        Ok(b) => b,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_GATEWAY,
+                "failed to read provider response",
+            )
+                .into_response()
+        }
+    };
+    let mut builder = Response::builder().status(status);
+    if let Some(ct) = content_type {
+        builder = builder.header("content-type", ct);
+    }
+    builder.body(Body::from(bytes)).unwrap()
+}
+
+/// OpenAI `arguments` (a JSON string) or an already-decoded object → object.
+fn decode_args(v: Option<&Value>) -> Value {
+    match v {
+        Some(Value::String(s)) => serde_json::from_str(s).unwrap_or_else(|_| json!({})),
+        Some(other) if other.is_object() => other.clone(),
+        _ => json!({}),
+    }
+}
+
+/// Strip JSON-Schema keywords Gemini's function schema rejects.
+fn clean_schema(node: &Value) -> Value {
+    match node {
+        Value::Object(m) => {
+            let mut out = serde_json::Map::new();
+            for (k, val) in m {
+                if k == "$schema" || k == "additionalProperties" || k == "default" {
+                    continue;
+                }
+                out.insert(k.clone(), clean_schema(val));
+            }
+            Value::Object(out)
+        }
+        Value::Array(a) => Value::Array(a.iter().map(clean_schema).collect()),
+        _ => node.clone(),
+    }
+}
+
+fn gemini_fn_decl(fnv: &Value) -> Value {
+    let mut decl = json!({ "name": fnv.get("name").cloned().unwrap_or_else(|| json!("")) });
+    if let Some(d) = fnv.get("description") {
+        decl["description"] = d.clone();
+    }
+    // Gemini rejects an empty-property object schema; omit params when none.
+    if let Some(params) = fnv.get("parameters") {
+        let has_props = params
+            .get("properties")
+            .and_then(|p| p.as_object())
+            .map(|o| !o.is_empty())
+            .unwrap_or(false);
+        if has_props {
+            decl["parameters"] = clean_schema(params);
+        }
+    }
+    decl
+}
+
+/// Pull YouTube watch/short URLs out of free text (token scan — no regex dep).
+fn youtube_urls(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for tok in text.split_whitespace() {
+        // Trim wrapping punctuation but keep URL chars.
+        let t = tok.trim_matches(|c: char| {
+            !c.is_alphanumeric()
+                && !matches!(c, ':' | '/' | '.' | '?' | '=' | '&' | '_' | '-')
+        });
+        let low = t.to_lowercase();
+        let is_yt = low.contains("youtube.com/watch")
+            || low.contains("youtu.be/")
+            || low.contains("youtube.com/shorts");
+        if is_yt && (low.starts_with("http://") || low.starts_with("https://")) {
+            let s = t.to_string();
+            if !out.contains(&s) {
+                out.push(s);
+            }
+        }
+    }
+    out
+}
+
+/// OpenAI messages+tools → a Gemini `generateContent` request body.
+fn openai_to_gemini(body: &Value) -> Value {
+    let messages = body
+        .get("messages")
+        .and_then(|m| m.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut sys: Vec<String> = Vec::new();
+    let mut contents: Vec<Value> = Vec::new();
+    // Gemini's functionResponse needs the function NAME, but an OpenAI tool
+    // message only carries tool_call_id → remember id→name from assistant turns.
+    let mut id_to_name: HashMap<String, String> = HashMap::new();
+
+    for m in &messages {
+        let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
+        if role == "system" {
+            sys.push(
+                m.get("content")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            );
+            continue;
+        }
+        if role == "tool" {
+            let id = m.get("tool_call_id").and_then(|v| v.as_str()).unwrap_or("");
+            let name = id_to_name.get(id).cloned().unwrap_or_else(|| {
+                m.get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("tool")
+                    .to_string()
+            });
+            let content = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+            contents.push(json!({
+                "role": "user",
+                "parts": [{"functionResponse": {"name": name, "response": {"result": content}}}]
+            }));
+            continue;
+        }
+        // user / assistant
+        let mut parts: Vec<Value> = Vec::new();
+        let mut text_buf = String::new();
+        match m.get("content") {
+            Some(Value::String(s)) if !s.is_empty() => {
+                parts.push(json!({ "text": s }));
+                text_buf.push_str(s);
+            }
+            Some(Value::Array(arr)) => {
+                for p in arr {
+                    if p.get("type").and_then(|t| t.as_str()) == Some("text") {
+                        let t = p.get("text").and_then(|x| x.as_str()).unwrap_or("");
+                        parts.push(json!({ "text": t }));
+                        text_buf.push(' ');
+                        text_buf.push_str(t);
+                    }
+                }
+            }
+            _ => {}
+        }
+        // Attach any YouTube URL in a user turn as a fileData part so native
+        // Gemini watches the video instead of seeing a bare string.
+        if role == "user" {
+            for u in youtube_urls(&text_buf) {
+                parts.push(json!({ "fileData": { "fileUri": u } }));
+            }
+        }
+        if let Some(calls) = m.get("tool_calls").and_then(|c| c.as_array()) {
+            for c in calls {
+                let empty = json!({});
+                let fnv = c.get("function").unwrap_or(&empty);
+                let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                let name = fnv.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                if !id.is_empty() {
+                    id_to_name.insert(id.to_string(), name.to_string());
+                }
+                let args = decode_args(fnv.get("arguments"));
+                parts.push(json!({ "functionCall": { "name": name, "args": args } }));
+            }
+        }
+        if parts.is_empty() {
+            continue;
+        }
+        let grole = if role == "assistant" { "model" } else { "user" };
+        contents.push(json!({ "role": grole, "parts": parts }));
+    }
+
+    let mut b = json!({ "contents": contents });
+    if !sys.is_empty() {
+        b["systemInstruction"] = json!({ "parts": [{ "text": sys.join("\n\n") }] });
+    }
+    if let Some(tools) = body.get("tools").and_then(|t| t.as_array()) {
+        let decls: Vec<Value> = tools
+            .iter()
+            .filter_map(|t| t.get("function"))
+            .map(gemini_fn_decl)
+            .collect();
+        if !decls.is_empty() {
+            b["tools"] = json!([{ "functionDeclarations": decls }]);
+        }
+    }
+    b
+}
+
+/// A Gemini `generateContent` response → the OpenAI choices shape.
+fn gemini_to_openai(resp: &Value) -> Value {
+    let empty: Vec<Value> = Vec::new();
+    let parts = resp
+        .get("candidates")
+        .and_then(|c| c.as_array())
+        .and_then(|a| a.first())
+        .and_then(|c| c.get("content"))
+        .and_then(|c| c.get("parts"))
+        .and_then(|p| p.as_array())
+        .unwrap_or(&empty);
+    let mut buf = String::new();
+    let mut tool_calls: Vec<Value> = Vec::new();
+    for (i, p) in parts.iter().enumerate() {
+        if let Some(t) = p.get("text").and_then(|x| x.as_str()) {
+            buf.push_str(t);
+        }
+        if let Some(fc) = p.get("functionCall") {
+            let name = fc.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let args = fc.get("args").cloned().unwrap_or_else(|| json!({}));
+            tool_calls.push(json!({
+                "id": format!("call_gm_{}", i),
+                "type": "function",
+                "function": { "name": name, "arguments": args.to_string() }
+            }));
+        }
+    }
+    let mut message = json!({
+        "role": "assistant",
+        "content": if buf.is_empty() { Value::Null } else { json!(buf) },
+    });
+    if !tool_calls.is_empty() {
+        message["tool_calls"] = json!(tool_calls);
+    }
+    let mut out = json!({ "choices": [{ "message": message }] });
+    if let Some(um) = resp.get("usageMetadata") {
+        out["usage"] = json!({
+            "prompt_tokens": um.get("promptTokenCount").and_then(|v| v.as_i64()).unwrap_or(0),
+            "completion_tokens": um.get("candidatesTokenCount").and_then(|v| v.as_i64()).unwrap_or(0),
+        });
+    }
+    out
+}
+
+#[cfg(test)]
+mod adapter_tests {
+    use super::*;
+
+    #[test]
+    fn youtube_url_becomes_filedata() {
+        let body = json!({
+            "messages": [{"role": "user", "content": "สรุปคลิปนี้ https://youtu.be/dQw4w9WgXcQ ให้หน่อย"}]
+        });
+        let g = openai_to_gemini(&body);
+        let parts = g["contents"][0]["parts"].as_array().unwrap();
+        // text part + fileData part
+        assert!(parts.iter().any(|p| p.get("text").is_some()));
+        let fd = parts
+            .iter()
+            .find_map(|p| p.get("fileData"))
+            .expect("fileData part missing");
+        assert_eq!(fd["fileUri"], "https://youtu.be/dQw4w9WgXcQ");
+    }
+
+    #[test]
+    fn tool_call_roundtrips_to_openai() {
+        let resp = json!({
+            "candidates": [{"content": {"parts": [
+                {"text": "ok"},
+                {"functionCall": {"name": "get_weather", "args": {"city": "BKK"}}}
+            ]}}]
+        });
+        let o = gemini_to_openai(&resp);
+        let msg = &o["choices"][0]["message"];
+        assert_eq!(msg["content"], "ok");
+        let tc = &msg["tool_calls"][0];
+        assert_eq!(tc["function"]["name"], "get_weather");
+        // arguments must be a JSON *string* in OpenAI shape
+        assert_eq!(tc["function"]["arguments"], "{\"city\":\"BKK\"}");
+    }
+
+    #[test]
+    fn no_tools_key_when_empty() {
+        let body = json!({ "messages": [{"role": "user", "content": "hi"}] });
+        let g = openai_to_gemini(&body);
+        assert!(g.get("tools").is_none());
     }
 }
