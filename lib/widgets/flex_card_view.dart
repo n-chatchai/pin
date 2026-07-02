@@ -130,6 +130,8 @@ class FlexCardView extends StatelessWidget {
         return _bignum(c, scheme);
       case 'progress':
         return _progress(c, scheme);
+      case 'watchitem':
+        return _watchItem(c, scheme);
       case 'divider':
         return const Divider(height: 16, color: PinPalette.line);
       case 'button':
@@ -200,6 +202,46 @@ class FlexCardView extends StatelessWidget {
         ),
         child: GptMarkdown(text, style: ts),
       );
+
+  /// A watch/briefing row: tinted icon chip + topic (bold) over its finding.
+  /// Matches the "ตอนนี้" row rhythm; used by the daily digest + immediate cards.
+  Widget _watchItem(Map<String, dynamic> c, ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(_iconFor('${c['icon'] ?? 'news'}'),
+                size: 19, color: scheme.secondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${c['topic'] ?? ''}',
+                    style: PinPalette.brand(size: 14.5, color: PinPalette.ink)),
+                if ('${c['finding'] ?? ''}'.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('${c['finding']}',
+                        style: const TextStyle(
+                            fontSize: 13, height: 1.45, color: PinPalette.ink2)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _task(Map<String, dynamic> c, ColorScheme scheme) {
     return Padding(

@@ -6,6 +6,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../agent/watch_digest.dart';
 import '../services/matrix_service.dart';
 import 'api_log_screen.dart';
 import 'watcher_debug_screen.dart';
@@ -133,6 +134,47 @@ class SettingsScreen extends StatelessWidget {
                   onTap: () => showThemePicker(context),
                 ),
               ),
+            ]),
+            _section('การเฝ้าติดตาม'),
+            _card([
+              SwitchListTile(
+                secondary: const Icon(PhosphorIconsRegular.sun),
+                title: const Text('สรุปการเฝ้าประจำวัน'),
+                subtitle: const Text('รวมเรื่องที่เฝ้าไว้มาบอกทีเดียวตอนเช้า '
+                    '(เรื่องด่วนปิ่นจะบอกทันที)'),
+                value: p.morningReminder,
+                onChanged: (v) async {
+                  await PrefsController.instance
+                      .update(p.copyWith(morningReminder: v));
+                  final rid = await MatrixService.instance.pinRoomId();
+                  if (rid != null) await rescheduleDigestJob(rid);
+                },
+              ),
+              if (p.morningReminder)
+                ListTile(
+                  leading: const Icon(PhosphorIconsRegular.clock),
+                  title: const Text('เวลาสรุป'),
+                  trailing: Text(p.morningTime,
+                      style: const TextStyle(color: PinPalette.ink2)),
+                  onTap: () async {
+                    final parts = p.morningTime.split(':');
+                    final t = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(
+                        hour: int.tryParse(parts.first) ?? 8,
+                        minute:
+                            int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+                      ),
+                    );
+                    if (t == null) return;
+                    final hhmm =
+                        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+                    await PrefsController.instance
+                        .update(p.copyWith(morningTime: hhmm));
+                    final rid = await MatrixService.instance.pinRoomId();
+                    if (rid != null) await rescheduleDigestJob(rid);
+                  },
+                ),
             ]),
             if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
             _section('โมเดลเอไอ'),

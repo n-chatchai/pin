@@ -4,12 +4,15 @@ import '../services/android_job_alarm.dart';
 import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
 import '../services/now_controllers.dart';
+import '../services/pin_meta.dart';
 import '../services/tasks_controller.dart';
 import 'agent_config.dart';
 import 'agent_reply.dart';
 import 'agent_store.dart';
 import 'tools.dart';
 import 'wake_sync.dart';
+import 'watch_card.dart';
+import 'watch_digest.dart';
 import 'when_parse.dart';
 
 /// On-device "ตอนนี้" tools: let ปิ่น create reminders / jobs / tasks / memory.
@@ -115,10 +118,13 @@ String _watchPrompt(String id, String topic) =>
     '(query ต้องมีคำว่า "$topic" เสมอ ห้ามค้นกว้าง ๆ).\n'
     '2) เรียก recall_knowledge ด้วยคำค้น "watch $topic" เพื่อดูว่ารอบก่อนรู้อะไรไปแล้ว.\n'
     '3) ถ้าเจอเรื่องใหม่ (ไม่ซ้ำกับที่จำไว้ — รอบแรกถือว่าใหม่ทั้งหมด): '
-    'เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ") + save_knowledge หัวข้อ "watch $topic" '
-    'เก็บสิ่งที่เจอกันซ้ำรอบหน้า + **ตอบผู้ใช้สั้น ๆ เป็นข่าวของ "$topic"** '
-    '(คำเรียกผู้ใช้ตามเปอร์โซนา).\n'
-    '4) เฉพาะกรณี "ไม่มีอะไรใหม่เลยจริง ๆ" เทียบกับที่จำไว้ — เงียบ ไม่ต้องตอบ แล้วจบงาน.';
+    'เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ", urgency:...) + save_knowledge หัวข้อ "watch $topic" '
+    'เก็บสิ่งที่เจอกันซ้ำรอบหน้า. '
+    'urgency="now" เฉพาะเรื่องที่เพิ่งเกิด/ผลลัพธ์ที่ผู้ใช้รออยู่/เปลี่ยนสำคัญ; '
+    'ที่เหลือ urgency="digest" (จะถูกรวมในสรุปประจำวันเอง).\n'
+    '4) **ห้ามพิมพ์ข้อความตอบผู้ใช้** — การ์ดสรุปจัดการการแจ้งให้แล้ว. '
+    'แค่เรียกเครื่องมือแล้วจบงานเงียบ ๆ.\n'
+    '5) ถ้า "ไม่มีอะไรใหม่เลยจริง ๆ" — ไม่ต้องเรียกอะไร จบงานเงียบ.';
 
 /// Normalise the model's `interval` arg to a known tier, defaulting to daily.
 /// Tier→seconds map lives in wake_sync ([watchTierSec]) — shared with the server
@@ -491,6 +497,13 @@ List<AgentTool> nowTools() => [
               'description': 'ระบุเฉพาะเมื่อผู้ใช้อยากได้เวลาตายตัวต่อวัน "HH:MM" '
                   '(เช่น "ทุก 8 โมง") — ถ้าใส่จะทับ interval เป็นเช็ควันละครั้งเวลานี้',
             },
+            'icon': {
+              'type': 'string',
+              'enum': ['news', 'money', 'chart', 'sun', 'calendar', 'heart', 'sparkles'],
+              'description': 'ไอคอนหมวดของเรื่องที่เฝ้า (ใช้บนการ์ดสรุป) — '
+                  'money/chart=การเงิน/ราคา, calendar=นัด/อีเวนต์, heart=สุขภาพ, '
+                  'news=ข่าวทั่วไป (ดีฟอลต์)',
+            },
           },
           required: ['topic'],
         ),
@@ -517,6 +530,8 @@ List<AgentTool> nowTools() => [
             'last_seen': '',
             'last_seen_at': 0,
             'has_new': false,
+            'pending_digest': false,
+            'icon': '${args['icon'] ?? 'news'}',
             'interval': fixedDaily ? 'daily' : tier,
             if (fixedDaily) 'time': timeArg, // kept so re-sync knows the hour
             'created': DateTime.now().millisecondsSinceEpoch,
@@ -553,11 +568,14 @@ List<AgentTool> nowTools() => [
               'at': now, // first check ~now; settles to the interval after
             });
           }
+          // Make sure the daily briefing job exists (findings batch into it).
+          await ensureDigestJob(rid);
           // Reconcile the whole server wake schedule from room state (declarative)
           // — this new watch plus any that missed registration earlier. Idempotent.
           await syncWakeSchedule(rid);
           await AndroidJobAlarm.armAll(rid);
-          return (true, "จะคอยเฝ้าเรื่อง '$topic' ให้ — มีอะไรใหม่จะบอกในแชต");
+          return (true,
+              "จะคอยเฝ้าเรื่อง '$topic' ให้ — สรุปให้ทุกเช้า (เปลี่ยนเวลาได้ในตั้งค่า) ถ้ามีเรื่องด่วนจะบอกทันที");
         },
       ),
 
@@ -565,13 +583,21 @@ List<AgentTool> nowTools() => [
       feedbackTool(
         fnDecl(
           'update_watch',
-          'บันทึกผลการเฝ้าติดตามล่าสุด (เรียกจากงานเฝ้าเมื่อเจอเรื่องใหม่) — '
-          'อัปเดตสิ่งที่เจอไว้ให้แสดงใน "ตอนนี้"',
+          'บันทึกผลการเฝ้าติดตามล่าสุด (เรียกจากงานเฝ้าเมื่อเจอเรื่องใหม่). '
+          'เรื่องปกติจะถูกรวมไปแจ้งในสรุปประจำวันตามเวลาที่ผู้ใช้ตั้ง — '
+          'ตั้ง urgency="now" เฉพาะเรื่องที่เพิ่งเกิด/ผลลัพธ์ที่ผู้ใช้รออยู่/'
+          'เปลี่ยนแปลงสำคัญที่ควรรู้เดี๋ยวนี้เท่านั้น',
           properties: {
             'id': {'type': 'string', 'description': 'id ของ watch'},
             'finding': {
               'type': 'string',
               'description': 'สรุปสั้น ๆ สิ่งที่เจอล่าสุด',
+            },
+            'urgency': {
+              'type': 'string',
+              'enum': ['now', 'digest'],
+              'description':
+                  'now = แจ้งทันที (เฉพาะเรื่องด่วนจริง) · digest = รวมในสรุปประจำวัน (ค่าเริ่มต้น)',
             },
           },
           required: ['id', 'finding'],
@@ -580,6 +606,7 @@ List<AgentTool> nowTools() => [
           final id = '${args['id'] ?? ''}'.trim();
           final finding = '${args['finding'] ?? ''}'.trim();
           if (id.isEmpty || finding.isEmpty) return 'ขอ id กับ finding ด้วยนะ';
+          final urgent = '${args['urgency'] ?? 'digest'}' == 'now';
           final rid = await _room();
           if (rid == null) return 'ยังไม่พร้อม';
           final list = await MatrixService.instance
@@ -589,9 +616,23 @@ List<AgentTool> nowTools() => [
           list[i]['last_seen'] = finding;
           list[i]['last_seen_at'] = DateTime.now().millisecondsSinceEpoch;
           list[i]['has_new'] = true;
+          // Urgent findings ปิ่น posts right away → not pending for the digest.
+          // Everything else waits for the daily briefing (no rapid pings).
+          list[i]['pending_digest'] = !urgent;
           final ok = await MatrixService.instance
               .saveListToRoom(rid, 'io.tokens2.watches', list);
           WatchesController.instance.updateFromJson(jsonEncode(list));
+          if (urgent) {
+            final card = buildNowCard({
+              'icon': list[i]['icon'],
+              'topic': list[i]['topic'],
+              'finding': finding,
+            });
+            await MatrixService.instance.sendText(rid, finding,
+                role: 'user', flex: card, meta: pinMeta(const ['watch']));
+            await NotificationService.instance
+                .showNow(rid, '${list[i]['topic']}: $finding');
+          }
           return ok ? 'อัปเดต watch แล้ว' : 'อัปเดตไม่สำเร็จ';
         },
       ),

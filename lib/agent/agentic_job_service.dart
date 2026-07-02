@@ -12,6 +12,7 @@ import 'agent_config.dart';
 import 'agent_session.dart';
 import 'job_runner.dart';
 import 'proxy_client.dart';
+import 'watch_digest.dart';
 
 /// Runs ปิ่น's agentic jobs (the `schedule_job` tool, kind == 'agentic') whose
 /// time has come. Called from TWO places that can overlap, so the run is behind
@@ -41,31 +42,43 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session,
         ? [for (final j in jobs) if ('${j['kind']}' == 'agentic') '${j['id']}']
         : dueAgenticJobs(jobs, now);
     if (due.isEmpty) return;
+    // Watch checker jobs (id == a watch id) own their posting via update_watch
+    // (immediate card, or silent → daily digest). Don't also post their agent
+    // reply here — that was the "ปิ่น woke up and rambled" bug.
+    final watchIds = {
+      for (final w in await MatrixService.instance
+          .loadListFromRoom(rid, 'io.tokens2.watches'))
+        '${w['id']}'
+    };
     final ProxyClient proxy = devProxy();
     var changed = false;
     for (final id in due) {
       final job = jobs.firstWhere((j) => '${j['id']}' == id);
       var foundNew = false; // did this run surface something? → drives backoff
       try {
-        final r = await session.send('${job['text'] ?? ''}',
-            persistUser: false, agentic: true);
-        // A watch job that finds nothing new returns an empty reply → stay
-        // silent (don't post). Only ping when ปิ่น actually has something.
-        final hasReply = (r.text?.trim().isNotEmpty ?? false) || r.flex != null;
-        foundNew = hasReply;
-        if (hasReply) {
-          final body = (r.text?.isNotEmpty ?? false)
-              ? r.text!
-              : '(ส่งการ์ดให้แล้ว)';
-          // Post as ปิ่น; the live DM subscription renders it (no optimistic
-          // bubble to dedup, so don't mark it seen).
-          await MatrixService.instance.sendText(rid, body,
-              role: 'user', flex: r.flex, meta: pinMeta(r.usedTools));
-          // Notify so a watch finding / fired reminder is visible even when the
-          // app is closed (this runs in the FCM/APNs bg isolate too). The chat
-          // screen dedups its own optimistic render, so this only adds the OS
-          // notification, not a duplicate bubble.
-          await NotificationService.instance.showNow(rid, body);
+        // The daily briefing: batch pending findings into one card, no LLM turn.
+        if (id == kDigestJobId) {
+          await runDigest(rid);
+        } else {
+          final r = await session.send('${job['text'] ?? ''}',
+              persistUser: false, agentic: true);
+          if (watchIds.contains(id)) {
+            // A checker: update_watch already posted (immediate) or stored
+            // (digest). A fired update = found something → snap cadence to floor.
+            foundNew = r.usedTools.contains('update_watch');
+          } else {
+            // A real reminder/agentic job → post its reply as before.
+            final hasReply =
+                (r.text?.trim().isNotEmpty ?? false) || r.flex != null;
+            foundNew = hasReply;
+            if (hasReply) {
+              final body =
+                  (r.text?.isNotEmpty ?? false) ? r.text! : '(ส่งการ์ดให้แล้ว)';
+              await MatrixService.instance.sendText(rid, body,
+                  role: 'user', flex: r.flex, meta: pinMeta(r.usedTools));
+              await NotificationService.instance.showNow(rid, body);
+            }
+          }
         }
       } catch (e) {
         debugPrint('run job $id failed (retry next wake): $e');
@@ -94,6 +107,9 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session,
           .saveListToRoom(rid, 'io.tokens2.reminders', jobs);
       JobsController.instance.updateFromJson(jsonEncode(jobs));
     }
+    // Seed the daily briefing for existing watch users who predate this feature
+    // (idempotent). AFTER the save above so it isn't clobbered by the stale list.
+    if (watchIds.isNotEmpty) await ensureDigestJob(rid);
   } catch (e) {
     debugPrint('run due jobs failed: $e');
   } finally {
