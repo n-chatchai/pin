@@ -7,12 +7,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
-import '../agent/agent_config.dart';
-import '../agent/abilities.dart';
-import '../agent/catalog_client.dart';
 import '../theme/pin_theme.dart';
-import '../theme/theme_controller.dart';
-import '../services/matrix_service.dart';
+import 'liquid_glass.dart';
 import 'pin_toast.dart';
 
 /// FluffyChat-style message composer:
@@ -57,10 +53,12 @@ class _MessageComposerState extends State<MessageComposer> {
   Timer? _recordTimer;
   // While text present, action icons collapse to a "›" chevron; tap to re-expand.
   bool _expanded = false;
-  // The "+" capabilities/tools panel above the bar (open on tap).
+  // The "+" attach popover above the bar (open on tap).
   bool _panelOpen = false;
-  // Enabled catalog capability names — drives which capability badges show.
-  Set<String> _catNames = {};
+  // Live-tracks the "+" button so the popover stays glued above it even while
+  // the composer slides (keyboard dismiss) — no manual coordinate maths.
+  final _link = LayerLink();
+  OverlayEntry? _attachEntry;
 
   bool get _hasText => _controller.text.trim().isNotEmpty;
 
@@ -78,39 +76,11 @@ class _MessageComposerState extends State<MessageComposer> {
       if (_focus.hasFocus) _panelOpen = false;
       setState(() {});
     });
-    _loadCaps();
-    // Reload the panel when the user opts a capability in/out, so it stays in
-    // sync with what ปิ่น can actually do.
-    capabilitiesRevision.addListener(_loadCaps);
-  }
-
-  /// Learn which capabilities the catalog has enabled, so the panel only shows
-  /// real ones (a disabled/coming-soon capability drops out). Best-effort.
-  Future<void> _loadCaps() async {
-    try {
-      final roomId = await MatrixService.instance.pinRoomId();
-      final optedOutRaw = roomId != null
-          ? await MatrixService.instance
-              .loadListFromRoom(roomId, 'io.tokens2.opted_out_capabilities')
-          : [];
-      final optedOut = optedOutRaw.map((e) => '${e['name']}').toSet();
-
-      final m = await CatalogClient(devProxy()).fetchManifests();
-      if (!mounted) return;
-      setState(() {
-        // Opt-out: show every catalog capability except the ones the user turned
-        // off — matching what ปิ่น can actually do.
-        _catNames = {
-          for (final e in m)
-            if (!optedOut.contains('${e['name']}')) '${e['name']}'
-        };
-      });
-    } catch (_) {/* keep optimistic full list */}
   }
 
   @override
   void dispose() {
-    capabilitiesRevision.removeListener(_loadCaps);
+    _attachEntry?.remove();
     _recordTimer?.cancel();
     _recorder.dispose();
     _controller.dispose();
@@ -185,7 +155,7 @@ class _MessageComposerState extends State<MessageComposer> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: PinPalette.line),
+              // No warm tan hairline — clean white pill, soft shadow only.
               boxShadow: const [
                 BoxShadow(
                     color: Color(0x14282822),
@@ -295,7 +265,11 @@ class _MessageComposerState extends State<MessageComposer> {
               key: const ValueKey('icons'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                _roundBtn(PhosphorIconsLight.plus, 'เพิ่ม', _openSheet, scheme),
+                CompositedTransformTarget(
+                  link: _link,
+                  child: _roundBtn(
+                      PhosphorIconsLight.plus, 'เพิ่ม', _openAttach, scheme),
+                ),
                 const SizedBox(width: 6),
                 _roundBtn(PhosphorIconsLight.camera, 'กล้อง',
                     () => widget.onMedia?.call('camera'), scheme),
@@ -307,112 +281,94 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  /// Capability badges in the "+" panel. Each: (catalog names, icon, label,
-  /// starter prompt). Tapping one sends the starter so ปิ่น begins that task
-  /// (and asks for any details). A capability shows only if one of its [names]
-  /// is enabled in the catalog; an empty [names] = on-device built-in (always
-  /// on). See design/chat-compose/plus-capabilities.html.
-  static const _capSpecs = <(List<String>, IconData, String, String)>[
-    (['consult_astrologer', 'fortune'], PhosphorIconsLight.sparkle, 'ดูดวง',
-        'ขอดูดวงหน่อย'),
-    (['news', 'morning_news'], PhosphorIconsLight.newspaper, 'ข่าว',
-        'สรุปข่าวให้หน่อย'),
-    (['get_weather'], PhosphorIconsLight.cloudSun, 'อากาศ', 'ขอดูพยากรณ์อากาศ'),
-    (['web_search'], PhosphorIconsLight.globe, 'ค้นเว็บ',
-        'ช่วยค้นข้อมูลในเว็บให้หน่อย'),
-    (['get_currency'], PhosphorIconsLight.coins, 'แลกเงิน',
-        'ขอดูอัตราแลกเปลี่ยน'),
-    (['generate_image'], PhosphorIconsLight.image, 'วาดรูป',
-        'ช่วยวาดรูปให้หน่อย'),
-    (<String>[], PhosphorIconsLight.bell, 'ตั้งเวลา',
-        'ช่วยตั้งเตือนหรือตั้งตารางเวลาประจำให้หน่อย'),
-    (['joke'], PhosphorIconsLight.smiley, 'เล่ามุก', 'เล่ามุกให้ฟังหน่อย'),
-  ];
-
-  /// Device tools (always available): (id for onMedia, icon, label).
-  static const _toolSpecs = <(String, IconData, String)>[
+  /// Attach options (id for onMedia, icon, label). Ditto-style: a short
+  /// vertical list, not a grid. File + Location for now; more added later.
+  static const _attachSpecs = <(String, IconData, String)>[
     ('file', PhosphorIconsLight.paperclip, 'แนบไฟล์'),
     ('location', PhosphorIconsLight.mapPin, 'แชร์โลเคชั่น'),
-    ('scan', PhosphorIconsLight.scan, 'สแกนเอกสาร'),
   ];
 
-  /// Visible capabilities: built-ins + any catalog-enabled. Before the catalog
-  /// loads (empty set) show all — optimistic, avoids an empty first open.
-  List<(List<String>, IconData, String, String)> get _visibleCaps =>
-      _catNames.isEmpty
-          ? _capSpecs
-          : [
-              for (final s in _capSpecs)
-                if (s.$1.isEmpty || s.$1.any(_catNames.contains)) s
-            ];
+  // ----- "+" attach popover -------------------------------------------------
 
-  void _runCap(String prompt) {
-    setState(() => _panelOpen = false);
-    widget.onPanelToggled?.call(false);
-    widget.onSend(prompt);
-  }
-
-  void _runTool(String id) {
-    setState(() => _panelOpen = false);
-    widget.onPanelToggled?.call(false);
-    widget.onMedia?.call(id);
-  }
-
-  // ----- "+" sheet ----------------------------------------------------------
-
-  /// The "+" opens a bottom sheet (slides up like the photo picker) with the
-  /// capabilities + tools laid out as an icon grid.
-  void _openSheet() {
+  /// The "+" opens a frosted glass popover glued just above the button
+  /// (Ditto-style) via a LayerLink follower, so it tracks the button live and
+  /// never lands mid-screen or covers the composer.
+  void _openAttach() {
     FocusScope.of(context).unfocus();
+    setState(() => _panelOpen = true);
     widget.onPanelToggled?.call(true);
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _capSheet(),
-    ).whenComplete(() => widget.onPanelToggled?.call(false));
+    _attachEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          // Tap outside to dismiss.
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _closeAttach,
+            ),
+          ),
+          // Popover's bottom-left corner sits 6px above the button's top-left —
+          // grows up out of the "+", clear of the composer.
+          CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.topLeft,
+            followerAnchor: Alignment.bottomLeft,
+            // dx -8: shift left so the panel edge lines up with the composer
+            // card (button sits 8px inside the card). dy -16: lift clear above
+            // the composer so it never overlaps.
+            offset: const Offset(-8, -16),
+            child: _attachPopover(),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachEntry!);
   }
 
-  Widget _capSheet() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+  void _closeAttach() {
+    _attachEntry?.remove();
+    _attachEntry = null;
+    if (mounted) setState(() => _panelOpen = false);
+    widget.onPanelToggled?.call(false);
+  }
+
+  // Anchored to the "+" at its bottom-left: top + right corners round big, the
+  // bottom-left stays tight so the panel reads as growing out of the button
+  // (iOS context-menu style).
+  static const _popRadius = BorderRadius.only(
+    topLeft: Radius.circular(22),
+    topRight: Radius.circular(22),
+    bottomRight: Radius.circular(22),
+    bottomLeft: Radius.circular(6),
+  );
+
+  Widget _attachPopover() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 210, maxWidth: 264),
+      child: LiquidGlass(
+        borderRadius: _popRadius,
+        blur: 32,
+        // Bright, near-white tint with almost no colour pop: over the flat
+        // green/cream chat, vibrancy just muddies to grey — keep it clean.
+        opacity: 0.88,
+        saturation: 1.0,
+        // No tan hairline (Ditto's popover is borderless — soft shadow only).
+        borderColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        // Material gives the rows a proper DefaultTextStyle (without it, Text in
+        // a raw OverlayEntry falls back to the yellow-underline debug style) and
+        // hosts the InkWell splashes.
+        child: Material(
+          type: MaterialType.transparency,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: PinPalette.line,
-                      borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _sheetLabel('ความสามารถ'),
-              _grid([
-                for (final (_, icon, label, prompt) in _visibleCaps)
-                  _tile(icon, label, () {
-                    Navigator.pop(context);
-                    _runCap(prompt);
-                  }),
-              ]),
-              const SizedBox(height: 18),
-              _sheetLabel('เครื่องมือ'),
-              _grid([
-                for (final (id, icon, label) in _toolSpecs)
-                  _tile(icon, label, () {
-                    Navigator.pop(context);
-                    _runTool(id);
-                  }, isTool: true),
-              ]),
+              for (final (id, icon, label) in _attachSpecs)
+                _attachRow(icon, label, () {
+                  _closeAttach();
+                  widget.onMedia?.call(id);
+                }),
             ],
           ),
         ),
@@ -420,58 +376,24 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  Widget _sheetLabel(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-        child: Text(t,
-            style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: PinPalette.ink3)),
-      );
-
-  Widget _grid(List<Widget> tiles) => GridView.count(
-        crossAxisCount: 4,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.82,
-        children: tiles,
-      );
-
-  Widget _tile(IconData icon, String label, VoidCallback onTap,
-      {bool isTool = false}) {
-    // Capability badges take the theme accent; tools stay white with a hairline.
-    final accent = ThemeController.instance.value.accent;
+  Widget _attachRow(IconData icon, String label, VoidCallback onTap) {
     return InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        child: Row(
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: isTool ? Colors.white : accent,
-                borderRadius: BorderRadius.circular(16),
-                border: isTool ? Border.all(color: PinPalette.line) : null,
-              ),
-              child: Icon(icon,
-                  size: 24, color: isTool ? PinPalette.ink : Colors.white),
-            ),
-            const SizedBox(height: 6),
+            Icon(icon, size: 22, color: PinPalette.ink),
+            const SizedBox(width: 14),
             Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
                     color: PinPalette.ink)),
           ],
         ),
-      );
+      ),
+    );
   }
 
 
@@ -490,13 +412,13 @@ class _MessageComposerState extends State<MessageComposer> {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: SizedBox(
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           child: AnimatedRotation(
             turns: active ? 0.125 : 0,
             duration: const Duration(milliseconds: 150),
             child: Icon(icon,
-                size: 19, color: active ? Colors.white : PinPalette.ink),
+                size: 22, color: active ? Colors.white : PinPalette.ink),
           ),
         ),
       ),
@@ -545,7 +467,7 @@ class _MessageComposerState extends State<MessageComposer> {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: SizedBox(
-            width: 36, height: 36, child: Icon(icon, size: 18, color: fg)),
+            width: 40, height: 40, child: Icon(icon, size: 21, color: fg)),
       ),
     );
   }

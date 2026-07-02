@@ -18,10 +18,17 @@ class PinJob {
   final String id;
   final String time; // "HH:MM"
   final String text;
-  final String repeat; // once | daily
+  final String repeat; // once | daily | interval
   final String kind; // reminder | agentic
+  final int intervalSec;
+  final int floorSec;
+  final int lastRun; // ms epoch
   const PinJob(this.id, this.time, this.text,
-      {this.repeat = 'once', this.kind = 'reminder'});
+      {this.repeat = 'once',
+      this.kind = 'reminder',
+      this.intervalSec = 0,
+      this.floorSec = 0,
+      this.lastRun = 0});
   bool get isAgentic => kind == 'agentic';
 }
 
@@ -98,6 +105,9 @@ class JobsController extends ValueNotifier<List<PinJob>> {
             '${j['text'] ?? ''}',
             repeat: '${j['repeat'] ?? 'once'}',
             kind: '${j['kind'] ?? 'reminder'}',
+            intervalSec: (j['interval_sec'] as num?)?.toInt() ?? 0,
+            floorSec: (j['floor_sec'] as num?)?.toInt() ?? 0,
+            lastRun: (j['lastRun'] as num?)?.toInt() ?? 0,
           ),
       ];
     } catch (_) {/* ignore malformed */}

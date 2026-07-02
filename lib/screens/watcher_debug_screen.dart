@@ -224,7 +224,38 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
                         child: Text('ยังไม่มี watch',
                             style: TextStyle(color: PinPalette.ink2)),
                       ),
-                    for (final w in _watches) _watchCard(w),
+                    for (final w in _watches)
+                      Dismissible(
+                        key: Key('dbg_${w['id']}'),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (_) async {
+                          final rid = await MatrixService.instance.pinRoomId();
+                          if (rid == null) return;
+                          
+                          // Force delete from watches
+                          final wl = await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.watches');
+                          wl.removeWhere((x) => '${x['id']}' == '${w['id']}');
+                          await MatrixService.instance.saveListToRoom(rid, 'io.tokens2.watches', wl);
+                          
+                          // Force delete from reminders
+                          final rl = await MatrixService.instance.loadListFromRoom(rid, 'io.tokens2.reminders');
+                          rl.removeWhere((x) => '${x['id']}' == '${w['id']}');
+                          await MatrixService.instance.saveListToRoom(rid, 'io.tokens2.reminders', rl);
+                          
+                          _load();
+                        },
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: PinPalette.neg.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.delete_outline, color: PinPalette.neg),
+                        ),
+                        child: _watchCard(w),
+                      ),
                     const SizedBox(height: 8),
                     FilledButton.icon(
                       onPressed: _running ? null : _runNow,
@@ -252,8 +283,7 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'ลงทะเบียน wake ครบกำหนดทันทีที่ server → เครื่องถูกปลุกผ่าน '
-                      'FCM/APNs ใน ~30 วิ (พิสูจน์ push chain).',
+                      'ทดสอบยิงสัญญาณปลุกจากเซิร์ฟเวอร์มาที่มือถือทันที (พิสูจน์ push chain ว่าทำงานปกติไหม)',
                       style: TextStyle(fontSize: 12, color: PinPalette.ink3),
                     ),
                   ],
@@ -302,12 +332,15 @@ class _WatcherDebugScreenState extends State<WatcherDebugScreen> {
             _kv('เวลาเช็ค', '— (ไม่มี job!)')
           else if (isInterval) ...[
             _kv('จังหวะ', _cadence(intervalSec, floorSec)),
+            _kv('LLM Tier', '${w['interval']} (ตอนตั้งต้น)'),
             _kv('เช็คถัดไป', _nextPoll(lastRun, intervalSec, due)),
             _kv('เหตุผล', _decision(intervalSec, floorSec, lastRun, w)),
           ] else
             _kv('เวลาเช็ค', '${job['time']} · ${job['repeat']}'),
           _kv('รันล่าสุด', _fmt(lastRun)),
           _kv('เจอล่าสุด', _fmt(w['last_seen_at'] as num?)),
+          if (job != null && '${job['text']}'.isNotEmpty)
+            _kv('LLM Prompt', '${job['text']}'),
           if (lastSeen.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),

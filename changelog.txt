@@ -1,3 +1,12 @@
-$versionString
+Release 1.0.0 (Build 325)
 Description:
-${text.trim()}
+- chore(email): drop the unsubscribe footer line from waitlist emails
+- fix(ci): make VPS deploy actually roll out (was a silent no-op)
+- feat(agent): commitment verifier — ensure promise to remind/watch actually creates it
+- fix(mcp): lakkana connector -> internal endpoint (Cloudflare 403s server POSTs)
+- fix(backend): replace Python mail with lettre SMTP + Rust IMAP
+- fix(app): drawer uses botName not hardcoded ปิ่น + withValues over deprecated withOpacity
+- feat(site): waitlist posts to pin-backend + CORS allow site origin
+- feat: assistant on/off is admin-only (single source), distinct icons, full-width dividers
+- fix(app): full-width settings dividers + align ทีม<botName> wording
+- chore(app): warmer everyday wording for ทีม screen (drop ผู้เชี่ยวชาญ)

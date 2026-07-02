@@ -214,7 +214,11 @@ class MessageBubble extends StatelessWidget {
   /// ปิ่น footer below the bubble/card: fixed-width row (matches the bubble
   /// area) so time sits left and the capability hint is pinned to the right —
   /// consistent for text and flex.
-  Widget _footer(BuildContext context, ColorScheme scheme) => Padding(
+  Widget _footer(BuildContext context, ColorScheme scheme) {
+    // Diagnostics (token cost, "add to now"/"tool used" tags) only in debug;
+    // normal users just see the time. The flex card already confirms drawer adds.
+    final debug = PrefsController.instance.value.debugBot;
+    return Padding(
         padding: const EdgeInsets.only(top: 4, left: 2, right: 2),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -222,7 +226,7 @@ class MessageBubble extends StatelessWidget {
             Row(mainAxisSize: MainAxisSize.min, children: [
               Text(_hhmm(msg.time),
                   style: const TextStyle(fontSize: 10, color: PinPalette.ink3)),
-              if (msg.cost != null) ...[
+              if (debug && msg.cost != null) ...[
                 const SizedBox(width: 6),
                 Icon(PhosphorIconsRegular.coins, size: 11, color: PinPalette.ink3),
                 const SizedBox(width: 3),
@@ -230,7 +234,7 @@ class MessageBubble extends StatelessWidget {
                     style: const TextStyle(fontSize: 10, color: PinPalette.ink3)),
               ],
             ]),
-            if (msg.addedToNow || msg.hint != null)
+            if (debug && (msg.addedToNow || msg.hint != null))
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -255,6 +259,7 @@ class MessageBubble extends StatelessWidget {
           ],
         ),
       );
+  }
 
   Widget _imageView(BuildContext context) {
     // On-device chat: render straight from the local file (no Matrix download).

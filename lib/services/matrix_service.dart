@@ -102,6 +102,12 @@ class MatrixService {
     accessToken = s.accessToken;
     userId = s.userId;
     _userEmail = s.email;
+    // Re-register the push token now the session is back. Boot's first attempt
+    // (and _initFcm's) often runs before restore completes → empty Bearer →
+    // dropped; and the FCM token can change between launches. Idempotent upsert
+    // covers every token/session ordering. (registerWithServer no-ops if the
+    // token hasn't arrived yet — the token-arrival callback then re-fires it.)
+    unawaited(PushService.instance.registerWithServer());
     // Re-assert the account displayname from the persisted email (the localpart
     // is a one-way hash, so this is the only way a restored session can label
     // itself in the admin UI). Best-effort, fire-and-forget.

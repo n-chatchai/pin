@@ -13,6 +13,7 @@ import 'now_screen.dart';
 import '../services/now_controllers.dart';
 import 'api_log_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/boot_loading.dart';
 
 /// Pure-presentation chat scaffold, used by [LocalChatScreen] and the preview
 /// harness so the UI can be rendered with mock data.
@@ -34,6 +35,8 @@ class ChatScaffold extends StatefulWidget {
   // Tapped an inline onboarding option (chip/tone/pill rendered in the feed).
   final ValueChanged<Map<String, String>>? onOnboardAction;
 
+  final String? loading;
+
   const ChatScaffold({
     super.key,
     required this.title,
@@ -48,6 +51,7 @@ class ChatScaffold extends StatefulWidget {
     this.onSendAudio,
     required this.onReply,
     required this.onCancelReply,
+    this.loading,
     required this.onReact,
     this.onFlexAction,
     this.onOnboardAction,
@@ -108,9 +112,14 @@ class _ChatScaffoldState extends State<ChatScaffold> {
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                child: messages.isEmpty
-                      ? _EmptyGreeting()
-                      : ListView.builder(
+                child: widget.loading != null
+                      ? AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 400),
+                          child: PinLoader(widget.loading!, key: const ValueKey('roomloader')),
+                        )
+                      : messages.isEmpty
+                          ? _EmptyGreeting()
+                          : ListView.builder(
                           controller: scroll,
                           // Reverse: newest pinned at the bottom (offset 0) so the
                           // chat always opens at the latest message regardless of
@@ -395,8 +404,9 @@ class _FabTop extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return LiquidGlassCircle(
+      size: 44,
       onTap: onTap,
-      child: Icon(PhosphorIconsRegular.dotsThree, size: 21, color: scheme.secondary),
+      child: Icon(PhosphorIconsRegular.dotsThree, size: 24, color: scheme.secondary),
     );
   }
 }
@@ -444,8 +454,9 @@ class _FabNow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return LiquidGlassCircle(
+      size: 44,
       onTap: onTap,
-      child: Icon(PhosphorIconsRegular.textAlignLeft, size: 21, color: scheme.secondary),
+      child: Icon(PhosphorIconsRegular.textAlignLeft, size: 24, color: scheme.secondary),
     );
   }
 }

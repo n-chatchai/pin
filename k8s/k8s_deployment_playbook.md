@@ -73,8 +73,6 @@ PIN_ADMIN_GOOGLE_REDIRECT_URI=https://pin-admin.tokens2.io/admin/auth/google/cal
 # Used for initial DB seeding only (once seeded, manage via admin web):
 PIN_ADMIN_OWNERS=chatchai@tokens2.io
 PIN_FREE_MODEL=gemini-flash-lite-latest
-PIN_EMBED_MODEL=gemini-embedding-001
-PIN_EMBED_DIM=256
 
 # Credentials & API Keys
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY

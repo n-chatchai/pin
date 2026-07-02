@@ -2,6 +2,26 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+/// Luminance-preserving saturation matrix. >1 pops the backdrop's colours
+/// through the glass (Apple "vibrancy") so the blur reads vivid, not grey.
+ColorFilter _vibrancy(double s) {
+  const lr = 0.2126, lg = 0.7152, lb = 0.0722;
+  final inv = 1 - s;
+  final r = inv * lr, g = inv * lg, b = inv * lb;
+  return ColorFilter.matrix(<double>[
+    r + s, g, b, 0, 0,
+    r, g + s, b, 0, 0,
+    r, g, b + s, 0, 0,
+    0, 0, 0, 1, 0,
+  ]);
+}
+
+/// Blur + vibrancy in one backdrop filter (saturate, then blur).
+ImageFilter _glassFilter(double blur, double saturation) => ImageFilter.compose(
+      outer: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+      inner: _vibrancy(saturation),
+    );
+
 /// iOS 26-style "liquid glass": a frosted, translucent surface that blurs and
 /// brightens whatever scrolls behind it, finished with a bright top highlight
 /// and a hairline edge so it reads as a floating pane of glass. Used for the
@@ -23,15 +43,20 @@ class LiquidGlass extends StatelessWidget {
   /// Drop-shadow strength multiplier (1 = default soft lift).
   final double elevation;
 
+  /// Backdrop colour pop (1 = none). >1 = Apple vibrancy so the blur reads
+  /// vivid instead of flat grey.
+  final double saturation;
+
   const LiquidGlass({
     super.key,
     required this.child,
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
-    this.blur = 18,
+    this.blur = 22,
     this.padding,
     this.opacity = 0.55,
     this.borderColor,
     this.elevation = 1,
+    this.saturation = 1.5,
   });
 
   @override
@@ -39,22 +64,24 @@ class LiquidGlass extends StatelessWidget {
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        filter: _glassFilter(blur, saturation),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
             borderRadius: borderRadius,
-            // Diagonal sheen: brighter top-left, thinner bottom-right.
+            // Gentle top-to-bottom sheen: a touch brighter up top where light
+            // catches the edge, settling to the base tint below. Subtle beats a
+            // hard diagonal — the latter reads as "painted gradient", not glass.
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [
-                Colors.white.withValues(alpha: (opacity + 0.14).clamp(0, 1)),
-                Colors.white.withValues(alpha: (opacity - 0.10).clamp(0, 1)),
+                Colors.white.withValues(alpha: (opacity + 0.10).clamp(0, 1)),
+                Colors.white.withValues(alpha: (opacity - 0.04).clamp(0, 1)),
               ],
             ),
             border: Border.all(
-              color: borderColor ?? Colors.white.withValues(alpha: 0.55),
+              color: borderColor ?? Colors.white.withValues(alpha: 0.45),
               width: borderColor != null ? 1 : 0.8,
             ),
             boxShadow: [
@@ -107,7 +134,7 @@ class LiquidGlassCircle extends StatelessWidget {
       ),
       child: ClipOval(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          filter: _glassFilter(blur, 1.5),
           child: Container(
             width: size,
             height: size,

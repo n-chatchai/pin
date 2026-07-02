@@ -141,10 +141,16 @@ class _BootstrapState extends State<_Bootstrap> {
     return FutureBuilder<bool>(
       future: _restored,
       builder: (context, snap) {
+        Widget child;
         if (snap.connectionState != ConnectionState.done) {
-          return const BootLoading('กำลังเชื่อมต่อบัญชี');
+          child = const BootLoading('กำลังเชื่อมต่อบัญชี');
+        } else {
+          child = snap.data == true ? const AfterAuth() : const WelcomeScreen();
         }
-        return snap.data == true ? const AfterAuth() : const WelcomeScreen();
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: child,
+        );
       },
     );
   }
@@ -216,10 +222,16 @@ class _AfterAuthState extends State<AfterAuth> {
     return FutureBuilder<void>(
       future: _hydrate,
       builder: (context, hsnap) {
+        Widget child;
         if (hsnap.connectionState != ConnectionState.done) {
-          return const BootLoading('กำลังเตรียมข้อมูล');
+          child = const BootLoading('กำลังเตรียมข้อมูล');
+        } else {
+          child = _gate();
         }
-        return _gate();
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: child,
+        );
       },
     );
   }
