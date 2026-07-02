@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'dart:io';
 
@@ -24,6 +25,7 @@ import 'services/android_job_alarm.dart';
 import 'services/notification_service.dart';
 import 'services/push_service.dart';
 import 'services/prefs.dart';
+import 'services/shared_inbox.dart';
 import 'src/rust/frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'theme/pin_theme.dart';
@@ -61,6 +63,9 @@ Future<void> main() async {
     Future.microtask(() => PushService.instance.init());
     // Exact AlarmManager wakes for closed-app agentic jobs (Android). No-op iOS.
     Future.microtask(() => AndroidJobAlarm.init());
+    // OS share sheet → ปิ่น. Buffer into SharedInbox; the chat drains it when
+    // ready (a cold-start share lands before the chat is mounted).
+    Future.microtask(_initSharedInbox);
 
     runApp(const PinApp());
   } catch (e, st) {
@@ -78,6 +83,29 @@ Future<void> main() async {
         ),
       ),
     ));
+  }
+}
+
+/// Bridge the OS share sheet into [SharedInbox]. `getInitialMedia` is the
+/// share that cold-started the app; `getMediaStream` is one arriving while it's
+/// already running. Best-effort — a plugin error must not block launch.
+Future<void> _initSharedInbox() async {
+  SharedItem toItem(SharedMediaFile f) => classifyShared(
+        typeName: f.type.value,
+        path: f.path,
+        mimeType: f.mimeType,
+      );
+  try {
+    final initial = await ReceiveSharingIntent.instance.getInitialMedia();
+    SharedInbox.instance.addAll(initial.map(toItem));
+    // Clear the initial payload so a later relaunch doesn't replay it.
+    await ReceiveSharingIntent.instance.reset();
+    ReceiveSharingIntent.instance.getMediaStream().listen(
+      (list) => SharedInbox.instance.addAll(list.map(toItem)),
+      onError: (_) {/* transient channel error — ignore */},
+    );
+  } catch (e) {
+    debugPrint('[share] init failed: $e');
   }
 }
 

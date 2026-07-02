@@ -37,6 +37,7 @@ import '../theme/theme_controller.dart';
 import '../widgets/boot_loading.dart';
 import '../widgets/pin_toast.dart';
 import '../widgets/pin_welcome.dart';
+import '../services/shared_inbox.dart';
 import 'chat_screen.dart' show ChatScaffold;
 
 /// The main ปิ่น chat — same polished UI (ChatScaffold) but backed by the
@@ -90,6 +91,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     debugForcePersonaSetup = () {
       if (mounted) _startPersonaSetup();
     };
+    // OS share sheet (main.dart buffers into SharedInbox) → drain when a new
+    // item is queued while the chat is alive.
+    SharedInbox.instance.revision.addListener(_maybeDrainShared);
     _boot();
   }
 
@@ -97,6 +101,7 @@ class _LocalChatScreenState extends State<LocalChatScreen>
   void dispose() {
     _dmSub?.cancel();
     debugForcePersonaSetup = null;
+    SharedInbox.instance.revision.removeListener(_maybeDrainShared);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -166,6 +171,9 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // Warm the settings-only plugins (cold platform channels) while idle, so the
     // first ⋯→ตั้งค่า tap doesn't jank on first use.
     unawaited(PackageInfo.fromPlatform());
+    // A share that cold-started the app was buffered before this screen existed;
+    // now that the room is up, route it (unless onboarding just started above).
+    unawaited(_maybeDrainShared());
   }
 
   /// Pull the "ตอนนี้" data (reminders/tasks/events/files/memory) from the ปิ่น
@@ -205,7 +213,42 @@ class _LocalChatScreenState extends State<LocalChatScreen>
     // one that fired needs re-scheduling; another device may have changed them).
     if (state == AppLifecycleState.resumed && _roomId != null) {
       unawaited(_seedNowFromRoom(_roomId!));
+      // A share received while backgrounded is buffered; drain it on resume.
+      _maybeDrainShared();
     }
+  }
+
+  bool _drainingShared = false;
+
+  /// Route any queued OS-share items into the chat, once it's ready (room up,
+  /// not mid-onboarding). Items stay buffered until then. Sequential so a
+  /// text+image share keeps order; re-checks after, since a share can land mid-
+  /// drain. Idempotent — safe to call from several triggers.
+  Future<void> _maybeDrainShared() async {
+    if (_drainingShared) return;
+    if (!SharedInbox.instance.hasPending) return;
+    if (!mounted || _roomId == null || _personaStep >= 0 || _loading != null) {
+      return; // not ready → leave queued for the next trigger
+    }
+    _drainingShared = true;
+    try {
+      final items = SharedInbox.instance.drain();
+      for (final it in items) {
+        if (!mounted) break;
+        switch (it.kind) {
+          case SharedKind.text:
+            _onSend(it.value);
+          case SharedKind.image:
+            await _sendImage(it.value);
+          case SharedKind.file:
+            await _convertAndSummarize(it.value, it.name);
+        }
+      }
+    } finally {
+      _drainingShared = false;
+    }
+    // New items may have arrived while we were routing.
+    if (mounted && SharedInbox.instance.hasPending) unawaited(_maybeDrainShared());
   }
 
   /// Persona + theme live in the ปิ่น room state (io.tokens2.prefs) so they're
@@ -727,6 +770,8 @@ class _LocalChatScreenState extends State<LocalChatScreen>
           'พิมพ์อะไรก็ได้เลย เปลี่ยนชื่อหรือคำเรียกทีหลังแตะตั้งค่า ⋯ ได้ตลอด',
           me: false));
     });
+    // A share received during onboarding was held back; route it now.
+    unawaited(_maybeDrainShared());
   }
 
   /// Full-screen one-shot welcome over the chat the instant onboarding finishes.
