@@ -133,7 +133,13 @@ class AgentSession {
           'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
           '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
           '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
-          'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
+          'แต่บันทึกคำขอไว้ให้แล้ว.\n'
+          // Card-vs-text policy: keep presentation predictable. Structured data
+          // → a card (consistent look); conversation → plain text.
+          'การนำเสนอ: ถ้าคำตอบเป็น**ข้อมูลมีโครงสร้าง** (ตัวเลข/สถิติ, เปรียบเทียบ, '
+          'ตาราง, ลิสต์หลายรายการ, ขั้นตอน/แผน, สถานะ) → ทำเป็น**การ์ด** '
+          '(เครื่องมือเฉพาะที่มี เช่น get_weather/news ก่อน; ถ้าไม่มีค่อยใช้ render_html). '
+          'ถ้าเป็น**บทสนทนา/ความเห็น/ตอบสั้น** → ตอบเป็นข้อความธรรมดา ไม่ต้องยัดการ์ด.\n\n$persona';
     }
     // The proactive watch-offer policy now lives in the admin-managed "watch"
     // skill (injected via _catalogSkills below) — toggleable, no rebuild.

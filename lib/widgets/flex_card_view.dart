@@ -232,6 +232,8 @@ class FlexCardView extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text('${c['finding']}',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 13, height: 1.45, color: PinPalette.ink2)),
                   ),
