@@ -3,13 +3,12 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../agent/agent_config.dart';
 import '../agent/catalog_client.dart';
-import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 
-/// "ทีม$botName" — the assistants (specialist helpers) $botName can call on:
-/// ติวและทบทวน, ดูแลบ้าน, งานครีเอทีฟ … Availability is admin-controlled (status
-/// active / soon); the app just reflects it, so there's no per-user toggle to
-/// drift out of sync. Plumbing (tools / skills / connectors) stays admin-only.
+/// "บ้านปิ่น" — the family of น้อง (assistants ปิ่น hands work to): อุ่น/หยิบ/
+/// ชั้น/ปั้น/หยอด. Read-only catalog; availability is admin-controlled (status
+/// active / soon) so there's no per-user toggle to drift. Copy is canonical
+/// (character bible) — sibling tag + quote come from the catalog metadata.
 class AbilitiesScreen extends StatefulWidget {
   const AbilitiesScreen({super.key});
 
@@ -29,6 +28,9 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
 
   Future<void> _load() async {
     final items = await CatalogClient(devProxy()).fetchAssistants();
+    // Sort by sibling rank (order) so the house always reads eldest → youngest.
+    items.sort((a, b) => ((a['order'] as num?)?.toInt() ?? 99)
+        .compareTo((b['order'] as num?)?.toInt() ?? 99));
     if (!mounted) return;
     setState(() {
       _items = items;
@@ -45,8 +47,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 20,
-        title: Text('ทีม$botName',
-            style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('บ้านปิ่น',
+            style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -54,16 +56,14 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text('หาคนช่วย$botName',
-                        style: const TextStyle(
-                            color: PinPalette.ink2, fontSize: 13.5)),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    child: _houseHello(),
                   ),
                 ),
                 if (_items.isEmpty)
                   const SliverFillRemaining(
                     child: Center(
-                      child: Text('ยังไม่มีใครในทีม',
+                      child: Text('ยังไม่มีใครในบ้าน',
                           style: TextStyle(color: PinPalette.ink2)),
                     ),
                   )
@@ -81,11 +81,58 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
     );
   }
 
+  /// ปิ่น introduces the house — sets the "you talk to ปิ่น, น้อง help behind
+  /// the scenes" mental model (character bible).
+  Widget _houseHello() {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: const Text('ป',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13)),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: PinPalette.line),
+              borderRadius:
+                  const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(13),
+                bottomLeft: Radius.circular(13),
+                bottomRight: Radius.circular(13),
+              ),
+            ),
+            child: const Text(
+              'นี่บ้านของปิ่นเองนะพี่ — น้อง ๆ ถนัดคนละเรื่อง พี่ไม่ต้องจำว่าใครทำอะไร '
+              'บอกปิ่นมาเหมือนเดิม เดี๋ยวปิ่นส่งต่อให้เอง',
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.55, color: PinPalette.ink),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _card(Map<String, dynamic> a) {
     final primary = Theme.of(context).colorScheme.primary;
     final name = '${a['name']}';
     final label = '${a['label'] ?? name}';
     final desc = '${a['description'] ?? ''}';
+    final sibling = '${a['sibling'] ?? ''}';
+    final quote = '${a['quote'] ?? ''}';
     final handoff = '${a['interaction_mode'] ?? 'delegation'}' == 'handoff';
     // Admin is the single source: active = ready; soon/off both show as "เร็วๆนี้".
     final ready = '${a['status'] ?? 'active'}' == 'active';
@@ -98,6 +145,7 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         border: Border.all(color: PinPalette.line),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 44,
@@ -113,14 +161,24 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(children: [
-                  Flexible(
-                    child: Text(label,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
-                  ),
+                Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15)),
+                  if (sibling.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(sibling,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 11.5, color: PinPalette.ink3)),
+                    ),
+                  ],
                   if (ready) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 1),
@@ -134,10 +192,19 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
                   ],
                 ]),
                 if (desc.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(desc,
                       style: const TextStyle(
-                          color: PinPalette.ink2, fontSize: 12.5)),
+                          color: PinPalette.ink2, fontSize: 12.5, height: 1.4)),
+                ],
+                if (quote.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(quote,
+                      style: const TextStyle(
+                          color: PinPalette.ink3,
+                          fontSize: 12,
+                          height: 1.5,
+                          fontStyle: FontStyle.italic)),
                 ],
               ],
             ),
@@ -170,6 +237,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         return PhosphorIconsRegular.briefcase;
       case 'books':
         return PhosphorIconsRegular.books;
+      case 'graduationCap':
+        return PhosphorIconsRegular.graduationCap;
       case 'house':
         return PhosphorIconsRegular.house;
       case 'penNib':

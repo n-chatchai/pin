@@ -102,13 +102,20 @@ class SettingsScreen extends StatelessWidget {
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => PersonalityScreen(onSave: _updatePersona))),
               ),
-              // 2) Capability — skills / tools.
-              _navRow(
-                context,
-                PhosphorIconsRegular.sparkle,
-                'ทีม$botName',
-                'หาคนช่วย$botName',
-                () => Navigator.of(context).push(MaterialPageRoute<void>(
+              // 2) บ้านปิ่น — the family of น้อง (assistants). Avatar stack hints
+              // at the siblings; the screen is the read-only catalog.
+              ListTile(
+                leading: const Icon(PhosphorIconsRegular.house),
+                title: const Text('บ้านปิ่น'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _avatarStack(const ['อ', 'ห', 'ช', 'ป']),
+                    const SizedBox(width: 6),
+                    const Icon(PhosphorIconsRegular.caretRight, size: 18),
+                  ],
+                ),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
               ),
               // 3) Special personas — opt-in role-play (18+).
@@ -313,6 +320,38 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     return ok == true ? picked : null;
+  }
+
+  /// Overlapping initials — the บ้านปิ่น siblings, hinting at the family.
+  Widget _avatarStack(List<String> initials) {
+    final pal = ThemeController.instance.value;
+    return SizedBox(
+      width: 20.0 + (initials.length - 1) * 14,
+      height: 22,
+      child: Stack(
+        children: [
+          for (var i = 0; i < initials.length; i++)
+            Positioned(
+              left: i * 14.0,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: pal.av,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(initials[i],
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: pal.deep)),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   /// Trailing for an inline-value row (theme, digest time): the current value +
