@@ -22,35 +22,41 @@ class AiProviderScreen extends StatefulWidget {
 
 class _Provider {
   final String id, name, desc, modelDefault, modelHint;
-  final bool needsKey, needsBaseUrl, hasFreePicker;
+  final bool needsKey, needsBaseUrl, hasFreePicker, enabled;
   const _Provider(this.id, this.name, this.desc,
       {this.modelDefault = '',
       this.modelHint = '',
       this.needsKey = false,
       this.needsBaseUrl = false,
-      this.hasFreePicker = false});
+      this.hasFreePicker = false,
+      this.enabled = true});
 }
 
+// OpenRouter / OpenAI-compatible / Claude are built but held back for now
+// (enabled:false) — the adapter code stays; flip the flag to ship them.
 const _providers = <_Provider>[
   _Provider('pin', 'ปิ่น', 'โมเดลฟรีของปิ่น — ไม่ต้องตั้งค่าอะไร'),
-  _Provider('openrouter', 'OpenRouter', 'คีย์ OpenRouter · โมเดลอะไรก็ได้',
-      needsKey: true,
-      modelDefault: 'openai/gpt-4o',
-      modelHint: 'เช่น anthropic/claude-3.5-sonnet · openai/gpt-4o',
-      hasFreePicker: true),
-  _Provider('openai', 'OpenAI-compatible', 'ใส่ endpoint เอง (OpenAI/Groq/Ollama/…)',
-      needsKey: true,
-      needsBaseUrl: true,
-      modelDefault: 'gpt-4o-mini',
-      modelHint: 'ชื่อโมเดลตามผู้ให้บริการ'),
   _Provider('gemini', 'Gemini', 'คีย์ Google AI Studio',
       needsKey: true,
       modelDefault: 'gemini-2.0-flash',
       modelHint: 'เช่น gemini-2.0-flash · gemini-1.5-pro'),
+  _Provider('openrouter', 'OpenRouter', 'คีย์ OpenRouter · โมเดลอะไรก็ได้',
+      needsKey: true,
+      modelDefault: 'openai/gpt-4o',
+      modelHint: 'เช่น anthropic/claude-3.5-sonnet · openai/gpt-4o',
+      hasFreePicker: true,
+      enabled: false),
+  _Provider('openai', 'OpenAI-compatible', 'ใส่ endpoint เอง (OpenAI/Groq/Ollama/…)',
+      needsKey: true,
+      needsBaseUrl: true,
+      modelDefault: 'gpt-4o-mini',
+      modelHint: 'ชื่อโมเดลตามผู้ให้บริการ',
+      enabled: false),
   _Provider('claude', 'Claude', 'คีย์ Anthropic',
       needsKey: true,
       modelDefault: 'claude-3-5-sonnet-latest',
-      modelHint: 'เช่น claude-3-5-sonnet-latest'),
+      modelHint: 'เช่น claude-3-5-sonnet-latest',
+      enabled: false),
 ];
 
 class _AiProviderScreenState extends State<AiProviderScreen> {
@@ -139,15 +145,23 @@ class _AiProviderScreenState extends State<AiProviderScreen> {
                   RadioListTile<String>(
                     value: _providers[i].id,
                     groupValue: _provider,
-                    onChanged: (v) => _select(v!),
+                    // Disabled providers are visible but not selectable yet.
+                    onChanged:
+                        _providers[i].enabled ? (v) => _select(v!) : null,
                     activeColor: accent,
                     controlAffinity: ListTileControlAffinity.trailing,
                     title: Text(_providers[i].name,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: _providers[i].enabled
+                                ? PinPalette.ink
+                                : PinPalette.ink3)),
+                    subtitle: Text(
+                        _providers[i].enabled
+                            ? _providers[i].desc
+                            : '${_providers[i].desc} · เร็วๆนี้',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w600, color: PinPalette.ink)),
-                    subtitle: Text(_providers[i].desc,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: PinPalette.ink2)),
+                            fontSize: 12.5, color: PinPalette.ink3)),
                   ),
                 ],
               ],
