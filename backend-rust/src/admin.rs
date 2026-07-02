@@ -344,13 +344,32 @@ async fn get_push_rows(store: &Store) -> Vec<Value> {
         };
         r["ago"] = json!(ago);
         
-        let device = r.get("device").and_then(|v| v.as_str()).unwrap_or("");
+        let device = r.get("device").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let device_short = if device.len() > 16 {
             format!("{}…", &device[..16])
         } else {
-            device.to_string()
+            device.clone()
         };
         r["device_short"] = json!(device_short);
+
+        // Attach scheduled watch jobs for this device so admin sees when it will
+        // wake on its own (vs the manual "ปลุกเลย" override).
+        let mut jobs = store.get_scheduled_jobs_for_device(&device).await.unwrap_or_default();
+        for j in &mut jobs {
+            let due = j.get("next_due").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let dt = due - now;
+            let when = if dt <= 0.0 {
+                "ครบกำหนดแล้ว".to_string()
+            } else if dt < 3600.0 {
+                format!("อีก {} นาที", (dt / 60.0).ceil() as i32)
+            } else if dt < 86400.0 {
+                format!("อีก {} ชม.", (dt / 3600.0) as i32)
+            } else {
+                format!("อีก {} วัน", (dt / 86400.0) as i32)
+            };
+            j["when"] = json!(when);
+        }
+        r["jobs"] = json!(jobs);
     }
     rows
 }
