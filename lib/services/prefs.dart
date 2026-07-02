@@ -216,6 +216,17 @@ String toneFromEnding(String ending) {
 /// strings (the ปิ่น room name, `_pin` account suffix, account labels) — those
 /// must stay stable regardless of the display name.
 String get botName => PrefsController.instance.value.pinName;
+String get userCall => PrefsController.instance.value.userCall;
+
+/// Fill persona placeholders in canonical/catalog copy with the user's settings.
+/// Per the character bible, only {ชื่อปิ่น} + {คำเรียกผู้ใช้} are variable (น้อง
+/// names + their own honorific stay literal). Safe on strings without markers.
+String personaFill(String s) {
+  final p = PrefsController.instance.value;
+  return s
+      .replaceAll('{ชื่อปิ่น}', p.pinName)
+      .replaceAll('{คำเรียกผู้ใช้}', p.userCall);
+}
 
 class PrefsController extends ValueNotifier<PinPrefs> {
   PrefsController._() : super(const PinPrefs());

@@ -102,19 +102,16 @@ class SettingsScreen extends StatelessWidget {
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => PersonalityScreen(onSave: _updatePersona))),
               ),
-              // 2) บ้านปิ่น — the family of น้อง (assistants). Avatar stack hints
-              // at the siblings; the screen is the read-only catalog.
+              // 2) บ้านปิ่น — the family of น้อง (assistants). Members listed in
+              // the subtitle (five names don't fit as trailing badges).
               ListTile(
                 leading: const Icon(PhosphorIconsRegular.house),
-                title: const Text('บ้านปิ่น'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _nameBadges(const ['อุ่น', 'หยิบ', 'ชั้น', 'ปั้น', 'หยอด']),
-                    const SizedBox(width: 6),
-                    const Icon(PhosphorIconsRegular.caretRight, size: 18),
-                  ],
-                ),
+                title: Text('บ้าน${p.pinName}'),
+                subtitle: const Text('อุ่น · หยิบ · ชั้น · ปั้น · หยอด',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: PinPalette.ink2)),
+                trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const AbilitiesScreen())),
               ),
@@ -320,34 +317,6 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     return ok == true ? picked : null;
-  }
-
-  /// Small name pills — the บ้านปิ่น siblings, right-aligned in the row.
-  Widget _nameBadges(List<String> names) {
-    final pal = ThemeController.instance.value;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 190),
-      child: Wrap(
-        alignment: WrapAlignment.end,
-        spacing: 4,
-        runSpacing: 4,
-        children: [
-          for (final n in names)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: pal.av,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Text(n,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: pal.deep)),
-            ),
-        ],
-      ),
-    );
   }
 
   /// Trailing for an inline-value row (theme, digest time): the current value +

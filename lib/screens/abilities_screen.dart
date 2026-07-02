@@ -3,6 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../agent/agent_config.dart';
 import '../agent/catalog_client.dart';
+import '../services/prefs.dart';
 import '../theme/pin_theme.dart';
 
 /// "บ้านปิ่น" — the family of น้อง (assistants ปิ่น hands work to): อุ่น/หยิบ/
@@ -47,8 +48,8 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 20,
-        title: const Text('บ้านปิ่น',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text('บ้าน$botName',
+            style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -91,10 +92,11 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
         border: Border.all(color: PinPalette.line),
         borderRadius: BorderRadius.circular(13),
       ),
-      child: const Text(
-        'นี่บ้านของปิ่นเองนะพี่ — น้อง ๆ ถนัดคนละเรื่อง พี่ไม่ต้องจำว่าใครทำอะไร '
-        'บอกปิ่นมาเหมือนเดิม เดี๋ยวปิ่นส่งต่อให้เอง',
-        style: TextStyle(fontSize: 12.5, height: 1.55, color: PinPalette.ink),
+      child: Text(
+        'นี่บ้านของ$botNameเองนะ$userCall — น้อง ๆ ถนัดคนละเรื่อง '
+        '${userCall}ไม่ต้องจำว่าใครทำอะไร บอก${botName}มาเหมือนเดิม '
+        'เดี๋ยว${botName}ส่งต่อให้เอง',
+        style: const TextStyle(fontSize: 12.5, height: 1.55, color: PinPalette.ink),
       ),
     );
   }
@@ -102,10 +104,12 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   Widget _card(Map<String, dynamic> a) {
     final primary = Theme.of(context).colorScheme.primary;
     final name = '${a['name']}';
-    final label = '${a['label'] ?? name}';
-    final desc = '${a['description'] ?? ''}';
-    final sibling = '${a['sibling'] ?? ''}';
-    final quote = '${a['quote'] ?? ''}';
+    // Fill {ชื่อปิ่น}/{คำเรียกผู้ใช้} in the canonical catalog copy with the
+    // user's persona (น้อง names + their own honorific stay literal).
+    final label = personaFill('${a['label'] ?? name}');
+    final desc = personaFill('${a['description'] ?? ''}');
+    final sibling = personaFill('${a['sibling'] ?? ''}');
+    final quote = personaFill('${a['quote'] ?? ''}');
     final handoff = '${a['interaction_mode'] ?? 'delegation'}' == 'handoff';
     // Admin is the single source: active = ready; soon/off both show as "เร็วๆนี้".
     final ready = '${a['status'] ?? 'active'}' == 'active';

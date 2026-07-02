@@ -5,6 +5,7 @@ import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
 import '../services/now_controllers.dart';
 import '../services/pin_meta.dart';
+import '../services/prefs.dart';
 import '../services/tasks_controller.dart';
 import 'agent_config.dart';
 import 'agent_reply.dart';
@@ -118,10 +119,11 @@ String _watchPrompt(String id, String topic) =>
     '(query ต้องมีคำว่า "$topic" เสมอ ห้ามค้นกว้าง ๆ).\n'
     '2) เรียก recall_knowledge ด้วยคำค้น "watch $topic" เพื่อดูว่ารอบก่อนรู้อะไรไปแล้ว.\n'
     '3) ถ้าเจอเรื่องใหม่ (ไม่ซ้ำกับที่จำไว้ — รอบแรกถือว่าใหม่ทั้งหมด): '
-    'เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ", urgency:...) + save_knowledge หัวข้อ "watch $topic" '
+    'เรียก update_watch(id:"$id", finding:"สรุปสั้น ๆ", urgency:..., source:"URL ที่มา") + save_knowledge หัวข้อ "watch $topic" '
     'เก็บสิ่งที่เจอกันซ้ำรอบหน้า. '
     'finding = ตัวข่าว/เนื้อหาล้วน 1-2 ประโยค — **ห้ามขึ้นต้นด้วยชื่อหัวข้อหรือ "พบ...ล่าสุด"** '
     '(การ์ดมีชื่อหัวข้อ "$topic" อยู่แล้ว) เช่นเขียน "Meituan เปิดตัว LongCat-2.0..." ไม่ใช่ "พบข่าว AI ล่าสุด: ...". '
+    'source = URL ของแหล่งข่าวหลักจากผล web_search (ถ้ามี) เพื่อทำปุ่ม "อ่านต่อ". '
     'urgency="now" เฉพาะเรื่องที่เพิ่งเกิด/ผลลัพธ์ที่ผู้ใช้รออยู่/เปลี่ยนสำคัญ; '
     'ที่เหลือ urgency="digest" (จะถูกรวมในสรุปประจำวันเอง).\n'
     '4) **ห้ามพิมพ์ข้อความตอบผู้ใช้** — การ์ดสรุปจัดการการแจ้งให้แล้ว. '
@@ -601,6 +603,11 @@ List<AgentTool> nowTools() => [
               'description':
                   'now = แจ้งทันที (เฉพาะเรื่องด่วนจริง) · digest = รวมในสรุปประจำวัน (ค่าเริ่มต้น)',
             },
+            'source': {
+              'type': 'string',
+              'description':
+                  'URL แหล่งข่าว/ที่มาของ finding (จากผล web_search) เพื่อทำปุ่ม "อ่านต่อ" — ใส่ถ้ามี',
+            },
           },
           required: ['id', 'finding'],
         ),
@@ -609,6 +616,7 @@ List<AgentTool> nowTools() => [
           final finding = '${args['finding'] ?? ''}'.trim();
           if (id.isEmpty || finding.isEmpty) return 'ขอ id กับ finding ด้วยนะ';
           final urgent = '${args['urgency'] ?? 'digest'}' == 'now';
+          final source = '${args['source'] ?? ''}'.trim();
           final rid = await _room();
           if (rid == null) return 'ยังไม่พร้อม';
           final list = await MatrixService.instance
@@ -618,6 +626,7 @@ List<AgentTool> nowTools() => [
           list[i]['last_seen'] = finding;
           list[i]['last_seen_at'] = DateTime.now().millisecondsSinceEpoch;
           list[i]['has_new'] = true;
+          list[i]['source'] = source; // '' clears a stale link
           // Urgent findings ปิ่น posts right away → not pending for the digest.
           // Everything else waits for the daily briefing (no rapid pings).
           list[i]['pending_digest'] = !urgent;
@@ -629,7 +638,8 @@ List<AgentTool> nowTools() => [
               'icon': list[i]['icon'],
               'topic': list[i]['topic'],
               'finding': finding,
-            });
+              'source': source,
+            }, name: PrefsController.instance.value.pinName);
             await MatrixService.instance.sendText(rid, finding,
                 role: 'user', flex: card, meta: pinMeta(const ['watch']));
             await NotificationService.instance

@@ -22,18 +22,55 @@ void main() {
     });
   });
 
-  group('buildDigestCard', () {
-    test('one item per watch + footer carries the time', () {
+  group('buildDigestCard (code fallback)', () {
+    test('greeting uses the persona ending', () {
       final c = buildDigestCard([
         {'topic': 'A', 'last_seen': 'a'},
+      ], time: '08:00', ending: 'ครับ');
+      expect(c['header']['title'], 'ปิ่นสรุปให้ครับ');
+    });
+
+    test('multiple → carousel: cover + one card per topic', () {
+      final c = buildDigestCard([
+        {'topic': 'A', 'last_seen': 'a', 'source': 'https://x.com/1'},
         {'topic': 'B', 'last_seen': 'b'},
       ], time: '08:00', dateLabel: '7 ก.ค.');
-      expect(c['header']['icon'], 'sun');
-      expect((c['header']['subtitle'] as String), contains('2'));
-      expect((c['body'] as List), hasLength(2));
-      // finding falls back to last_seen when finding key absent
-      expect((c['body'] as List).first['finding'], 'a');
-      expect(c['footer']['trailing'], '08:00');
+      final cards = c['carousel'] as List;
+      expect(cards, hasLength(3)); // cover + 2 topics
+      expect(cards[1]['header']['title'], 'A');
+      expect(cards[1]['footer']['action']['data'], 'https://x.com/1');
+      expect(cards[2].containsKey('footer'), isFalse); // no source → no footer
+    });
+  });
+
+  group('buildDigestFromItems (LLM structured output)', () {
+    test('LLM title used verbatim; single item → one card', () {
+      final c = buildDigestFromItems({
+        'title': 'อรุณสวัสดิ์ครับพี่บอล',
+        'summary': 'มี 1 เรื่อง',
+        'items': [
+          {'topic': 'ทอง', 'text': 'ขึ้น 150', 'source': 'https://g/1', 'icon': 'money'}
+        ],
+      }, time: '08:00');
+      expect(c['carousel'], isNull);
+      expect(c['header']['title'], 'อรุณสวัสดิ์ครับพี่บอล');
+      expect((c['body'] as List).first['finding'], 'ขึ้น 150');
+      expect((c['body'] as List).first['icon'], 'money');
+      expect(c['footer']['action']['data'], 'https://g/1');
+    });
+
+    test('multiple items → carousel of topic cards', () {
+      final c = buildDigestFromItems({
+        'title': 'สวัสดีครับ',
+        'items': [
+          {'topic': 'A', 'text': 'a'},
+          {'topic': 'B', 'text': 'b', 'source': 'https://x/2'},
+        ],
+      }, time: '08:00');
+      final cards = c['carousel'] as List;
+      expect(cards, hasLength(3));
+      expect(cards[1]['header']['title'], 'A');
+      expect(cards[2]['footer']['action']['data'], 'https://x/2');
     });
   });
 }
