@@ -129,10 +129,13 @@ class NowView extends StatelessWidget {
                     }(),
                     hintColor:
                         watches.any((w) => w.hasNew) ? accent : _ink3,
-                    onTap: () {
-                      WatchesController.instance.markAllSeen();
-                      Navigator.of(context).push(MaterialPageRoute(
+                    onTap: () async {
+                      // Keep the "ใหม่" markers visible while viewing; clear them
+                      // only AFTER the user closes the list (so they can see what
+                      // was new — not everything looking identical on open).
+                      await Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => const _WatchScreen()));
+                      WatchesController.instance.markAllSeen();
                     },
                   ),
                   _menuRow(
@@ -701,14 +704,6 @@ class _FilesTabState extends State<FilesTab> {
   }
 }
 
-/// Full-screen wrapper (kept for any push-route use).
-class NowScreen extends StatelessWidget {
-  const NowScreen({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      const Scaffold(body: NowView());
-}
-
 /// ไฟล์ as its own screen, opened from the "ตอนนี้" panel's menu row (was a tab).
 class _FilesScreen extends StatelessWidget {
   const _FilesScreen();
@@ -999,12 +994,13 @@ class _WatchScreen extends StatelessWidget {
             }
             
             final sortedWatches = watches.toList()..sort((a, b) {
+              // New findings float to the top so "what's new" is obvious.
+              if (a.hasNew != b.hasNew) return a.hasNew ? -1 : 1;
               final ja = jobs.where((j) => j.id == a.id).firstOrNull;
               final jb = jobs.where((j) => j.id == b.id).firstOrNull;
               final ia = (ja == null || ja.intervalSec <= 0) ? 999999999 : ja.intervalSec;
               final ib = (jb == null || jb.intervalSec <= 0) ? 999999999 : jb.intervalSec;
               if (ia != ib) return ia.compareTo(ib);
-              if (a.hasNew != b.hasNew) return a.hasNew ? -1 : 1;
               return a.topic.compareTo(b.topic);
             });
 
