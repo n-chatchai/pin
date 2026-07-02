@@ -21,30 +21,31 @@ class AiProviderScreen extends StatefulWidget {
 }
 
 class _Provider {
-  final String id, name, desc, modelDefault, modelHint;
-  final bool needsKey, needsBaseUrl, hasFreePicker, enabled;
+  final String id, name, desc, modelDefault, modelHint, modelList;
+  final bool needsKey, needsBaseUrl, enabled;
   const _Provider(this.id, this.name, this.desc,
       {this.modelDefault = '',
       this.modelHint = '',
+      this.modelList = '', // '' | 'free' (OpenRouter) | 'gemini'
       this.needsKey = false,
       this.needsBaseUrl = false,
-      this.hasFreePicker = false,
       this.enabled = true});
 }
 
 // OpenRouter / OpenAI-compatible / Claude are built but held back for now
 // (enabled:false) — the adapter code stays; flip the flag to ship them.
 const _providers = <_Provider>[
-  _Provider('pin', 'ปิ่น', 'โมเดลฟรีของปิ่น — ไม่ต้องตั้งค่าอะไร'),
+  _Provider('pin', 'ปิ่น', 'โมเดลของปิ่น — ไม่ต้องตั้งค่าอะไร'),
   _Provider('gemini', 'Gemini', 'คีย์ Google AI Studio',
       needsKey: true,
       modelDefault: 'gemini-2.0-flash',
-      modelHint: 'เช่น gemini-2.0-flash · gemini-1.5-pro'),
+      modelHint: 'เช่น gemini-2.0-flash · gemini-1.5-pro',
+      modelList: 'gemini'),
   _Provider('openrouter', 'OpenRouter', 'คีย์ OpenRouter · โมเดลอะไรก็ได้',
       needsKey: true,
       modelDefault: 'openai/gpt-4o',
       modelHint: 'เช่น anthropic/claude-3.5-sonnet · openai/gpt-4o',
-      hasFreePicker: true,
+      modelList: 'free',
       enabled: false),
   _Provider('openai', 'OpenAI-compatible', 'ใส่ endpoint เอง (OpenAI/Groq/Ollama/…)',
       needsKey: true,
@@ -203,14 +204,18 @@ class _AiProviderScreenState extends State<AiProviderScreen> {
                     style: const TextStyle(fontSize: 12.5, color: PinPalette.ink2)),
               ),
           ],
-          if (p.hasFreePicker) ...[
+          if (p.modelList.isNotEmpty) ...[
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
-                onPressed: _pickFree,
-                icon: const Icon(PhosphorIconsRegular.gift, size: 18),
-                label: const Text('เลือกโมเดลฟรี'),
+                onPressed: () => _pickModel(p.modelList),
+                icon: Icon(
+                    p.modelList == 'free'
+                        ? PhosphorIconsRegular.gift
+                        : PhosphorIconsRegular.listBullets,
+                    size: 18),
+                label: Text(p.modelList == 'free' ? 'เลือกโมเดลฟรี' : 'เลือกโมเดล'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                   foregroundColor: accent,
@@ -246,7 +251,7 @@ class _AiProviderScreenState extends State<AiProviderScreen> {
     );
   }
 
-  // --- OpenRouter free-model picker (public list, no key needed) ---
+  /// OpenRouter's free (`:free`) models — public list, no key needed.
   Future<List<({String id, String name})>> _fetchFreeModels() async {
     final r = await http
         .get(Uri.parse('https://openrouter.ai/api/v1/models'))
@@ -262,7 +267,37 @@ class _AiProviderScreenState extends State<AiProviderScreen> {
     return free;
   }
 
-  void _pickFree() {
+  /// Live Gemini models for this key (ListModels) — only those that support
+  /// generateContent. Ids are stored without the "models/" prefix.
+  Future<List<({String id, String name})>> _fetchGeminiModels() async {
+    final key = _key.text.trim();
+    if (key.isEmpty) return const [];
+    final r = await http
+        .get(Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models?key=$key'))
+        .timeout(const Duration(seconds: 15));
+    if (r.statusCode != 200) return const [];
+    final data = (jsonDecode(r.body)['models'] as List?) ?? const [];
+    final out = <({String id, String name})>[];
+    for (final m in data) {
+      final map = m as Map;
+      final methods = (map['supportedGenerationMethods'] as List?) ?? const [];
+      if (!methods.contains('generateContent')) continue;
+      final id = '${map['name']}'.replaceFirst('models/', '');
+      out.add((id: id, name: '${map['displayName'] ?? id}'));
+    }
+    out.sort((a, b) => a.id.compareTo(b.id));
+    return out;
+  }
+
+  void _pickModel(String kind) {
+    final title = kind == 'free' ? 'โมเดลฟรีบน OpenRouter' : 'โมเดล Gemini';
+    final future =
+        kind == 'free' ? _fetchFreeModels() : _fetchGeminiModels();
+    if (kind == 'gemini' && _key.text.trim().isEmpty) {
+      PinToast.show(context, 'ใส่คีย์ Gemini ก่อนนะ');
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -283,17 +318,17 @@ class _AiProviderScreenState extends State<AiProviderScreen> {
                   color: PinPalette.line,
                   borderRadius: BorderRadius.circular(2)),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('โมเดลฟรีบน OpenRouter',
-                  style: TextStyle(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: Text(title,
+                  style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: PinPalette.ink)),
             ),
             Expanded(
               child: FutureBuilder<List<({String id, String name})>>(
-                future: _fetchFreeModels(),
+                future: future,
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) {
                     return const Center(child: CircularProgressIndicator());
