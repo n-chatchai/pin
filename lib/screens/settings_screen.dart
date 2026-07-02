@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -136,20 +138,16 @@ class SettingsScreen extends StatelessWidget {
             ]),
             _section('การเฝ้าติดตาม'),
             _card([
-              // One row: description below, current time on the right. ปิ่น
-              // gathers watch findings into one calm briefing at this time
-              // (urgent ones still ping immediately).
+              // Title (left) + digest time (right) — matches every other row.
               ListTile(
                 leading: const Icon(PhosphorIconsRegular.sun),
-                title: const Text('สรุปการเฝ้าประจำวัน'),
-                subtitle: const Text('รวมเรื่องที่เฝ้าไว้มาบอกทีเดียว '
-                    '(เรื่องด่วนบอกทันที)'),
+                title: const Text('สรุปประจำวัน'),
                 trailing: _valueCaret(p.morningTime),
                 onTap: () async {
                   final parts = p.morningTime.split(':');
-                  final t = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay(
+                  final t = await _pickTime(
+                    context,
+                    TimeOfDay(
                       hour: int.tryParse(parts.first) ?? 8,
                       minute:
                           int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
@@ -278,6 +276,49 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// Native time picker per platform: iOS → a Cupertino wheel in a bottom
+  /// sheet; Android → the Material clock dialog. 24h to match the HH:MM display.
+  Future<TimeOfDay?> _pickTime(BuildContext context, TimeOfDay initial) async {
+    if (!Platform.isIOS) {
+      return showTimePicker(context: context, initialTime: initial);
+    }
+    var picked = initial;
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: SizedBox(
+          height: 300,
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: CupertinoButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('เสร็จ',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  use24hFormat: true,
+                  initialDateTime:
+                      DateTime(2000, 1, 1, initial.hour, initial.minute),
+                  onDateTimeChanged: (d) =>
+                      picked = TimeOfDay(hour: d.hour, minute: d.minute),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return ok == true ? picked : null;
+  }
+
   /// Trailing for an inline-value row (theme, digest time): the current value +
   /// a caret, so a picker row reads as tappable just like a nav row.
   Widget _valueCaret(String value) => Row(
@@ -289,21 +330,29 @@ class SettingsScreen extends StatelessWidget {
         ],
       );
 
-  /// A navigation row: icon · title · description-below · caret. The secondary
-  /// line lives UNDER the title (not crammed right) so every nav row reads the
-  /// same and a long value can't squeeze the title.
+  /// A navigation row: icon · title (left) · value (right) · caret. Value is
+  /// bound + ellipsized so a long one can't wrap the title.
   Widget _navRow(BuildContext context, IconData icon, String title,
           String value, VoidCallback onTap) =>
       ListTile(
         leading: Icon(icon),
         title: Text(title),
-        subtitle: value.isEmpty
-            ? null
-            : Text(value,
-                style: const TextStyle(color: PinPalette.ink2),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-        trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.42),
+              child: Text(value,
+                  style: const TextStyle(color: PinPalette.ink2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right),
+            ),
+            const SizedBox(width: 4),
+            const Icon(PhosphorIconsRegular.caretRight, size: 18),
+          ],
+        ),
         onTap: onTap,
       );
 
