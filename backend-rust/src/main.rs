@@ -156,6 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/health", get(health))
         .route("/waitlist", post(waitlist))
         .route("/schedule/register", post(schedule_register))
+        .route("/schedule/sync", post(schedule_sync))
         .route("/schedule/cancel", post(schedule_cancel))
         .route("/push/register", post(push_register))
         .route("/push/test", post(push_test))
@@ -364,6 +365,69 @@ async fn schedule_register(
         .await;
 
     Json(json!({ "ok": true })).into_response()
+}
+
+/// Declarative wake-schedule reconcile. The device sends its FULL desired job set
+/// (derived from room state — watches + agentic reminders) and the server converges
+/// this device's `scheduled_jobs` to it. Idempotent; heals any prior drift.
+async fn schedule_sync(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
+    let user_id = match state.matrix_auth.check_token(auth).await {
+        Ok(uid) => uid,
+        Err((code, msg)) => return (code, msg).into_response(),
+    };
+
+    let device = body
+        .get("device")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if device.is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing device").into_response();
+    }
+    let platform = body
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .unwrap_or("apns")
+        .to_string();
+
+    let jobs: Vec<(String, f64, String, Option<f64>)> = body
+        .get("jobs")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|j| {
+                    let job_id = j.get("job_id").and_then(|v| v.as_str())?.to_string();
+                    let next_due = j.get("next_due").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    let repeat = j
+                        .get("repeat")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("once")
+                        .to_string();
+                    let interval_sec = j.get("interval_sec").and_then(|v| v.as_f64());
+                    Some((job_id, next_due, repeat, interval_sec))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if let Err(e) = state
+        .store
+        .sync_scheduled_jobs(&device, &platform, &jobs)
+        .await
+    {
+        return (StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", e)).into_response();
+    }
+    let _ = state
+        .store
+        .record_push_device(&user_id, &device, &platform)
+        .await;
+
+    Json(json!({ "ok": true, "count": jobs.len() })).into_response()
 }
 
 async fn push_register(

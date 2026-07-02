@@ -272,6 +272,31 @@ class ProxyClient {
     } catch (_) {/* offline → still scheduled locally */}
   }
 
+  /// Declarative reconcile: send this device's FULL wake-job set (built from room
+  /// state). Server converges — deletes stale, upserts current. Idempotent; call
+  /// on any app-open / mutation. No-op offline (still scheduled locally).
+  Future<void> scheduleSync({
+    required String device,
+    required String platform,
+    required List<Map<String, dynamic>> jobs,
+  }) async {
+    if (device.isEmpty) return;
+    try {
+      await http
+          .post(Uri.parse('$baseUrl/schedule/sync'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'device': device,
+                'platform': platform,
+                'jobs': jobs,
+              }))
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {/* offline → reconciled on next app open */}
+  }
+
   /// Cancel a previously-registered wake (one-shot fired, or job removed).
   /// Best-effort; a no-op server-side if the id was never registered.
   Future<void> scheduleCancel(String jobId) async {

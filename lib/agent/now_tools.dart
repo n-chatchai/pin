@@ -4,12 +4,12 @@ import '../services/android_job_alarm.dart';
 import '../services/matrix_service.dart';
 import '../services/notification_service.dart';
 import '../services/now_controllers.dart';
-import '../services/push_service.dart';
 import '../services/tasks_controller.dart';
 import 'agent_config.dart';
 import 'agent_reply.dart';
 import 'agent_store.dart';
 import 'tools.dart';
+import 'wake_sync.dart';
 import 'when_parse.dart';
 
 /// On-device "ตอนนี้" tools: let ปิ่น create reminders / jobs / tasks / memory.
@@ -87,19 +87,15 @@ Future<(bool, String)> _scheduleEntry(
     } catch (_) {/* recorded already; the OS alarm re-arms on next app open */}
   }
 
-  // Agentic jobs need to run when the app is closed. iOS: register a server APNs
-  // wake (no-op without a push token). Android: arm an exact on-device alarm.
-  // Both no-op on the other platform; both fall back to the on-open runner.
+  // Agentic jobs need to run when the app is closed. iOS: server APNs wake (via
+  // the declarative reconcile below, no-op without a push token). Android: an
+  // exact on-device alarm. Both fall back to the on-open runner.
   if (kind == 'agentic') {
-    await devProxy().scheduleRegister(
-      jobId: id,
-      nextDue: when.millisecondsSinceEpoch / 1000,
-      repeat: repeat,
-      device: PushService.instance.deviceToken,
-      platform: PushService.instance.platform,
-    );
     final rid = await _room();
-    if (rid != null) await AndroidJobAlarm.armAll(rid);
+    if (rid != null) {
+      await syncWakeSchedule(rid); // reconcile full wake set from room state
+      await AndroidJobAlarm.armAll(rid);
+    }
   }
 
   final lead = kind == 'agentic' ? 'ตั้งงานอัตโนมัติ' : 'ตั้งเตือน';
@@ -124,20 +120,11 @@ String _watchPrompt(String id, String topic) =>
     '(คำเรียกผู้ใช้ตามเปอร์โซนา).\n'
     '4) เฉพาะกรณี "ไม่มีอะไรใหม่เลยจริง ๆ" เทียบกับที่จำไว้ — เงียบ ไม่ต้องตอบ แล้วจบงาน.';
 
-/// Poll cadence per watch tier, in seconds. The LLM picks the tier at create
-/// time from the topic's nature; on mobile this is a ceiling (jobs run on
-/// wake/resume), not a guaranteed clock. iOS APNs honours the short tiers best.
-const Map<String, int> _watchTierSec = {
-  'realtime': 2 * 3600,
-  'hourly': 6 * 3600,
-  'daily': 24 * 3600,
-  'weekly': 7 * 24 * 3600,
-  'idle': 30 * 24 * 3600,
-};
-
 /// Normalise the model's `interval` arg to a known tier, defaulting to daily.
+/// Tier→seconds map lives in wake_sync ([watchTierSec]) — shared with the server
+/// wake reconcile so both agree on cadence.
 String _watchTier(String raw) =>
-    _watchTierSec.containsKey(raw.trim()) ? raw.trim() : 'daily';
+    watchTierSec.containsKey(raw.trim()) ? raw.trim() : 'daily';
 
 /// A confirmation card for things that land in the "ตอนนี้" drawer. Its footer
 /// is tappable → `open:now`, which the chat scaffold turns into openDrawer().
@@ -148,8 +135,7 @@ Map<String, dynamic> _nowCard(String detail) => {
       ],
       'footer': {
         'icon': 'clock',
-        'text': 'แตะเพื่อดูใน “ตอนนี้”',
-        'trailing': 'เปิด →',
+        'text': 'ดูใน “ตอนนี้”',
         'action': {'data': 'open:now'},
       },
     };
@@ -532,6 +518,7 @@ List<AgentTool> nowTools() => [
             'last_seen_at': 0,
             'has_new': false,
             'interval': fixedDaily ? 'daily' : tier,
+            if (fixedDaily) 'time': timeArg, // kept so re-sync knows the hour
             'created': DateTime.now().millisecondsSinceEpoch,
           });
           final ok = await MatrixService.instance
@@ -553,15 +540,8 @@ List<AgentTool> nowTools() => [
               'kind': 'agentic',
               'at': when.millisecondsSinceEpoch,
             });
-            await devProxy().scheduleRegister(
-              jobId: id,
-              nextDue: when.millisecondsSinceEpoch / 1000,
-              repeat: 'daily',
-              device: PushService.instance.deviceToken,
-              platform: PushService.instance.platform,
-            );
           } else {
-            final intervalSec = _watchTierSec[tier]!;
+            final intervalSec = watchTierSec[tier]!;
             final now = DateTime.now().millisecondsSinceEpoch;
             await store.addReminder({
               'id': id,
@@ -572,15 +552,10 @@ List<AgentTool> nowTools() => [
               'floor_sec': intervalSec, // tier base; backoff caps at 8× this
               'at': now, // first check ~now; settles to the interval after
             });
-            await devProxy().scheduleRegister(
-              jobId: id,
-              nextDue: (now + intervalSec * 1000) / 1000,
-              repeat: 'interval',
-              intervalSec: intervalSec,
-              device: PushService.instance.deviceToken,
-              platform: PushService.instance.platform,
-            );
           }
+          // Reconcile the whole server wake schedule from room state (declarative)
+          // — this new watch plus any that missed registration earlier. Idempotent.
+          await syncWakeSchedule(rid);
           await AndroidJobAlarm.armAll(rid);
           return (true, "จะคอยเฝ้าเรื่อง '$topic' ให้ — มีอะไรใหม่จะบอกในแชต");
         },
@@ -652,7 +627,9 @@ List<AgentTool> nowTools() => [
           final store = AgentStore();
           await store.load();
           await store.removeReminder(wid);
-          await devProxy().scheduleCancel(wid);
+          // Reconcile from room state — the removed watch is no longer in the set,
+          // so the server drops its wake. Heals drift in the same pass.
+          await syncWakeSchedule(rid);
           await AndroidJobAlarm.cancel(wid);
           return 'เลิกเฝ้าเรื่อง "$topic" แล้ว';
         },

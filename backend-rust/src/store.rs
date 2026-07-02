@@ -198,6 +198,39 @@ impl Store {
         Ok(res.rows_affected() > 0)
     }
 
+    /// Declarative reconcile: replace this device's entire wake schedule with the
+    /// given set. Room state is the source of truth, so the device sends its full
+    /// desired job list and we converge to it — deletes stale jobs and upserts the
+    /// rest in one transaction. `jobs` = [(job_id, next_due, repeat, interval_sec)].
+    pub async fn sync_scheduled_jobs(
+        &self,
+        device: &str,
+        platform: &str,
+        jobs: &[(String, f64, String, Option<f64>)],
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        // Wipe this device's jobs, then re-insert the desired set. Scoped by device
+        // so other devices' jobs are untouched (job_id collision across devices is
+        // a separate, known issue).
+        sqlx::query("DELETE FROM scheduled_jobs WHERE device = ?")
+            .bind(device)
+            .execute(&mut *tx)
+            .await?;
+        for (job_id, next_due, repeat, interval_sec) in jobs {
+            sqlx::query("INSERT OR REPLACE INTO scheduled_jobs (job_id, device, next_due, repeat, platform, interval_sec) VALUES (?, ?, ?, ?, ?, ?)")
+                .bind(job_id)
+                .bind(device)
+                .bind(next_due)
+                .bind(repeat)
+                .bind(platform)
+                .bind(interval_sec)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn get_scheduled_jobs_for_device(
         &self,
         device: &str,

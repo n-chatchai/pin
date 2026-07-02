@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../agent/agent_config.dart';
 import '../agent/agent_session.dart';
 import '../agent/agentic_job_service.dart';
+import '../agent/wake_sync.dart';
 import '../src/rust/frb_generated.dart';
 import 'matrix_service.dart';
 import 'prefs.dart';
@@ -107,8 +108,15 @@ class PushService with WidgetsBindingObserver {
     // Do not register if the matrix session hasn't restored yet (empty token).
     // The matrix_service will trigger this again once it's ready.
     if (proxy.token.isEmpty) return;
-    
+
     await proxy.pushRegister(tok, platform);
+
+    // Ensure-on-open: reconcile the server wake schedule from room state every
+    // time we (re)register — boot, resume, and token refresh all land here. This
+    // is the only reliable heal for watches that missed registration (created
+    // before the token existed); a user who reopens the app converges.
+    final rid = await MatrixService.instance.pinRoomId();
+    if (rid != null) await syncWakeSchedule(rid);
   }
 
   /// Re-fetch the FCM token if it's missing (Android getToken is flaky at cold
