@@ -567,9 +567,7 @@ impl LLMForwarder {
         Response::builder()
             .status(axum::http::StatusCode::OK)
             .header("content-type", "application/json")
-            .body(Body::from(
-                serde_json::to_vec(&openai).unwrap_or_default(),
-            ))
+            .body(Body::from(serde_json::to_vec(&openai).unwrap_or_default()))
             .unwrap()
     }
 
@@ -772,8 +770,7 @@ fn youtube_urls(text: &str) -> Vec<String> {
     for tok in text.split_whitespace() {
         // Trim wrapping punctuation but keep URL chars.
         let t = tok.trim_matches(|c: char| {
-            !c.is_alphanumeric()
-                && !matches!(c, ':' | '/' | '.' | '?' | '=' | '&' | '_' | '-')
+            !c.is_alphanumeric() && !matches!(c, ':' | '/' | '.' | '?' | '=' | '&' | '_' | '-')
         });
         let low = t.to_lowercase();
         let is_yt = low.contains("youtube.com/watch")
