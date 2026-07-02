@@ -1,13 +1,13 @@
+use axum::body::Body;
+use axum::http::HeaderMap;
+use axum::response::{IntoResponse, Response};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use axum::http::HeaderMap;
-use axum::response::{IntoResponse, Response};
-use axum::body::Body;
-use serde::{Serialize, Deserialize};
-use serde_json::{json, Value};
-use jsonwebtoken::{encode, Header, EncodingKey, Algorithm};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 // --- Matrix Auth Cache ---
 
@@ -31,7 +31,10 @@ impl MatrixAuth {
         }
     }
 
-    pub async fn check_token(&self, authorization: Option<&str>) -> Result<String, (axum::http::StatusCode, &'static str)> {
+    pub async fn check_token(
+        &self,
+        authorization: Option<&str>,
+    ) -> Result<String, (axum::http::StatusCode, &'static str)> {
         let token = match authorization {
             Some(auth) => {
                 let stripped = auth.trim().trim_start_matches("Bearer ").trim();
@@ -56,13 +59,19 @@ impl MatrixAuth {
         // Query homeserver
         let client = reqwest::Client::new();
         let url = format!("{}/_matrix/client/v3/account/whoami", self.homeserver);
-        let res = match client.get(&url)
+        let res = match client
+            .get(&url)
             .header("Authorization", format!("Bearer {}", token))
             .send()
-            .await 
+            .await
         {
             Ok(r) => r,
-            Err(_) => return Err((axum::http::StatusCode::SERVICE_UNAVAILABLE, "auth backend unreachable")),
+            Err(_) => {
+                return Err((
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                    "auth backend unreachable",
+                ))
+            }
         };
 
         if res.status() != 200 {
@@ -79,10 +88,13 @@ impl MatrixAuth {
         if let Ok(body) = res.json::<WhoamiResponse>().await {
             let user_id = body.user_id;
             let mut cache = self.cache.write().unwrap();
-            cache.insert(token.to_string(), AuthCacheEntry {
-                user_id: user_id.clone(),
-                expires_at: Instant::now() + std::time::Duration::from_secs(self.ttl_secs),
-            });
+            cache.insert(
+                token.to_string(),
+                AuthCacheEntry {
+                    user_id: user_id.clone(),
+                    expires_at: Instant::now() + std::time::Duration::from_secs(self.ttl_secs),
+                },
+            );
             Ok(user_id)
         } else {
             Err((axum::http::StatusCode::UNAUTHORIZED, "unauthorized"))
@@ -114,7 +126,7 @@ impl GoogleAuth {
 
     pub async fn get_access_token(&self) -> Option<String> {
         let sa_path = self.fcm_sa_path.as_ref()?;
-        
+
         // Check cache
         {
             let cache = self.cache.read().unwrap();
@@ -128,10 +140,12 @@ impl GoogleAuth {
         // Mint a new token using Service Account JWT
         let raw = std::fs::read_to_string(sa_path).ok()?;
         let sa: Value = serde_json::from_str(&raw).ok()?;
-        
+
         let client_email = sa["client_email"].as_str()?;
         let private_key_pem = sa["private_key"].as_str()?;
-        let token_url = sa["token_uri"].as_str().unwrap_or("https://oauth2.googleapis.com/token");
+        let token_url = sa["token_uri"]
+            .as_str()
+            .unwrap_or("https://oauth2.googleapis.com/token");
 
         #[derive(Serialize)]
         struct GoogleClaims {
@@ -142,7 +156,10 @@ impl GoogleAuth {
             iat: u64,
         }
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let claims = GoogleClaims {
             iss: client_email.to_string(),
             scope: "https://www.googleapis.com/auth/firebase.messaging".to_string(),
@@ -155,7 +172,8 @@ impl GoogleAuth {
         let jwt = encode(&Header::new(Algorithm::RS256), &claims, &key).ok()?;
 
         let client = reqwest::Client::new();
-        let res = client.post(token_url)
+        let res = client
+            .post(token_url)
             .form(&[
                 ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
                 ("assertion", &jwt),
@@ -202,7 +220,10 @@ pub fn apns_jwt() -> Option<String> {
         iat: u64,
     }
 
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     let claims = ApnsClaims {
         iss: team_id,
         iat: now,
@@ -224,23 +245,41 @@ pub struct Scheduler {
 
 impl Scheduler {
     pub fn new(store: crate::store::Store, google_auth: Arc<GoogleAuth>) -> Self {
-        Self {
-            store,
-            google_auth,
-        }
+        Self { store, google_auth }
     }
 
-    pub async fn register(&self, job_id: String, device: String, next_due: f64, repeat: String, platform: String, interval_sec: Option<f64>) {
-        if let Err(e) = self.store.add_scheduled_job(&job_id, &device, next_due, &repeat, &platform, interval_sec).await {
+    pub async fn register(
+        &self,
+        job_id: String,
+        device: String,
+        next_due: f64,
+        repeat: String,
+        platform: String,
+        interval_sec: Option<f64>,
+    ) {
+        if let Err(e) = self
+            .store
+            .add_scheduled_job(&job_id, &device, next_due, &repeat, &platform, interval_sec)
+            .await
+        {
             error!("[sched] failed to register job {}: {:?}", job_id, e);
         }
     }
 
     pub async fn cancel(&self, job_id: &str) -> bool {
-        self.store.remove_scheduled_job(job_id).await.unwrap_or(false)
+        self.store
+            .remove_scheduled_job(job_id)
+            .await
+            .unwrap_or(false)
     }
 
-    pub async fn push(&self, device: &str, job_id: &str, platform: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn push(
+        &self,
+        device: &str,
+        job_id: &str,
+        platform: &str,
+        force: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if platform == "fcm" {
             self.push_fcm(device, job_id, force).await
         } else {
@@ -248,10 +287,19 @@ impl Scheduler {
         }
     }
 
-    async fn push_fcm(&self, device: &str, job_id: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+    async fn push_fcm(
+        &self,
+        device: &str,
+        job_id: &str,
+        force: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let token = self.google_auth.get_access_token().await;
         if token.is_none() {
-            warn!("[sched] would FCM push job={} device={} (no SA credentials)", job_id, &device[..device.len().min(8)]);
+            warn!(
+                "[sched] would FCM push job={} device={} (no SA credentials)",
+                job_id,
+                &device[..device.len().min(8)]
+            );
             return Ok(());
         }
         let token = token.unwrap();
@@ -272,7 +320,11 @@ impl Scheduler {
         });
 
         let client = reqwest::Client::new();
-        let res = client.post(format!("https://fcm.googleapis.com/v1/projects/{}/messages:send", project))
+        let res = client
+            .post(format!(
+                "https://fcm.googleapis.com/v1/projects/{}/messages:send",
+                project
+            ))
             .header("Authorization", format!("Bearer {}", token))
             .json(&msg)
             .send()
@@ -282,10 +334,19 @@ impl Scheduler {
         Ok(())
     }
 
-    async fn push_apns(&self, device: &str, job_id: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+    async fn push_apns(
+        &self,
+        device: &str,
+        job_id: &str,
+        force: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let jwt_token = apns_jwt();
         if jwt_token.is_none() {
-            warn!("[sched] would APNs push job={} device={} (no APNs credentials)", job_id, &device[..device.len().min(8)]);
+            warn!(
+                "[sched] would APNs push job={} device={} (no APNs credentials)",
+                job_id,
+                &device[..device.len().min(8)]
+            );
             return Ok(());
         }
         let jwt_token = jwt_token.unwrap();
@@ -307,10 +368,10 @@ impl Scheduler {
         }
 
         // Setup HTTP/2 client
-        let client = reqwest::Client::builder()
-            .build()?;
-        
-        let res = client.post(format!("https://{}/3/device/{}", host, device))
+        let client = reqwest::Client::builder().build()?;
+
+        let res = client
+            .post(format!("https://{}/3/device/{}", host, device))
             .header("authorization", format!("bearer {}", jwt_token))
             .header("apns-topic", topic)
             .header("apns-push-type", "background")
@@ -372,18 +433,19 @@ pub struct LLMForwarder {
 
 impl LLMForwarder {
     pub fn new(free_model: String) -> Self {
-        Self {
-            free_model,
-        }
+        Self { free_model }
     }
 
     pub async fn infer(&self, headers: HeaderMap, body: Value) -> Response {
-        let x_pin_tier = headers.get("x-pin-tier")
+        let x_pin_tier = headers
+            .get("x-pin-tier")
             .and_then(|h| h.to_str().ok())
             .unwrap_or("free");
-        let x_openrouter_key = headers.get("x-openrouter-key")
+        let x_openrouter_key = headers
+            .get("x-openrouter-key")
             .and_then(|h| h.to_str().ok());
-        let x_openrouter_referer = headers.get("x-openrouter-referer")
+        let x_openrouter_referer = headers
+            .get("x-openrouter-referer")
             .and_then(|h| h.to_str().ok());
 
         let url: String;
@@ -392,7 +454,13 @@ impl LLMForwarder {
         let payload = if x_pin_tier == "paid" {
             let key = match x_openrouter_key {
                 Some(k) => k,
-                None => return (axum::http::StatusCode::BAD_REQUEST, "missing OpenRouter key").into_response(),
+                None => {
+                    return (
+                        axum::http::StatusCode::BAD_REQUEST,
+                        "missing OpenRouter key",
+                    )
+                        .into_response()
+                }
             };
             url = "https://openrouter.ai/api/v1/chat/completions".to_string();
             client_headers.insert("Authorization", format!("Bearer {}", key).parse().unwrap());
@@ -403,11 +471,18 @@ impl LLMForwarder {
         } else {
             let gkey = match std::env::var("GEMINI_API_KEY") {
                 Ok(k) if !k.is_empty() => k,
-                _ => return (axum::http::StatusCode::SERVICE_UNAVAILABLE, "proxy not configured").into_response(),
+                _ => {
+                    return (
+                        axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                        "proxy not configured",
+                    )
+                        .into_response()
+                }
             };
-            url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".to_string();
+            url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+                .to_string();
             client_headers.insert("Authorization", format!("Bearer {}", gkey).parse().unwrap());
-            
+
             // Inject free model if missing
             let mut payload = body;
             if payload.get("model").is_none() {
@@ -422,27 +497,46 @@ impl LLMForwarder {
         let client = match reqwest::Client::builder()
             .local_address(Some("0.0.0.0".parse().unwrap()))
             .timeout(std::time::Duration::from_secs(90))
-            .build() 
+            .build()
         {
             Ok(c) => c,
-            Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "failed to build HTTP client").into_response(),
+            Err(_) => {
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "failed to build HTTP client",
+                )
+                    .into_response()
+            }
         };
 
-        let res = match client.post(&url)
+        let res = match client
+            .post(&url)
             .headers(client_headers)
             .json(&payload)
             .send()
-            .await 
+            .await
         {
             Ok(r) => r,
-            Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, format!("provider error: {:?}", e)).into_response(),
+            Err(e) => {
+                return (
+                    axum::http::StatusCode::BAD_GATEWAY,
+                    format!("provider error: {:?}", e),
+                )
+                    .into_response()
+            }
         };
 
         let status = res.status();
         let content_type = res.headers().get("content-type").cloned();
         let bytes = match res.bytes().await {
             Ok(b) => b,
-            Err(_) => return (axum::http::StatusCode::BAD_GATEWAY, "failed to read provider response").into_response(),
+            Err(_) => {
+                return (
+                    axum::http::StatusCode::BAD_GATEWAY,
+                    "failed to read provider response",
+                )
+                    .into_response()
+            }
         };
 
         let mut builder = Response::builder().status(status);
@@ -452,11 +546,14 @@ impl LLMForwarder {
         builder.body(Body::from(bytes)).unwrap()
     }
 
-
-
-    pub async fn transcribe(&self, name: Option<&str>, mime_type: Option<&str>, data: &[u8]) -> Result<String, String> {
-        let gkey = std::env::var("GEMINI_API_KEY")
-            .map_err(|_| "proxy not configured".to_string())?;
+    pub async fn transcribe(
+        &self,
+        name: Option<&str>,
+        mime_type: Option<&str>,
+        data: &[u8],
+    ) -> Result<String, String> {
+        let gkey =
+            std::env::var("GEMINI_API_KEY").map_err(|_| "proxy not configured".to_string())?;
         if gkey.is_empty() {
             return Err("proxy not configured".to_string());
         }
@@ -482,8 +579,12 @@ impl LLMForwarder {
             .build()
             .map_err(|e| e.to_string())?;
 
-        let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", self.free_model);
-        let res = client.post(&url)
+        let url = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+            self.free_model
+        );
+        let res = client
+            .post(&url)
             .query(&[("key", &gkey)])
             .json(&payload)
             .send()
@@ -495,7 +596,7 @@ impl LLMForwarder {
         }
 
         let json_body = res.json::<Value>().await.map_err(|e| e.to_string())?;
-        
+
         let parts = json_body["candidates"][0]["content"]["parts"]
             .as_array()
             .ok_or_else(|| "invalid response structure".to_string())?;
@@ -510,7 +611,9 @@ impl LLMForwarder {
 
         // Strip headers
         let mut lines: Vec<&str> = text.lines().collect();
-        while !lines.is_empty() && (lines[0].trim().starts_with('#') || lines[0].to_lowercase().contains("transcript")) {
+        while !lines.is_empty()
+            && (lines[0].trim().starts_with('#') || lines[0].to_lowercase().contains("transcript"))
+        {
             lines.remove(0);
         }
 
@@ -524,7 +627,8 @@ impl LLMForwarder {
 }
 
 fn audio_mime(name: Option<&str>, ct: Option<&str>) -> String {
-    let ext = name.unwrap_or("")
+    let ext = name
+        .unwrap_or("")
         .rsplit('.')
         .next()
         .unwrap_or("")

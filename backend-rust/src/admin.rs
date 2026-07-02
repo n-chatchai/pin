@@ -1,21 +1,21 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-use time;
 use axum::{
-    http::{StatusCode, header},
-    response::{Html, IntoResponse, Redirect, Response},
     extract::{Path, Query, State},
+    http::{header, StatusCode},
+    response::{Html, IntoResponse, Redirect, Response},
     Form,
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use time;
 use tracing::{error, warn};
 
-use crate::store::Store;
 use crate::emails;
 use crate::proxy::Scheduler;
+use crate::store::Store;
 use sqlx::Row;
 
 const COOKIE_NAME: &str = "pin_admin";
@@ -40,10 +40,10 @@ pub struct AdminState {
 async fn get_admin_session(jar: &CookieJar, secret: &str, store: &Store) -> Option<String> {
     let cookie = jar.get(COOKIE_NAME)?;
     let token = cookie.value();
-    
+
     let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
     let validation = jsonwebtoken::Validation::default();
-    
+
     if let Ok(data) = jsonwebtoken::decode::<AdminClaims>(token, &key, &validation) {
         let email = data.claims.email;
         if store.is_admin(&email).await.unwrap_or(false) {
@@ -60,26 +60,41 @@ fn render(env: &minijinja::Environment, template: &str, ctx: Value) -> Response 
             Ok(html) => Html(html).into_response(),
             Err(e) => {
                 error!("Template rendering failed for {}: {:?}", template, e);
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Render error: {:?}", e)).into_response()
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Render error: {:?}", e),
+                )
+                    .into_response()
             }
         },
         Err(e) => {
             error!("Template retrieval failed for {}: {:?}", template, e);
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Template error: {:?}", e)).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {:?}", e),
+            )
+                .into_response()
         }
     }
 }
 
 // ---- Routes ----
 
-pub async fn login_page(State(state): State<AdminState>, jar: CookieJar, Query(params): Query<HashMap<String, String>>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_some() {
+pub async fn login_page(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_some()
+    {
         return Redirect::to("/admin").into_response();
     }
     let error = params.get("error").map(|e| match e.as_str() {
         "unauthorized" => "คุณไม่ได้รับอนุญาตให้เข้าใช้งานระบบหลังบ้าน",
         "google_failed" => "การเข้าสู่ระบบผ่าน Google ล้มเหลว",
-        _ => "เข้าสู่ระบบไม่สำเร็จ"
+        _ => "เข้าสู่ระบบไม่สำเร็จ",
     });
     render(&state.jinja_env, "login.html", json!({ "error": error }))
 }
@@ -90,10 +105,8 @@ pub async fn logout(_jar: CookieJar) -> impl IntoResponse {
         .path("/admin")
         .http_only(true)
         .build();
-    resp.headers_mut().append(
-        header::SET_COOKIE,
-        cookie.to_string().parse().unwrap()
-    );
+    resp.headers_mut()
+        .append(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     resp
 }
 
@@ -108,7 +121,8 @@ pub async fn sso_login() -> Response {
         .unwrap_or_else(|_| "https://pin-backend.tokens2.io/admin/sso/callback".to_string());
     let url = format!(
         "{}/_matrix/client/v3/login/sso/redirect?redirectUrl={}",
-        hs_public, urlencoding::encode(&callback)
+        hs_public,
+        urlencoding::encode(&callback)
     );
     Redirect::to(&url).into_response()
 }
@@ -119,27 +133,32 @@ pub async fn sso_login() -> Response {
 pub async fn sso_callback(
     State(state): State<AdminState>,
     _jar: CookieJar,
-    Query(params): Query<HashMap<String, String>>
+    Query(params): Query<HashMap<String, String>>,
 ) -> Response {
     let login_token = match params.get("loginToken") {
         Some(t) => t,
         None => return Redirect::to("/admin/login?error=sso_failed").into_response(),
     };
 
-    let hs = std::env::var("PIN_HOMESERVER")
-        .unwrap_or_else(|_| "http://10.42.0.1:6167".to_string());
+    let hs =
+        std::env::var("PIN_HOMESERVER").unwrap_or_else(|_| "http://10.42.0.1:6167".to_string());
     let client = reqwest::Client::new();
 
-    let res = match client.post(format!("{}/_matrix/client/v3/login", hs))
+    let res = match client
+        .post(format!("{}/_matrix/client/v3/login", hs))
         .json(&json!({"type": "m.login.token", "token": login_token}))
-        .send().await
+        .send()
+        .await
     {
         Ok(r) => r,
         Err(_) => return Redirect::to("/admin/login?error=sso_failed").into_response(),
     };
 
     #[derive(Deserialize)]
-    struct LoginResp { user_id: String, access_token: Option<String> }
+    struct LoginResp {
+        user_id: String,
+        access_token: Option<String>,
+    }
 
     let body = match res.json::<LoginResp>().await {
         Ok(b) => b,
@@ -149,8 +168,11 @@ pub async fn sso_callback(
 
     // Best-effort logout of the throwaway Matrix session — we only needed identity.
     if let Some(tok) = &body.access_token {
-        let _ = client.post(format!("{}/_matrix/client/v3/logout", hs))
-            .header("Authorization", format!("Bearer {}", tok)).send().await;
+        let _ = client
+            .post(format!("{}/_matrix/client/v3/logout", hs))
+            .header("Authorization", format!("Bearer {}", tok))
+            .send()
+            .await;
     }
 
     if !state.store.is_admin(&user_id).await.unwrap_or(false) {
@@ -158,12 +180,15 @@ pub async fn sso_callback(
         return Redirect::to("/admin/login?error=unauthorized").into_response();
     }
 
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     let claims = AdminClaims {
         email: user_id, // holds the Matrix user_id
         exp: (now + 8 * 3600) as i64,
     };
-    
+
     let key = jsonwebtoken::EncodingKey::from_secret(state.jwt_secret.as_bytes());
     let token = match jsonwebtoken::encode(&jsonwebtoken::Header::default(), &claims, &key) {
         Ok(t) => t,
@@ -178,10 +203,8 @@ pub async fn sso_callback(
         .build();
 
     let mut resp = Redirect::to("/admin").into_response();
-    resp.headers_mut().append(
-        header::SET_COOKIE,
-        cookie.to_string().parse().unwrap()
-    );
+    resp.headers_mut()
+        .append(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     resp
 }
 
@@ -196,10 +219,14 @@ pub async fn dashboard(State(state): State<AdminState>, jar: CookieJar) -> Respo
         Err(_) => json!({ "tools": 0, "skills": 0, "subagents": 0, "mcp": 0, "backlog": 0 }),
     };
 
-    render(&state.jinja_env, "dashboard.html", json!({
-        "admin": admin,
-        "counts": counts
-    }))
+    render(
+        &state.jinja_env,
+        "dashboard.html",
+        json!({
+            "admin": admin,
+            "counts": counts
+        }),
+    )
 }
 
 async fn get_dashboard_counts(store: &Store) -> Result<Value, sqlx::Error> {
@@ -215,7 +242,9 @@ async fn get_dashboard_counts(store: &Store) -> Result<Value, sqlx::Error> {
         }
     }
 
-    let backlog = store.list_capability_requests().await?
+    let backlog = store
+        .list_capability_requests()
+        .await?
         .iter()
         .filter(|r| r.get("status").and_then(|v| v.as_str()) != Some("done"))
         .count();
@@ -235,7 +264,10 @@ async fn get_dashboard_counts(store: &Store) -> Result<Value, sqlx::Error> {
 // ---- Tabs ----
 
 pub async fn tab_backlog(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let rows = store_list_capability_requests_json(&state.store).await;
@@ -248,9 +280,14 @@ async fn store_list_capability_requests_json(store: &Store) -> Value {
 }
 
 pub async fn set_backlog_status(
-    State(state): State<AdminState>, jar: CookieJar, Path((req_id, status)): Path<(i32, String)>
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path((req_id, status)): Path<(i32, String)>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     if status == "requested" || status == "building" || status == "done" {
@@ -263,7 +300,10 @@ pub async fn set_backlog_status(
 // --- Push tab ---
 
 pub async fn tab_push(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let rows = get_push_rows(&state.store).await;
@@ -280,57 +320,80 @@ pub async fn push_wake(
     jar: CookieJar,
     Form(f): Form<WakeForm>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    
+
     let devices = state.store.list_push_devices().await.unwrap_or_default();
-    let dev = devices.iter().find(|d| d.get("user_id").and_then(|v| v.as_str()) == Some(&f.user_id));
-    
+    let dev = devices
+        .iter()
+        .find(|d| d.get("user_id").and_then(|v| v.as_str()) == Some(&f.user_id));
+
     let mut msg = "ไม่พบอุปกรณ์".to_string();
     if let Some(d) = dev {
         let token = d.get("device").and_then(|v| v.as_str()).unwrap_or("");
         let platform = d.get("platform").and_then(|v| v.as_str()).unwrap_or("apns");
         if !token.is_empty() {
-            match state.scheduler.push(token, "admin-wake", platform, true).await {
+            match state
+                .scheduler
+                .push(token, "admin-wake", platform, true)
+                .await
+            {
                 Ok(_) => msg = format!("ปลุก {} แล้ว ({})", f.user_id, platform),
                 Err(e) => msg = format!("ปลุกไม่สำเร็จ: {:?}", e),
             }
         }
     }
-    
+
     let rows = get_push_rows(&state.store).await;
-    render(&state.jinja_env, "_push.html", json!({ "rows": rows, "flash": msg }))
+    render(
+        &state.jinja_env,
+        "_push.html",
+        json!({ "rows": rows, "flash": msg }),
+    )
 }
 
-pub async fn push_catalog(
-    State(state): State<AdminState>,
-    jar: CookieJar,
-) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn push_catalog(State(state): State<AdminState>, jar: CookieJar) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    
+
     let devices = state.store.list_push_devices().await.unwrap_or_default();
     let mut sent = 0;
-    
+
     for d in devices {
         let token = d.get("device").and_then(|v| v.as_str()).unwrap_or("");
         let platform = d.get("platform").and_then(|v| v.as_str()).unwrap_or("apns");
         if !token.is_empty() {
             // We use 'catalog_update' as the payload, keeping is_silent = true
-            let _ = state.scheduler.push(token, "catalog_update", platform, true).await;
+            let _ = state
+                .scheduler
+                .push(token, "catalog_update", platform, true)
+                .await;
             sent += 1;
         }
     }
-    
+
     let msg = format!("ส่งคำสั่งอัปเดต Catalog ไป {} เครื่องเรียบร้อยแล้ว", sent);
     let rows = get_push_rows(&state.store).await;
-    render(&state.jinja_env, "_push.html", json!({ "rows": rows, "flash": msg }))
+    render(
+        &state.jinja_env,
+        "_push.html",
+        json!({ "rows": rows, "flash": msg }),
+    )
 }
 
 async fn get_push_rows(store: &Store) -> Vec<Value> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
     let mut rows = store.list_push_devices().await.unwrap_or_default();
     for r in &mut rows {
         let updated = r.get("updated_at").and_then(|v| v.as_f64()).unwrap_or(0.0);
@@ -343,8 +406,12 @@ async fn get_push_rows(store: &Store) -> Vec<Value> {
             format!("{} วันก่อน", (age / 86400.0) as i32)
         };
         r["ago"] = json!(ago);
-        
-        let device = r.get("device").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+        let device = r
+            .get("device")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let device_short = if device.len() > 16 {
             format!("{}…", &device[..16])
         } else {
@@ -354,7 +421,10 @@ async fn get_push_rows(store: &Store) -> Vec<Value> {
 
         // Attach scheduled watch jobs for this device so admin sees when it will
         // wake on its own (vs the manual "ปลุกเลย" override).
-        let mut jobs = store.get_scheduled_jobs_for_device(&device).await.unwrap_or_default();
+        let mut jobs = store
+            .get_scheduled_jobs_for_device(&device)
+            .await
+            .unwrap_or_default();
         for j in &mut jobs {
             let due = j.get("next_due").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let dt = due - now;
@@ -381,8 +451,15 @@ pub async fn tab_store(State(state): State<AdminState>, jar: CookieJar) -> Respo
     tab_capabilities(State(state), jar).await
 }
 
-pub async fn store_toggle(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn store_toggle(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(name): Path<String>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = state.store.toggle_capability(&name).await;
@@ -390,11 +467,21 @@ pub async fn store_toggle(State(state): State<AdminState>, jar: CookieJar, Path(
 }
 
 #[derive(Deserialize)]
-pub struct PromptForm { pub prompt: String }
+pub struct PromptForm {
+    pub prompt: String,
+}
 
 /// Edit a skill's prompt (system_prompt) from the admin.
-pub async fn save_prompt(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>, Form(f): Form<PromptForm>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn save_prompt(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(name): Path<String>,
+    Form(f): Form<PromptForm>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = state.store.set_prompt(&name, &f.prompt).await;
@@ -405,44 +492,79 @@ pub async fn save_prompt(State(state): State<AdminState>, jar: CookieJar, Path(n
 
 /// Capabilities grouped by kind (tool/skill/subagent/mcp).
 pub async fn tab_capabilities(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    let caps = state.store.all_capabilities_admin().await.unwrap_or_default();
+    let caps = state
+        .store
+        .all_capabilities_admin()
+        .await
+        .unwrap_or_default();
     let mut groups = Vec::new();
-    for (kind, label) in [("tool", "เครื่องมือ"), ("skill", "ทักษะ"), ("mcp", "MCP")] {
-        let items: Vec<Value> = caps.iter()
+    for (kind, label) in [("tool", "เครื่องมือ"), ("skill", "ทักษะ"), ("mcp", "MCP")]
+    {
+        let items: Vec<Value> = caps
+            .iter()
             .filter(|c| c.get("kind").and_then(|v| v.as_str()) == Some(kind))
-            .cloned().collect();
+            .cloned()
+            .collect();
         if !items.is_empty() {
             groups.push(json!({"kind": kind, "label": label, "items": items}));
         }
     }
-    render(&state.jinja_env, "_capabilities.html", json!({"groups": groups}))
+    render(
+        &state.jinja_env,
+        "_capabilities.html",
+        json!({"groups": groups}),
+    )
 }
 
 /// Connectors (MCP servers etc.) with their tools + refresh.
 pub async fn tab_connectors(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let connectors = state.store.all_connectors().await.unwrap_or_default();
-    render(&state.jinja_env, "_connectors.html", json!({"connectors": connectors}))
+    render(
+        &state.jinja_env,
+        "_connectors.html",
+        json!({"connectors": connectors}),
+    )
 }
 
 /// ผู้ช่วย = subagents (delegate/handoff agents). Each is a brain the main bot
 /// hands work to; the assistants-package table isn't used yet (YAGNI).
 pub async fn tab_assistants(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let assistants = state.store.all_assistants().await.unwrap_or_default();
-    render(&state.jinja_env, "_assistants.html", json!({"assistants": assistants}))
+    render(
+        &state.jinja_env,
+        "_assistants.html",
+        json!({"assistants": assistants}),
+    )
 }
 
 /// Toggle an assistant on/off from the admin.
-pub async fn assistant_toggle(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn assistant_toggle(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(name): Path<String>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = state.store.toggle_assistant(&name).await;
@@ -461,31 +583,47 @@ pub struct StoreMetaForm {
 }
 
 pub async fn store_save(
-    State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>, Form(f): Form<StoreMetaForm>
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(name): Path<String>,
+    Form(f): Form<StoreMetaForm>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    
-    let _ = state.store.set_store_meta(
-        &name,
-        f.category.as_deref(),
-        f.status.as_deref(),
-        f.tier.as_deref(),
-        f.amount.as_deref(),
-        f.period.as_deref(),
-        f.render.as_deref(),
-        f.ask_params.as_deref()
-    ).await;
-    
+
+    let _ = state
+        .store
+        .set_store_meta(
+            &name,
+            f.category.as_deref(),
+            f.status.as_deref(),
+            f.tier.as_deref(),
+            f.amount.as_deref(),
+            f.period.as_deref(),
+            f.render.as_deref(),
+            f.ask_params.as_deref(),
+        )
+        .await;
+
     tab_store(State(state), jar).await
 }
 
 // --- MCP Config ---
 
 /// Live-refresh an MCP server's tool schemas (tools/list → capabilities).
-pub async fn mcp_refresh(State(state): State<AdminState>, jar: CookieJar, Path(server): Path<String>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn mcp_refresh(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(server): Path<String>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = crate::mcp::refresh_server(&state.store, &server).await;
@@ -493,20 +631,41 @@ pub async fn mcp_refresh(State(state): State<AdminState>, jar: CookieJar, Path(s
 }
 
 /// List an MCP server's stored tools (name, params, defaults) for the admin UI.
-pub async fn mcp_server_tools(State(state): State<AdminState>, jar: CookieJar, Path(server): Path<String>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn mcp_server_tools(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(server): Path<String>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    let tools = state.store.mcp_tools_for_server(&server).await.unwrap_or_default();
+    let tools = state
+        .store
+        .mcp_tools_for_server(&server)
+        .await
+        .unwrap_or_default();
     axum::Json(serde_json::json!({ "server": server, "tools": tools })).into_response()
 }
 
 #[derive(Deserialize)]
-pub struct GuideForm { pub guide: String }
+pub struct GuideForm {
+    pub guide: String,
+}
 
 /// Edit a connector's usage guide (the "how to use my tools" policy).
-pub async fn save_connector_guide(State(state): State<AdminState>, jar: CookieJar, Path(name): Path<String>, Form(f): Form<GuideForm>) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn save_connector_guide(
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(name): Path<String>,
+    Form(f): Form<GuideForm>,
+) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     let _ = state.store.set_connector_guide(&name, &f.guide).await;
@@ -516,7 +675,10 @@ pub async fn save_connector_guide(State(state): State<AdminState>, jar: CookieJa
 // --- Waitlist Tab ---
 
 pub async fn tab_waitlist(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     wl_render(&state.jinja_env, &state.store, "").await
@@ -525,7 +687,7 @@ pub async fn tab_waitlist(State(state): State<AdminState>, jar: CookieJar) -> Re
 async fn wl_render(env: &minijinja::Environment<'static>, store: &Store, flash: &str) -> Response {
     let mut rows = store.list_waitlist().await.unwrap_or_default();
     let replies = store.mail_reply_counts().await.unwrap_or_default();
-    
+
     let mut unsent = 0;
     for r in &mut rows {
         let use_case = r.get("use").and_then(|v| v.as_str()).unwrap_or("");
@@ -536,29 +698,40 @@ async fn wl_render(env: &minijinja::Environment<'static>, store: &Store, flash: 
             "creative" => "ครีเอทีฟ",
             "sme" => "ร้านค้า",
             "work" => "จัดการงาน",
-            _ => "ทั่วไป"
+            _ => "ทั่วไป",
         };
         r["persona_th"] = json!(persona_th);
-        
+
         let sent_at = r.get("sent_at").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let sent = sent_at > 0.0;
         r["sent"] = json!(sent);
-        
-        let unsub = r.get("unsubscribed_at").and_then(|v| v.as_f64()).unwrap_or(0.0) > 0.0;
+
+        let unsub = r
+            .get("unsubscribed_at")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+            > 0.0;
         r["unsub"] = json!(unsub);
-        
+
         let email = r.get("email").and_then(|v| v.as_str()).unwrap_or("");
         r["replies"] = json!(replies.get(email).cloned().unwrap_or(0));
 
         let created_at = r.get("created_at").and_then(|v| v.as_f64()).unwrap_or(0.0);
         r["created_th"] = json!(chrono::DateTime::from_timestamp(created_at as i64, 0)
-            .map(|dt| dt.with_timezone(&chrono::Local).format("%d/%m %H:%M").to_string())
+            .map(|dt| dt
+                .with_timezone(&chrono::Local)
+                .format("%d/%m %H:%M")
+                .to_string())
             .unwrap_or_default());
 
         if sent {
             // format time
             let local_time = chrono::DateTime::from_timestamp(sent_at as i64, 0)
-                .map(|dt| dt.with_timezone(&chrono::Local).format("%d/%m %H:%M").to_string())
+                .map(|dt| {
+                    dt.with_timezone(&chrono::Local)
+                        .format("%d/%m %H:%M")
+                        .to_string()
+                })
                 .unwrap_or_default();
             r["sent_th"] = json!(local_time);
         } else {
@@ -569,11 +742,15 @@ async fn wl_render(env: &minijinja::Environment<'static>, store: &Store, flash: 
         }
     }
 
-    render(env, "_waitlist.html", json!({
-        "rows": rows,
-        "flash": flash,
-        "unsent": unsent
-    }))
+    render(
+        env,
+        "_waitlist.html",
+        json!({
+            "rows": rows,
+            "flash": flash,
+            "unsent": unsent
+        }),
+    )
 }
 
 // IMAP reply poll via `imap` + `mailparse` (pure Rust). Sync crate, so the
@@ -636,8 +813,11 @@ fn poll_imap_blocking() -> Result<Vec<Value>, String> {
         return Ok(vec![]);
     }
 
-    let tls = native_tls::TlsConnector::builder().build().map_err(|e| e.to_string())?;
-    let client = imap::connect(("imap.gmail.com", 993), "imap.gmail.com", &tls).map_err(|e| e.to_string())?;
+    let tls = native_tls::TlsConnector::builder()
+        .build()
+        .map_err(|e| e.to_string())?;
+    let client = imap::connect(("imap.gmail.com", 993), "imap.gmail.com", &tls)
+        .map_err(|e| e.to_string())?;
     let mut session = client.login(&user, &pw).map_err(|(e, _)| e.to_string())?;
 
     let mut out = Vec::new();
@@ -689,7 +869,10 @@ async fn send_mail(to: &str, subject: &str, text: &str, html: &str) -> Result<St
     }
 
     // Unique Message-ID. nanos-since-epoch is enough for one-at-a-time admin sends.
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     let msg_id = format!("{}@tokens2.io", nanos);
 
     let from_mbox = sender.parse().map_err(|e| format!("bad GMAIL_FROM: {e}"))?;
@@ -717,7 +900,10 @@ async fn send_mail(to: &str, subject: &str, text: &str, html: &str) -> Result<St
 }
 
 pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -731,7 +917,7 @@ pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> R
                 let frm = m["from"].as_str().unwrap_or("").to_lowercase();
                 let msg_id = m["msg_id"].as_str().unwrap_or("");
                 let irt = m["in_reply_to"].as_str().unwrap_or("");
-                
+
                 let who = if wl_set.contains(&frm) {
                     Some(frm)
                 } else {
@@ -742,12 +928,23 @@ pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> R
                     if let Ok(false) = state.store.mail_msgid_seen(msg_id).await {
                         let subject = m["subject"].as_str().unwrap_or("");
                         let body = m["body"].as_str().unwrap_or("");
-                        
-                        let _ = state.store.add_mail_message(&email, "in", subject, body, msg_id, irt).await;
-                        
+
+                        let _ = state
+                            .store
+                            .add_mail_message(&email, "in", subject, body, msg_id, irt)
+                            .await;
+
                         // Check for unsubscribe words
                         let body_low = body.to_lowercase();
-                        let unsub_words = vec!["unsubscribe", "เลิกรับ", "ยกเลิกรับ", "ไม่รับ", "เลิกติดตาม", "opt out", "opt-out"];
+                        let unsub_words = vec![
+                            "unsubscribe",
+                            "เลิกรับ",
+                            "ยกเลิกรับ",
+                            "ไม่รับ",
+                            "เลิกติดตาม",
+                            "opt out",
+                            "opt-out",
+                        ];
                         if unsub_words.iter().any(|w| body_low.contains(w)) {
                             let _ = state.store.mark_waitlist_unsubscribed(&email).await;
                         }
@@ -763,18 +960,28 @@ pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> R
             wl_render(&state.jinja_env, &state.store, &flash).await
         }
         Err(e) => {
-            wl_render(&state.jinja_env, &state.store, &format!("ดึงเมลไม่สำเร็จ: {}", e)).await
+            wl_render(
+                &state.jinja_env,
+                &state.store,
+                &format!("ดึงเมลไม่สำเร็จ: {}", e),
+            )
+            .await
         }
     }
 }
 
 pub async fn waitlist_thread(
-    State(state): State<AdminState>, jar: CookieJar, Path(wid): Path<i32>
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(wid): Path<i32>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    
+
     let wl = state.store.list_waitlist().await.unwrap_or_default();
     let row = match wl.iter().find(|r| r["id"].as_i64() == Some(wid as i64)) {
         Some(r) => r,
@@ -786,21 +993,34 @@ pub async fn waitlist_thread(
     for m in &mut msgs {
         let ca = m["created_at"].as_f64().unwrap_or(0.0);
         let formatted = chrono::DateTime::from_timestamp(ca as i64, 0)
-            .map(|dt| dt.with_timezone(&chrono::Local).format("%d/%m %H:%M").to_string())
+            .map(|dt| {
+                dt.with_timezone(&chrono::Local)
+                    .format("%d/%m %H:%M")
+                    .to_string()
+            })
             .unwrap_or_default();
         m["ts_th"] = json!(formatted);
     }
 
-    render(&state.jinja_env, "_waitlist_thread.html", json!({
-        "to": email,
-        "msgs": msgs
-    }))
+    render(
+        &state.jinja_env,
+        "_waitlist_thread.html",
+        json!({
+            "to": email,
+            "msgs": msgs
+        }),
+    )
 }
 
 pub async fn waitlist_preview(
-    State(state): State<AdminState>, jar: CookieJar, Path(wid): Path<i32>
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(wid): Path<i32>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -812,20 +1032,29 @@ pub async fn waitlist_preview(
 
     let use_case = row.get("use").and_then(|v| v.as_str()).unwrap_or("");
     let (subject, _, html) = emails::build(use_case);
-    
-    render(&state.jinja_env, "_waitlist_preview.html", json!({
-        "to": row["email"].as_str().unwrap_or(""),
-        "subject": subject,
-        "html": html,
-        "wid": wid,
-        "sent": row.get("sent_at").and_then(|v| v.as_f64()).unwrap_or(0.0) > 0.0,
-    }))
+
+    render(
+        &state.jinja_env,
+        "_waitlist_preview.html",
+        json!({
+            "to": row["email"].as_str().unwrap_or(""),
+            "subject": subject,
+            "html": html,
+            "wid": wid,
+            "sent": row.get("sent_at").and_then(|v| v.as_f64()).unwrap_or(0.0) > 0.0,
+        }),
+    )
 }
 
 pub async fn waitlist_send(
-    State(state): State<AdminState>, jar: CookieJar, Path(wid): Path<i32>
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(wid): Path<i32>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -836,9 +1065,19 @@ pub async fn waitlist_send(
     };
 
     let email = row["email"].as_str().unwrap_or("");
-    
-    if row.get("unsubscribed_at").and_then(|v| v.as_f64()).unwrap_or(0.0) > 0.0 {
-        return wl_render(&state.jinja_env, &state.store, &format!("{} ยกเลิกรับแล้ว — ไม่ส่ง", email)).await;
+
+    if row
+        .get("unsubscribed_at")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0)
+        > 0.0
+    {
+        return wl_render(
+            &state.jinja_env,
+            &state.store,
+            &format!("{} ยกเลิกรับแล้ว — ไม่ส่ง", email),
+        )
+        .await;
     }
 
     let use_case = row.get("use").and_then(|v| v.as_str()).unwrap_or("");
@@ -847,7 +1086,10 @@ pub async fn waitlist_send(
     let flash = match send_mail(email, &subject, &text, &html).await {
         Ok(mid) => {
             let _ = state.store.mark_waitlist_sent(email).await;
-            let _ = state.store.add_mail_message(email, "out", &subject, &text, &mid, "").await;
+            let _ = state
+                .store
+                .add_mail_message(email, "out", &subject, &text, &mid, "")
+                .await;
             format!("ส่งหา {} แล้ว ✓", email)
         }
         Err(e) => {
@@ -858,10 +1100,11 @@ pub async fn waitlist_send(
     wl_render(&state.jinja_env, &state.store, &flash).await
 }
 
-pub async fn waitlist_send_unsent(
-    State(state): State<AdminState>, jar: CookieJar
-) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+pub async fn waitlist_send_unsent(State(state): State<AdminState>, jar: CookieJar) -> Response {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -871,7 +1114,11 @@ pub async fn waitlist_send_unsent(
 
     for row in wl {
         let sent_at = row.get("sent_at").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let unsub = row.get("unsubscribed_at").and_then(|v| v.as_f64()).unwrap_or(0.0) > 0.0;
+        let unsub = row
+            .get("unsubscribed_at")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+            > 0.0;
         if sent_at > 0.0 || unsub {
             continue;
         }
@@ -883,7 +1130,10 @@ pub async fn waitlist_send_unsent(
         match send_mail(email, &subject, &text, &html).await {
             Ok(mid) => {
                 let _ = state.store.mark_waitlist_sent(email).await;
-                let _ = state.store.add_mail_message(email, "out", &subject, &text, &mid, "").await;
+                let _ = state
+                    .store
+                    .add_mail_message(email, "out", &subject, &text, &mid, "")
+                    .await;
                 sent += 1;
             }
             Err(_) => {
@@ -892,13 +1142,23 @@ pub async fn waitlist_send_unsent(
         }
     }
 
-    wl_render(&state.jinja_env, &state.store, &format!("ส่งสำเร็จ {} · ล้มเหลว {}", sent, fail)).await
+    wl_render(
+        &state.jinja_env,
+        &state.store,
+        &format!("ส่งสำเร็จ {} · ล้มเหลว {}", sent, fail),
+    )
+    .await
 }
 
 pub async fn tab_generic(
-    State(state): State<AdminState>, jar: CookieJar, Path(tab): Path<String>
+    State(state): State<AdminState>,
+    jar: CookieJar,
+    Path(tab): Path<String>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
 
@@ -910,13 +1170,15 @@ pub async fn tab_generic(
     let rows_res = sqlx::query("SELECT ts,tool,kind,arg_keys,status FROM tool_logs ORDER BY ts DESC LIMIT 50")
         .fetch_all(&state.store.pool) // We need public pool on Store. Let's make sure it's accessible.
         ;
-    
+
     // Let's implement it inside store.rs as list_tool_logs instead of raw query here
     // Wait, let's look up if we added list_tool_logs. No, but we can write a query here or in store.rs
     // To keep store encapsulation, let's write it in store.rs, but since we didn't, let's run it directly:
-    let rows_val = match sqlx::query("SELECT ts,tool,kind,arg_keys,status FROM tool_logs ORDER BY ts DESC LIMIT 50")
-        .fetch_all(&state.store.pool)
-        .await
+    let rows_val = match sqlx::query(
+        "SELECT ts,tool,kind,arg_keys,status FROM tool_logs ORDER BY ts DESC LIMIT 50",
+    )
+    .fetch_all(&state.store.pool)
+    .await
     {
         Ok(rows) => {
             let mut out = Vec::new();
@@ -931,10 +1193,14 @@ pub async fn tab_generic(
             }
             json!(out)
         }
-        Err(_) => json!([])
+        Err(_) => json!([]),
     };
 
-    render(&state.jinja_env, "_simple.html", json!({ "tab": tab, "rows": rows_val }))
+    render(
+        &state.jinja_env,
+        "_simple.html",
+        json!({ "tab": tab, "rows": rows_val }),
+    )
 }
 
 pub async fn install_assistant(
@@ -942,10 +1208,13 @@ pub async fn install_assistant(
     jar: CookieJar,
     axum::Json(payload): axum::Json<Value>,
 ) -> Response {
-    if get_admin_session(&jar, &state.jwt_secret, &state.store).await.is_none() {
+    if get_admin_session(&jar, &state.jwt_secret, &state.store)
+        .await
+        .is_none()
+    {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    
+
     match state.store.install_assistant(&payload).await {
         Ok(_) => axum::Json(json!({"ok": true})).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),

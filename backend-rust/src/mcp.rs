@@ -5,9 +5,9 @@
 //! declared args. We translate that to an MCP `tools/call` over Streamable HTTP.
 //! Ported from the Python `pin_proxy/mcp.py`.
 
-use std::collections::{HashMap, HashSet};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet};
 
 const PROTOCOL_VERSION: &str = "2025-06-18";
 
@@ -22,7 +22,10 @@ fn client(timeout_secs: u64) -> reqwest::Client {
 fn base_headers(srv: &Value) -> HashMap<String, String> {
     let mut h = HashMap::new();
     h.insert("Content-Type".to_string(), "application/json".to_string());
-    h.insert("Accept".to_string(), "application/json, text/event-stream".to_string());
+    h.insert(
+        "Accept".to_string(),
+        "application/json, text/event-stream".to_string(),
+    );
     if let Some(obj) = srv.get("headers").and_then(|v| v.as_object()) {
         for (k, v) in obj {
             if let Some(s) = v.as_str() {
@@ -44,8 +47,12 @@ fn anon_user(user: Option<&str>) -> Option<String> {
 /// One JSON-RPC call. Returns (parsed data, session id). Handles both a plain
 /// JSON body and an SSE (text/event-stream) response.
 async fn rpc(
-    c: &reqwest::Client, url: &str, headers: &HashMap<String, String>,
-    rid: u32, method: &str, params: Value,
+    c: &reqwest::Client,
+    url: &str,
+    headers: &HashMap<String, String>,
+    rid: u32,
+    method: &str,
+    params: Value,
 ) -> Result<(Value, Option<String>), String> {
     let mut req = c.post(url).json(&json!({
         "jsonrpc": "2.0", "id": rid, "method": method, "params": params
@@ -57,10 +64,17 @@ async fn rpc(
     if !res.status().is_success() {
         return Err(format!("http {}", res.status()));
     }
-    let session = res.headers().get("mcp-session-id")
-        .and_then(|h| h.to_str().ok()).map(|s| s.to_string());
-    let ctype = res.headers().get("content-type")
-        .and_then(|h| h.to_str().ok()).unwrap_or("").to_string();
+    let session = res
+        .headers()
+        .get("mcp-session-id")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
+    let ctype = res
+        .headers()
+        .get("content-type")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("")
+        .to_string();
     let text = res.text().await.map_err(|e| e.to_string())?;
     let data: Value = if ctype.contains("text/event-stream") {
         let mut d = json!({});
@@ -127,14 +141,26 @@ pub async fn call(entry: &Value, name: &str, mut args: Value, user: Option<&str>
         Err(e) => return json!({"text": format!("เครื่องมือ MCP มีปัญหา: {}", e)}),
     }
 
-    match rpc(&c, url, &headers, 2, "tools/call",
-              json!({"name": name, "arguments": args})).await {
+    match rpc(
+        &c,
+        url,
+        &headers,
+        2,
+        "tools/call",
+        json!({"name": name, "arguments": args}),
+    )
+    .await
+    {
         Ok((data, _)) => {
-            let text: String = data["result"]["content"].as_array()
-                .map(|parts| parts.iter()
-                    .filter(|p| p.get("type").and_then(|v| v.as_str()) == Some("text"))
-                    .filter_map(|p| p.get("text").and_then(|v| v.as_str()))
-                    .collect::<String>())
+            let text: String = data["result"]["content"]
+                .as_array()
+                .map(|parts| {
+                    parts
+                        .iter()
+                        .filter(|p| p.get("type").and_then(|v| v.as_str()) == Some("text"))
+                        .filter_map(|p| p.get("text").and_then(|v| v.as_str()))
+                        .collect::<String>()
+                })
                 .unwrap_or_default();
             let text = text.trim();
             json!({"text": if text.is_empty() { "(ไม่มีผลลัพธ์)" } else { text }})
@@ -154,25 +180,36 @@ pub async fn list_tools(srv: &Value) -> Result<Vec<Value>, String> {
         headers.insert("Mcp-Session-Id".to_string(), s);
     }
     // best-effort initialized notification (no id)
-    let mut req = c.post(url).json(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"}));
+    let mut req = c
+        .post(url)
+        .json(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"}));
     for (k, v) in &headers {
         req = req.header(k, v);
     }
     let _ = req.send().await;
 
     let (data, _) = rpc(&c, url, &headers, 2, "tools/list", json!({})).await?;
-    Ok(data["result"]["tools"].as_array().cloned().unwrap_or_default())
+    Ok(data["result"]["tools"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default())
 }
 
 /// Flatten an MCP json-schema property to a device-facing {type,description(+enum)}.
 /// MCP wraps optionals in anyOf/null which the device schema doesn't need.
 fn simple_prop(schema: &Value) -> Value {
-    let mut t = schema.get("type").and_then(|v| v.as_str()).map(String::from);
+    let mut t = schema
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(String::from);
     let mut enum_v = schema.get("enum").cloned().filter(|v| !v.is_null());
     if t.is_none() {
         if let Some(anyof) = schema.get("anyOf").and_then(|v| v.as_array()) {
-            if let Some(opt) = anyof.iter().find(|o|
-                o.get("type").and_then(|v| v.as_str()).map_or(false, |s| s != "null")) {
+            if let Some(opt) = anyof.iter().find(|o| {
+                o.get("type")
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |s| s != "null")
+            }) {
                 t = opt.get("type").and_then(|v| v.as_str()).map(String::from);
                 if enum_v.is_none() {
                     enum_v = opt.get("enum").cloned().filter(|v| !v.is_null());
@@ -180,7 +217,9 @@ fn simple_prop(schema: &Value) -> Value {
             }
         }
     }
-    let desc = schema.get("description").and_then(|v| v.as_str())
+    let desc = schema
+        .get("description")
+        .and_then(|v| v.as_str())
         .or_else(|| schema.get("title").and_then(|v| v.as_str()))
         .unwrap_or("");
     let mut out = json!({"type": t.unwrap_or_else(|| "string".to_string()), "description": desc});
@@ -212,7 +251,8 @@ pub async fn refresh_server(store: &crate::store::Store, name: &str) -> Value {
             None => continue,
         };
         let sch = t.get("inputSchema").cloned().unwrap_or(json!({}));
-        let injected: HashSet<String> = index.get(tn)
+        let injected: HashSet<String> = index
+            .get(tn)
             .and_then(|e| e["tool"]["defaults"].as_object())
             .map(|o| o.keys().cloned().collect())
             .unwrap_or_default();
@@ -225,16 +265,25 @@ pub async fn refresh_server(store: &crate::store::Store, name: &str) -> Value {
                 }
             }
         }
-        let required: Vec<Value> = sch.get("required").and_then(|v| v.as_array())
-            .map(|a| a.iter()
-                .filter(|r| r.as_str().map_or(true, |s| !injected.contains(s)))
-                .cloned().collect())
+        let required: Vec<Value> = sch
+            .get("required")
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter(|r| r.as_str().map_or(true, |s| !injected.contains(s)))
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default();
         let arg_keys: Vec<Value> = props.keys().map(|k| json!(k)).collect();
-        let params = json!({"type": "object", "properties": Value::Object(props), "required": required});
+        let params =
+            json!({"type": "object", "properties": Value::Object(props), "required": required});
         let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
 
-        match store.refresh_mcp_tool(name, tn, desc, &params, &json!(arg_keys)).await {
+        match store
+            .refresh_mcp_tool(name, tn, desc, &params, &json!(arg_keys))
+            .await
+        {
             Ok(true) => added.push(json!(tn)),
             Ok(false) => updated.push(json!(tn)),
             Err(_) => {}

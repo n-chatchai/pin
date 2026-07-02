@@ -29,25 +29,29 @@ def convert_bytes_py(data, file_extension):
         let locals = PyDict::new_bound(py);
         py.run_bound(code, None, Some(&locals))
             .map_err(|e| format!("Python run failed: {:?}", e))?;
-        
-        let func = locals.get_item("convert_bytes_py")
+
+        let func = locals
+            .get_item("convert_bytes_py")
             .map_err(|e| format!("Get item failed: {:?}", e))?
             .ok_or_else(|| "Failed to find convert_bytes_py function".to_string())?;
 
-        let res_py = func.call1((data, ext_str))
+        let res_py = func
+            .call1((data, ext_str))
             .map_err(|e| format!("Python call failed: {:?}", e))?;
-            
-        let json_mod = py.import_bound("json")
+
+        let json_mod = py
+            .import_bound("json")
             .map_err(|e| format!("Import json failed: {:?}", e))?;
-            
-        let list_str: String = json_mod.call_method1("dumps", (res_py,))
+
+        let list_str: String = json_mod
+            .call_method1("dumps", (res_py,))
             .map_err(|e| format!("JSON dump failed: {:?}", e))?
             .extract()
             .map_err(|e| format!("JSON string extract failed: {:?}", e))?;
-            
-        let val: Value = serde_json::from_str(&list_str)
-            .map_err(|e| format!("Serde parse failed: {:?}", e))?;
-            
+
+        let val: Value =
+            serde_json::from_str(&list_str).map_err(|e| format!("Serde parse failed: {:?}", e))?;
+
         Ok(val)
     })
 }

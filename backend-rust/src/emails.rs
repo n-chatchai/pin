@@ -35,11 +35,14 @@ fn get_personas() -> HashMap<&'static str, Persona> {
         block: "คุณบอกว่าอยากให้ปิ่นช่วยจัดการงาน — ส่วนนี้ (สรุปอีเมล นัดประชุม ทวงงาน) เรากำลังตั้งใจทำอยู่ จะตามมาให้เร็วที่สุด ระหว่างนี้ปิ่นช่วยเรื่องอื่นในชีวิตได้เลยค่ะ",
         q: "เรื่องไหนในการทำงานที่กินเวลาหรือกวนใจคุณที่สุด แล้วอยากให้ปิ่นช่วยยังไงคะ?",
     });
-    m.insert("default", Persona {
-        subject: "ปิ่นใกล้พร้อมดูแลคุณแล้วค่ะ",
-        block: "ปิ่นช่วยคุณคิด วางแผน และดูแลเรื่องเล็ก ๆ ในแต่ละวัน ถามได้ทุกเรื่อง คุยได้ทั้งวันค่ะ",
-        q: "เรื่องในแต่ละวันอะไรที่กินเวลาหรือกวนใจคุณที่สุด แล้วอยากให้ปิ่นช่วยยังไงคะ?",
-    });
+    m.insert(
+        "default",
+        Persona {
+            subject: "ปิ่นใกล้พร้อมดูแลคุณแล้วค่ะ",
+            block: "ปิ่นช่วยคุณคิด วางแผน และดูแลเรื่องเล็ก ๆ ในแต่ละวัน ถามได้ทุกเรื่อง คุยได้ทั้งวันค่ะ",
+            q: "เรื่องในแต่ละวันอะไรที่กินเวลาหรือกวนใจคุณที่สุด แล้วอยากให้ปิ่นช่วยยังไงคะ?",
+        },
+    );
     m
 }
 
@@ -62,7 +65,9 @@ pub fn classify(use_text: &str) -> &'static str {
 pub fn build(use_text: &str) -> (String, String, String) {
     let personas = get_personas();
     let cls = classify(use_text);
-    let p = personas.get(cls).unwrap_or(personas.get("default").unwrap());
+    let p = personas
+        .get(cls)
+        .unwrap_or(personas.get("default").unwrap());
 
     let intro = "สวัสดีค่ะ ขอบคุณที่ลงชื่อไว้กับปิ่นนะคะ เราใกล้เปิดให้ใช้แล้ว เลยอยากบอกคุณก่อนใคร";
     let privacy = "ปิ่นทำงานอยู่บนเครื่องของคุณ ทุกข้อความเข้ารหัสลับ มีแค่คุณที่อ่านได้ แม้แต่เราก็เปิดดูไม่ได้ ความเป็นส่วนตัวคือเรื่องแรกที่เราดูแล ไม่ใช่ของแถม";
@@ -73,14 +78,7 @@ pub fn build(use_text: &str) -> (String, String, String) {
     let sign = "แล้วเจอกันเร็ว ๆ นี้นะคะ\n— ปิ่น";
 
     let paras = vec![
-        intro,
-        privacy,
-        p.block,
-        &q_block,
-        platform,
-        tail,
-        close,
-        sign,
+        intro, privacy, p.block, &q_block, platform, tail, close, sign,
     ];
 
     let text = paras.join("\n\n");

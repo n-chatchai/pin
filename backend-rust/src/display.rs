@@ -1,6 +1,6 @@
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use serde_json::{json, Value};
 
 static DISPLAY: OnceLock<HashMap<&'static str, Value>> = OnceLock::new();
 
@@ -84,7 +84,9 @@ pub fn enrich(mut entry: Value) -> Value {
         if let Some(base_obj) = base.as_object() {
             if let Some(entry_obj) = entry.as_object_mut() {
                 for (k, v) in base_obj {
-                    if !entry_obj.contains_key(k) || entry_obj.get(k).map_or(true, |val| val.is_null()) {
+                    if !entry_obj.contains_key(k)
+                        || entry_obj.get(k).map_or(true, |val| val.is_null())
+                    {
                         entry_obj.insert(k.clone(), v.clone());
                     }
                 }

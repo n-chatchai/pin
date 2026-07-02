@@ -1,30 +1,30 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use std::str::FromStr;
 use axum::{
+    extract::{Multipart, Path},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
-    extract::{Path, Multipart},
     Json, Router,
 };
 use serde_json::{json, Value};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
-mod display;
-mod store;
-mod proxy;
-mod emails;
 mod admin;
 mod converter;
+mod display;
+mod emails;
 mod mcp;
+mod proxy;
+mod store;
 
-use store::Store;
-use proxy::{MatrixAuth, GoogleAuth, Scheduler, LLMForwarder};
 use admin::AdminState;
+use proxy::{GoogleAuth, LLMForwarder, MatrixAuth, Scheduler};
+use store::Store;
 
 // Shared App State
 struct AppState {
@@ -39,7 +39,10 @@ fn fromjson_filter(val: String) -> Result<minijinja::value::Value, minijinja::Er
         Ok(minijinja::value::Value::from(Vec::<String>::new()))
     } else {
         let parsed: serde_json::Value = serde_json::from_str(&val).map_err(|e| {
-            minijinja::Error::new(minijinja::ErrorKind::InvalidOperation, format!("fromjson error: {:?}", e))
+            minijinja::Error::new(
+                minijinja::ErrorKind::InvalidOperation,
+                format!("fromjson error: {:?}", e),
+            )
         })?;
         Ok(minijinja::value::Value::from_serialize(parsed))
     }
@@ -61,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         format!("{}/pin.db", home)
     });
     info!("Using database: {}", db_path);
-    
+
     let db_url = format!("sqlite://{}", db_path);
     let options = SqliteConnectOptions::from_str(&db_url)?
         .create_if_missing(true)
@@ -70,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // rolling deploy briefly overlap two pods on the same WAL DB without
         // "database is locked" flakes.
         .busy_timeout(std::time::Duration::from_secs(5));
-        
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect_with(options)
@@ -80,19 +83,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     store.init().await?;
 
     // 4. Initialize auth clients
-    let homeserver = std::env::var("PIN_HOMESERVER").unwrap_or_else(|_| "http://127.0.0.1:6167".to_string());
-    let ttl_secs = std::env::var("PIN_WHOAMI_TTL").ok().and_then(|s| s.parse().ok()).unwrap_or(300);
+    let homeserver =
+        std::env::var("PIN_HOMESERVER").unwrap_or_else(|_| "http://127.0.0.1:6167".to_string());
+    let ttl_secs = std::env::var("PIN_WHOAMI_TTL")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(300);
     let matrix_auth = MatrixAuth::new(homeserver, ttl_secs);
 
     let fcm_sa_path = std::env::var("FCM_SA_PATH").ok();
-    let fcm_project_id = std::env::var("FCM_PROJECT_ID").unwrap_or_else(|_| "pin-ai-b9d8a".to_string());
+    let fcm_project_id =
+        std::env::var("FCM_PROJECT_ID").unwrap_or_else(|_| "pin-ai-b9d8a".to_string());
     let google_auth = Arc::new(GoogleAuth::new(fcm_sa_path, fcm_project_id));
 
     // APNs configurations
     let scheduler = Arc::new(Scheduler::new(store.clone(), google_auth));
 
     // LLM Models
-    let free_model = store.get_setting("pin_free_model").await.unwrap_or(None).unwrap_or_else(|| "gemini-flash-lite-latest".to_string());
+    let free_model = store
+        .get_setting("pin_free_model")
+        .await
+        .unwrap_or(None)
+        .unwrap_or_else(|| "gemini-flash-lite-latest".to_string());
     let forwarder = LLMForwarder::new(free_model);
 
     // 5. Initialize Python (PyO3) and test markitdown import
@@ -108,7 +120,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         info!("[sched] poller loop started");
         loop {
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs_f64();
             sched_clone.fire_due(now).await;
             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
         }
@@ -119,7 +134,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     jinja_env.set_loader(minijinja::path_loader("templates"));
     jinja_env.add_filter("fromjson", fromjson_filter);
 
-    let jwt_secret = std::env::var("PIN_ADMIN_SECRET").unwrap_or_else(|_| "pin_admin_fallback_secret_key_123".to_string());
+    let jwt_secret = std::env::var("PIN_ADMIN_SECRET")
+        .unwrap_or_else(|_| "pin_admin_fallback_secret_key_123".to_string());
 
     let admin_state = AdminState {
         store: store.clone(),
@@ -158,7 +174,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/sso/callback", get(admin::sso_callback))
         .route("/admin", get(admin::dashboard))
         .route("/admin/tab/backlog", get(admin::tab_backlog))
-        .route("/admin/capability/:id/status/:status", post(admin::set_backlog_status))
+        .route(
+            "/admin/capability/:id/status/:status",
+            post(admin::set_backlog_status),
+        )
         .route("/admin/tab/push", get(admin::tab_push))
         .route("/admin/push/wake", post(admin::push_wake))
         .route("/admin/push/catalog", post(admin::push_catalog))
@@ -166,10 +185,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/tab/capabilities", get(admin::tab_capabilities))
         .route("/admin/tab/connectors", get(admin::tab_connectors))
         .route("/admin/tab/assistants", get(admin::tab_assistants))
-        .route("/admin/assistant/:name/toggle", post(admin::assistant_toggle))
-        .route("/admin/mcp/server/:server/refresh", post(admin::mcp_refresh))
-        .route("/admin/mcp/server/:server/tools", get(admin::mcp_server_tools))
-        .route("/admin/connector/:name/guide", post(admin::save_connector_guide))
+        .route(
+            "/admin/assistant/:name/toggle",
+            post(admin::assistant_toggle),
+        )
+        .route(
+            "/admin/mcp/server/:server/refresh",
+            post(admin::mcp_refresh),
+        )
+        .route(
+            "/admin/mcp/server/:server/tools",
+            get(admin::mcp_server_tools),
+        )
+        .route(
+            "/admin/connector/:name/guide",
+            post(admin::save_connector_guide),
+        )
         .route("/admin/store/:name/toggle", post(admin::store_toggle))
         .route("/admin/store/:name/prompt", post(admin::save_prompt))
         .route("/admin/store/:name", post(admin::store_save))
@@ -178,7 +209,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/waitlist/:wid/thread", get(admin::waitlist_thread))
         .route("/admin/waitlist/:wid/preview", get(admin::waitlist_preview))
         .route("/admin/waitlist/:wid/send", post(admin::waitlist_send))
-        .route("/admin/waitlist/send-unsent", post(admin::waitlist_send_unsent))
+        .route(
+            "/admin/waitlist/send-unsent",
+            post(admin::waitlist_send_unsent),
+        )
         .route("/admin/assistant/install", post(admin::install_assistant))
         .route("/admin/tab/:tab", get(admin::tab_generic))
         .with_state(admin_state)
@@ -187,7 +221,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ponytail: allow the one known site origin; native app clients ignore CORS.
         .layer(
             tower_http::cors::CorsLayer::new()
-                .allow_origin("https://pin.tokens2.io".parse::<axum::http::HeaderValue>().unwrap())
+                .allow_origin(
+                    "https://pin.tokens2.io"
+                        .parse::<axum::http::HeaderValue>()
+                        .unwrap(),
+                )
                 .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
                 .allow_headers([axum::http::header::CONTENT_TYPE]),
         )
@@ -198,7 +236,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let host = std::env::var("PIN_PROXY_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = std::env::var("PIN_PROXY_PORT").unwrap_or_else(|_| "8088".to_string());
     let addr = format!("{}:{}", host, port);
-    
+
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     info!("Pin Unified Backend listening on http://{}", addr);
     axum::serve(listener, app).await?;
@@ -214,12 +252,13 @@ async fn health() -> impl IntoResponse {
 
 // Public Waitlist Signups (rate-limited / honey-pot guarded in python)
 // For rate limiting we keep a simple in-memory list (same as python's Ponytail method)
-static WL_LIMITS: std::sync::Mutex<Option<HashMap<String, Vec<Instant>>>> = std::sync::Mutex::new(None);
+static WL_LIMITS: std::sync::Mutex<Option<HashMap<String, Vec<Instant>>>> =
+    std::sync::Mutex::new(None);
 
 async fn waitlist(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     // 1. Honeypot check
     if let Some(hp) = body.get("hp").and_then(|v| v.as_str()) {
@@ -229,7 +268,8 @@ async fn waitlist(
     }
 
     // 2. IP rate limit check
-    let ip = headers.get("cf-connecting-ip")
+    let ip = headers
+        .get("cf-connecting-ip")
         .or_else(|| headers.get("x-forwarded-for"))
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.split(',').next())
@@ -240,11 +280,11 @@ async fn waitlist(
     {
         let mut limits_guard = WL_LIMITS.lock().unwrap();
         let limits = limits_guard.get_or_init(HashMap::new);
-        
+
         let hits = limits.entry(ip).or_default();
         // retain last 1 hour
         hits.retain(|&t| now.duration_since(t).as_secs() < 3600);
-        
+
         if hits.len() >= 5 {
             return (StatusCode::TOO_MANY_REQUESTS, "too many requests").into_response();
         }
@@ -252,13 +292,21 @@ async fn waitlist(
     }
 
     // 3. Email validation
-    let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("").trim();
+    let email = body
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
     if !email.contains('@') || email.len() < 5 {
         return (StatusCode::UNPROCESSABLE_ENTITY, "invalid email").into_response();
     }
 
     let use_case = body.get("use").and_then(|v| v.as_str()).unwrap_or("");
-    let use_trimmed = if use_case.len() > 200 { &use_case[..200] } else { use_case };
+    let use_trimmed = if use_case.len() > 200 {
+        &use_case[..200]
+    } else {
+        use_case
+    };
 
     let _ = state.store.add_waitlist(email, use_trimmed, "site").await;
     Json(json!({ "ok": true })).into_response()
@@ -269,7 +317,7 @@ async fn waitlist(
 async fn schedule_register(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     let user_id = match state.matrix_auth.check_token(auth).await {
@@ -281,14 +329,39 @@ async fn schedule_register(
         Some(j) => j.to_string(),
         None => return (StatusCode::BAD_REQUEST, "missing job_id").into_response(),
     };
-    let device = body.get("device").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let device = body
+        .get("device")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let next_due = body.get("next_due").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let repeat = body.get("repeat").and_then(|v| v.as_str()).unwrap_or("once").to_string();
-    let platform = body.get("platform").and_then(|v| v.as_str()).unwrap_or("apns").to_string();
+    let repeat = body
+        .get("repeat")
+        .and_then(|v| v.as_str())
+        .unwrap_or("once")
+        .to_string();
+    let platform = body
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .unwrap_or("apns")
+        .to_string();
     let interval_sec = body.get("interval_sec").and_then(|v| v.as_f64());
 
-    state.scheduler.register(job_id, device.clone(), next_due, repeat, platform.clone(), interval_sec).await;
-    let _ = state.store.record_push_device(&user_id, &device, &platform).await;
+    state
+        .scheduler
+        .register(
+            job_id,
+            device.clone(),
+            next_due,
+            repeat,
+            platform.clone(),
+            interval_sec,
+        )
+        .await;
+    let _ = state
+        .store
+        .record_push_device(&user_id, &device, &platform)
+        .await;
 
     Json(json!({ "ok": true })).into_response()
 }
@@ -296,7 +369,7 @@ async fn schedule_register(
 async fn push_register(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     let user_id = match state.matrix_auth.check_token(auth).await {
@@ -304,17 +377,28 @@ async fn push_register(
         Err((code, msg)) => return (code, msg).into_response(),
     };
 
-    let device = body.get("device").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let platform = body.get("platform").and_then(|v| v.as_str()).unwrap_or("apns").to_string();
+    let device = body
+        .get("device")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let platform = body
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .unwrap_or("apns")
+        .to_string();
 
-    let _ = state.store.record_push_device(&user_id, &device, &platform).await;
+    let _ = state
+        .store
+        .record_push_device(&user_id, &device, &platform)
+        .await;
     Json(json!({ "ok": true })).into_response()
 }
 
 async fn push_test(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -322,13 +406,20 @@ async fn push_test(
     }
 
     let device = body.get("device").and_then(|v| v.as_str()).unwrap_or("");
-    let platform = body.get("platform").and_then(|v| v.as_str()).unwrap_or("apns");
+    let platform = body
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .unwrap_or("apns");
 
     if device.is_empty() {
         return Json(json!({ "ok": false, "error": "no device" })).into_response();
     }
 
-    match state.scheduler.push(device, "pushtest", platform, true).await {
+    match state
+        .scheduler
+        .push(device, "pushtest", platform, true)
+        .await
+    {
         Ok(_) => Json(json!({ "ok": true })).into_response(),
         Err(e) => Json(json!({ "ok": false, "error": e.to_string() })).into_response(),
     }
@@ -337,7 +428,7 @@ async fn push_test(
 async fn schedule_cancel(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -355,7 +446,7 @@ async fn schedule_cancel(
 async fn capability_request(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     let user_id = match state.matrix_auth.check_token(auth).await {
@@ -363,10 +454,16 @@ async fn capability_request(
         Err((code, msg)) => return (code, msg).into_response(),
     };
 
-    let cap = body.get("capability").and_then(|v| v.as_str()).unwrap_or("");
+    let cap = body
+        .get("capability")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let detail = body.get("detail").and_then(|v| v.as_str()).unwrap_or("");
 
-    let _ = state.store.add_capability_request(cap, detail, &user_id).await;
+    let _ = state
+        .store
+        .add_capability_request(cap, detail, &user_id)
+        .await;
     Json(json!({ "ok": true })).into_response()
 }
 
@@ -374,7 +471,7 @@ async fn capability_request(
 async fn convert(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    mut multipart: Multipart
+    mut multipart: Multipart,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -399,7 +496,9 @@ async fn convert(
 
     match converter::convert_file(&data, &filename) {
         Ok(val) => Json(val).into_response(),
-        Err(e) => Json(json!({ "markdown": "", "error": format!("แปลงไฟล์ไม่ได้: {}", e) })).into_response(),
+        Err(e) => {
+            Json(json!({ "markdown": "", "error": format!("แปลงไฟล์ไม่ได้: {}", e) })).into_response()
+        }
     }
 }
 
@@ -407,7 +506,7 @@ async fn convert(
 async fn transcribe(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    mut multipart: Multipart
+    mut multipart: Multipart,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -432,9 +531,15 @@ async fn transcribe(
         return Json(json!({ "text": "", "error": "ไม่มีไฟล์อัปโหลด" })).into_response();
     }
 
-    match state.forwarder.transcribe(Some(&filename), mime_type.as_deref(), &data).await {
+    match state
+        .forwarder
+        .transcribe(Some(&filename), mime_type.as_deref(), &data)
+        .await
+    {
         Ok(text) => Json(json!({ "text": text })).into_response(),
-        Err(e) => Json(json!({ "text": "", "error": format!("ถอดเสียงไม่ได้: {}", e) })).into_response(),
+        Err(e) => {
+            Json(json!({ "text": "", "error": format!("ถอดเสียงไม่ได้: {}", e) })).into_response()
+        }
     }
 }
 
@@ -442,14 +547,17 @@ async fn transcribe(
 async fn debug_log(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(mut body): Json<Value>
+    Json(mut body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
         return (code, msg).into_response();
     }
 
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
     if let Some(obj) = body.as_object_mut() {
         obj.insert("ts".to_string(), json!(now));
     }
@@ -464,7 +572,7 @@ async fn debug_log(
 // Catalog Manifest List
 async fn catalog(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -472,7 +580,7 @@ async fn catalog(
     }
 
     let mut tools = Vec::new();
-    
+
     // Add enabled tools
     if let Ok(mut h_tools) = state.store.enabled_hosted_tools().await {
         tools.append(&mut h_tools);
@@ -486,7 +594,7 @@ async fn catalog(
     if let Ok(mut subagents) = state.store.enabled_subagents().await {
         tools.append(&mut subagents);
     }
-    
+
     let mut assistants = Vec::new();
     if let Ok(mut a) = state.store.enabled_assistants().await {
         assistants.append(&mut a);
@@ -495,16 +603,26 @@ async fn catalog(
     // Connector usage guides — the "how to drive my tools" policy, surfaced so the
     // device can inject a connector's guide only when its tools are in play
     // (progressive disclosure). Only connectors that actually have a guide set.
-    let connectors: Vec<Value> = state.store.all_connectors().await.unwrap_or_default()
+    let connectors: Vec<Value> = state
+        .store
+        .all_connectors()
+        .await
+        .unwrap_or_default()
         .into_iter()
-        .filter(|c| c.get("guide").and_then(|v| v.as_str()).map_or(false, |g| !g.is_empty()))
-        .map(|c| json!({
-            "name": c.get("name").cloned().unwrap_or(Value::Null),
-            "guide": c.get("guide").cloned().unwrap_or(Value::Null),
-            "tools": c.get("tools").and_then(|t| t.as_array())
-                .map(|a| a.iter().filter_map(|t| t.get("name").cloned()).collect::<Vec<_>>())
-                .unwrap_or_default(),
-        }))
+        .filter(|c| {
+            c.get("guide")
+                .and_then(|v| v.as_str())
+                .map_or(false, |g| !g.is_empty())
+        })
+        .map(|c| {
+            json!({
+                "name": c.get("name").cloned().unwrap_or(Value::Null),
+                "guide": c.get("guide").cloned().unwrap_or(Value::Null),
+                "tools": c.get("tools").and_then(|t| t.as_array())
+                    .map(|a| a.iter().filter_map(|t| t.get("name").cloned()).collect::<Vec<_>>())
+                    .unwrap_or_default(),
+            })
+        })
         .collect();
 
     // Enrich displaycopy
@@ -514,12 +632,13 @@ async fn catalog(
         "tools": enriched_tools,
         "assistants": assistants,
         "connectors": connectors
-    })).into_response()
+    }))
+    .into_response()
 }
 
 async fn catalog_categories(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -527,26 +646,42 @@ async fn catalog_categories(
     }
 
     let mut tools = Vec::new();
-    if let Ok(mut h_tools) = state.store.enabled_hosted_tools().await { tools.append(&mut h_tools); }
-    if let Ok(mut m_tools) = state.store.enabled_mcp_tools().await { tools.append(&mut m_tools); }
-    if let Ok(mut skills) = state.store.enabled_skills().await { tools.append(&mut skills); }
-    if let Ok(mut subagents) = state.store.enabled_subagents().await { tools.append(&mut subagents); }
+    if let Ok(mut h_tools) = state.store.enabled_hosted_tools().await {
+        tools.append(&mut h_tools);
+    }
+    if let Ok(mut m_tools) = state.store.enabled_mcp_tools().await {
+        tools.append(&mut m_tools);
+    }
+    if let Ok(mut skills) = state.store.enabled_skills().await {
+        tools.append(&mut skills);
+    }
+    if let Ok(mut subagents) = state.store.enabled_subagents().await {
+        tools.append(&mut subagents);
+    }
 
     let mut counts = HashMap::new();
     for t in tools {
         let enriched = display::enrich(t);
-        let tier = enriched.get("pricing").and_then(|p| p.get("tier").and_then(|t| t.as_str())).unwrap_or("free");
+        let tier = enriched
+            .get("pricing")
+            .and_then(|p| p.get("tier").and_then(|t| t.as_str()))
+            .unwrap_or("free");
         if tier == "free" {
             continue;
         }
-        let cat = enriched.get("category").and_then(|v| v.as_str()).unwrap_or("อื่น ๆ").to_string();
+        let cat = enriched
+            .get("category")
+            .and_then(|v| v.as_str())
+            .unwrap_or("อื่น ๆ")
+            .to_string();
         *counts.entry(cat).or_insert(0) += 1;
     }
 
     let mut ordered: Vec<(String, i32)> = counts.into_iter().collect();
     ordered.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
 
-    let categories: Vec<Value> = ordered.into_iter()
+    let categories: Vec<Value> = ordered
+        .into_iter()
         .map(|(k, v)| json!({ "id": k, "label": k, "count": v }))
         .collect();
 
@@ -558,7 +693,7 @@ async fn tool_call(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
     Path(name): Path<String>,
-    Json(args): Json<Value>
+    Json(args): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     let user_id = match state.matrix_auth.check_token(auth).await {
@@ -568,14 +703,34 @@ async fn tool_call(
 
     // 0. Is it a built-in Native Tool?
     if let Some(res) = handle_native_tool(&name, &args).await {
-        let _ = state.store.log_tool(&name, "native", &args.as_object().map_or(vec![], |o| o.keys().cloned().collect()), "call").await;
+        let _ = state
+            .store
+            .log_tool(
+                &name,
+                "native",
+                &args
+                    .as_object()
+                    .map_or(vec![], |o| o.keys().cloned().collect()),
+                "call",
+            )
+            .await;
         return Json(res).into_response();
     }
 
     // 1. Is it an MCP tool?
     let mcp_idx = state.store.mcp_index().await.unwrap_or_default();
     if mcp_idx.contains_key(&name) {
-        let _ = state.store.log_tool(&name, "mcp", &args.as_object().map_or(vec![], |o| o.keys().cloned().collect()), "call").await;
+        let _ = state
+            .store
+            .log_tool(
+                &name,
+                "mcp",
+                &args
+                    .as_object()
+                    .map_or(vec![], |o| o.keys().cloned().collect()),
+                "call",
+            )
+            .await;
         if let Some(entry) = mcp_idx.get(&name) {
             return Json(mcp::call(entry, &name, args, Some(&user_id)).await).into_response();
         }
@@ -584,7 +739,17 @@ async fn tool_call(
 
     // 2. Is it a dev-hosted remote tool?
     if let Ok(Some(endpoint)) = state.store.remote_endpoint(&name).await {
-        let _ = state.store.log_tool(&name, "remote", &args.as_object().map_or(vec![], |o| o.keys().cloned().collect()), "call").await;
+        let _ = state
+            .store
+            .log_tool(
+                &name,
+                "remote",
+                &args
+                    .as_object()
+                    .map_or(vec![], |o| o.keys().cloned().collect()),
+                "call",
+            )
+            .await;
         let client = reqwest::Client::new();
         match client.post(&endpoint).json(&args).send().await {
             Ok(res) => {
@@ -594,11 +759,23 @@ async fn tool_call(
                     Json(json!({ "text": "เครื่องมือภายนอกส่งข้อมูลกลับมาผิดฟอร์แมต" })).into_response()
                 }
             }
-            Err(e) => Json(json!({ "text": format!("เครื่องมือภายนอกมีปัญหา: {:?}", e) })).into_response()
+            Err(e) => {
+                Json(json!({ "text": format!("เครื่องมือภายนอกมีปัญหา: {:?}", e) })).into_response()
+            }
         }
     } else {
         // 3. Fallback mock remote tools
-        let _ = state.store.log_tool(&name, "?", &args.as_object().map_or(vec![], |o| o.keys().cloned().collect()), "404").await;
+        let _ = state
+            .store
+            .log_tool(
+                &name,
+                "?",
+                &args
+                    .as_object()
+                    .map_or(vec![], |o| o.keys().cloned().collect()),
+                "404",
+            )
+            .await;
         (StatusCode::NOT_FOUND, format!("no tool '{}'", name)).into_response()
     }
 }
@@ -607,7 +784,7 @@ async fn tool_call(
 async fn infer_call(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>
+    Json(body): Json<Value>,
 ) -> Response {
     let auth = headers.get("authorization").and_then(|h| h.to_str().ok());
     if let Err((code, msg)) = state.matrix_auth.check_token(auth).await {
@@ -627,7 +804,11 @@ trait OnceLockExt<T> {
 // --- Native Tools Implementation ---
 
 async fn execute_web_search(args: &Value) -> Value {
-    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("").trim();
+    let query = args
+        .get("query")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
     if query.is_empty() {
         return json!({"text": "ไม่มีคำค้น"});
     }
@@ -643,7 +824,8 @@ async fn execute_web_search(args: &Value) -> Value {
         .unwrap_or_default();
 
     let body = json!({"q": query, "gl": "th", "hl": "th", "num": 6});
-    let res = client.post("https://google.serper.dev/search")
+    let res = client
+        .post("https://google.serper.dev/search")
         .header("X-API-KEY", key)
         .header("Content-Type", "application/json")
         .json(&body)
@@ -655,7 +837,12 @@ async fn execute_web_search(args: &Value) -> Value {
             if let Ok(data) = r.json::<Value>().await {
                 let mut lines = Vec::new();
                 if let Some(ab) = data.get("answerBox") {
-                    let ans = ab.get("answer").or(ab.get("snippet")).and_then(|v| v.as_str()).unwrap_or("").trim();
+                    let ans = ab
+                        .get("answer")
+                        .or(ab.get("snippet"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim();
                     if !ans.is_empty() {
                         lines.push(format!("คำตอบ: {}", ans));
                     }
@@ -663,7 +850,11 @@ async fn execute_web_search(args: &Value) -> Value {
                 if let Some(organic) = data.get("organic").and_then(|v| v.as_array()) {
                     for x in organic.iter().take(6) {
                         let title = x.get("title").and_then(|v| v.as_str()).unwrap_or("").trim();
-                        let snip = x.get("snippet").and_then(|v| v.as_str()).unwrap_or("").trim();
+                        let snip = x
+                            .get("snippet")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .trim();
                         let url = x.get("link").and_then(|v| v.as_str()).unwrap_or("").trim();
                         lines.push(format!("• {}\n  {}\n  {}", title, snip, url));
                     }
@@ -676,19 +867,29 @@ async fn execute_web_search(args: &Value) -> Value {
             } else {
                 json!({"text": "ค้นไม่ได้ตอนนี้ (ข้อมูลไม่ถูกต้อง)"})
             }
-        },
+        }
         Err(_) => json!({"text": "ค้นไม่ได้ตอนนี้"}),
     }
 }
 
 async fn execute_generate_image(args: &Value) -> Value {
-    let prompt = args.get("prompt").and_then(|v| v.as_str()).unwrap_or("").trim();
+    let prompt = args
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
     if prompt.is_empty() {
         return json!({"text": "อยากให้วาดอะไรบอกได้เลยค่ะ"});
     }
     let enc = urlencoding::encode(prompt);
-    let url = format!("https://image.pollinations.ai/prompt/{}?width=1024&height=1024&nologo=true", enc);
-    let img = format!("<img src=\"{}\" alt=\"generated\" style=\"width:100%;border-radius:12px;display:block\"/>", url);
+    let url = format!(
+        "https://image.pollinations.ai/prompt/{}?width=1024&height=1024&nologo=true",
+        enc
+    );
+    let img = format!(
+        "<img src=\"{}\" alt=\"generated\" style=\"width:100%;border-radius:12px;display:block\"/>",
+        url
+    );
     json!({
         "flex": {
             "header": {"icon": "sparkles", "title": "รูปที่วาดให้"},
@@ -698,12 +899,28 @@ async fn execute_generate_image(args: &Value) -> Value {
 }
 
 async fn execute_currency(args: &Value) -> Value {
-    let base = args.get("base").and_then(|v| v.as_str()).unwrap_or("USD").trim().to_uppercase();
-    let quote = args.get("quote").and_then(|v| v.as_str()).unwrap_or("THB").trim().to_uppercase();
-    
-    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap_or_default();
-    let url = format!("https://api.frankfurter.dev/v1/latest?base={}&symbols={}", base, quote);
-    
+    let base = args
+        .get("base")
+        .and_then(|v| v.as_str())
+        .unwrap_or("USD")
+        .trim()
+        .to_uppercase();
+    let quote = args
+        .get("quote")
+        .and_then(|v| v.as_str())
+        .unwrap_or("THB")
+        .trim()
+        .to_uppercase();
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
+    let url = format!(
+        "https://api.frankfurter.dev/v1/latest?base={}&symbols={}",
+        base, quote
+    );
+
     match client.get(&url).send().await {
         Ok(r) => {
             if let Ok(data) = r.json::<Value>().await {
@@ -721,26 +938,50 @@ async fn execute_currency(args: &Value) -> Value {
                 }
             }
             json!({"text": format!("ดึงค่าเงิน {}/{} ไม่ได้", base, quote)})
-        },
-        Err(_) => json!({"text": "ดึงข้อมูลค่าเงินไม่ได้"})
+        }
+        Err(_) => json!({"text": "ดึงข้อมูลค่าเงินไม่ได้"}),
     }
 }
 
 async fn execute_weather(args: &Value) -> Value {
-    let place = args.get("place").and_then(|v| v.as_str()).unwrap_or("กรุงเทพ").trim();
-    let days = args.get("days").and_then(|v| v.as_i64()).unwrap_or(1).clamp(1, 7);
-    
-    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).build().unwrap_or_default();
-    let geo_url = format!("https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=th", urlencoding::encode(place));
-    
+    let place = args
+        .get("place")
+        .and_then(|v| v.as_str())
+        .unwrap_or("กรุงเทพ")
+        .trim();
+    let days = args
+        .get("days")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(1)
+        .clamp(1, 7);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_default();
+    let geo_url = format!(
+        "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=th",
+        urlencoding::encode(place)
+    );
+
     let (lat, lon, name) = match client.get(&geo_url).send().await {
         Ok(r) => {
             if let Ok(data) = r.json::<Value>().await {
                 if let Some(hits) = data.get("results").and_then(|v| v.as_array()) {
                     if let Some(first) = hits.first() {
-                        let lat = first.get("latitude").and_then(|v| v.as_f64()).unwrap_or(13.75);
-                        let lon = first.get("longitude").and_then(|v| v.as_f64()).unwrap_or(100.5167);
-                        let n = first.get("name").and_then(|v| v.as_str()).unwrap_or(place).to_string();
+                        let lat = first
+                            .get("latitude")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(13.75);
+                        let lon = first
+                            .get("longitude")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(100.5167);
+                        let n = first
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(place)
+                            .to_string();
                         (lat, lon, n)
                     } else {
                         return json!({"text": format!("หาเมือง “{}” ไม่เจอ", place)});
@@ -751,8 +992,8 @@ async fn execute_weather(args: &Value) -> Value {
             } else {
                 return json!({"text": format!("หาเมือง “{}” ไม่เจอ", place)});
             }
-        },
-        Err(_) => return json!({"text": "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"})
+        }
+        Err(_) => return json!({"text": "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"}),
     };
 
     let fc_url = format!("https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&timezone=Asia/Bangkok&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days={}", lat, lon, days);
@@ -760,11 +1001,27 @@ async fn execute_weather(args: &Value) -> Value {
         Ok(r) => {
             if let Ok(data) = r.json::<Value>().await {
                 if let Some(daily) = data.get("daily") {
-                    let dates = daily.get("time").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                    let t_max = daily.get("temperature_2m_max").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                    let t_min = daily.get("temperature_2m_min").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                    let pop = daily.get("precipitation_probability_max").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                    
+                    let dates = daily
+                        .get("time")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let t_max = daily
+                        .get("temperature_2m_max")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let t_min = daily
+                        .get("temperature_2m_min")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let pop = daily
+                        .get("precipitation_probability_max")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+
                     let mut cards = Vec::new();
                     let day_labels = ["วันนี้", "พรุ่งนี้"];
                     for i in 0..dates.len() {
@@ -772,13 +1029,17 @@ async fn execute_weather(args: &Value) -> Value {
                             day_labels[i].to_string()
                         } else {
                             let d_str = dates[i].as_str().unwrap_or("");
-                            if d_str.len() > 5 { d_str[5..].replace("-", "/") } else { d_str.to_string() }
+                            if d_str.len() > 5 {
+                                d_str[5..].replace("-", "/")
+                            } else {
+                                d_str.to_string()
+                            }
                         };
-                        
+
                         let mx = t_max.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0);
                         let mn = t_min.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0);
                         let rain = pop.get(i).and_then(|v| v.as_i64()).unwrap_or(0);
-                        
+
                         cards.push(json!({
                             "header": {"icon": "fx", "title": format!("{} · {}", name, label)},
                             "body": [
@@ -802,8 +1063,8 @@ async fn execute_weather(args: &Value) -> Value {
                 }
             }
             json!({"text": format!("ดึงอากาศ {} ไม่ได้", name)})
-        },
-        Err(_) => json!({"text": "ดึงข้อมูลอากาศไม่ได้"})
+        }
+        Err(_) => json!({"text": "ดึงข้อมูลอากาศไม่ได้"}),
     }
 }
 
@@ -817,11 +1078,10 @@ async fn handle_native_tool(name: &str, args: &Value) -> Option<Value> {
     }
 }
 
-
 impl<T> OnceLockExt<T> for Option<T> {
     fn get_or_init<F>(&mut self, f: F) -> &mut T
     where
-        F: FnOnce() -> T
+        F: FnOnce() -> T,
     {
         if self.is_none() {
             *self = Some(f());
