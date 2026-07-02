@@ -208,7 +208,7 @@ fn simple_prop(schema: &Value) -> Value {
             if let Some(opt) = anyof.iter().find(|o| {
                 o.get("type")
                     .and_then(|v| v.as_str())
-                    .map_or(false, |s| s != "null")
+                    .is_some_and(|s| s != "null")
             }) {
                 t = opt.get("type").and_then(|v| v.as_str()).map(String::from);
                 if enum_v.is_none() {
@@ -270,7 +270,7 @@ pub async fn refresh_server(store: &crate::store::Store, name: &str) -> Value {
             .and_then(|v| v.as_array())
             .map(|a| {
                 a.iter()
-                    .filter(|r| r.as_str().map_or(true, |s| !injected.contains(s)))
+                    .filter(|r| r.as_str().is_none_or(|s| !injected.contains(s)))
                     .cloned()
                     .collect()
             })

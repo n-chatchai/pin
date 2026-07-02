@@ -612,7 +612,7 @@ async fn catalog(
         .filter(|c| {
             c.get("guide")
                 .and_then(|v| v.as_str())
-                .map_or(false, |g| !g.is_empty())
+                .is_some_and(|g| !g.is_empty())
         })
         .map(|c| {
             json!({
@@ -678,7 +678,7 @@ async fn catalog_categories(
     }
 
     let mut ordered: Vec<(String, i32)> = counts.into_iter().collect();
-    ordered.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
+    ordered.sort_by_key(|(_, count)| std::cmp::Reverse(*count)); // count descending
 
     let categories: Vec<Value> = ordered
         .into_iter()

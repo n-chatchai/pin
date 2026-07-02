@@ -7,10 +7,9 @@ use axum::{
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use time;
 use tracing::{error, warn};
 
 use crate::emails;
@@ -936,7 +935,7 @@ pub async fn waitlist_poll(State(state): State<AdminState>, jar: CookieJar) -> R
 
                         // Check for unsubscribe words
                         let body_low = body.to_lowercase();
-                        let unsub_words = vec![
+                        let unsub_words = [
                             "unsubscribe",
                             "เลิกรับ",
                             "ยกเลิกรับ",
@@ -1167,7 +1166,7 @@ pub async fn tab_generic(
     }
 
     // fetch tool logs
-    let rows_res = sqlx::query("SELECT ts,tool,kind,arg_keys,status FROM tool_logs ORDER BY ts DESC LIMIT 50")
+    let _rows_res = sqlx::query("SELECT ts,tool,kind,arg_keys,status FROM tool_logs ORDER BY ts DESC LIMIT 50")
         .fetch_all(&state.store.pool) // We need public pool on Store. Let's make sure it's accessible.
         ;
 

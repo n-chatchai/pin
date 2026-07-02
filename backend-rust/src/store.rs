@@ -52,6 +52,9 @@ pub struct Store {
     pub pool: SqlitePool,
 }
 
+// Several store methods are retained as a complete data-access API even when
+// not all are wired to a route yet.
+#[allow(dead_code)]
 impl Store {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
@@ -515,10 +518,8 @@ impl Store {
             .get::<Option<String>, _>("description")
             .unwrap_or_default());
 
-        if let Ok(connector) = r.try_get::<Option<String>, _>("connector_name") {
-            if let Some(c) = connector {
-                meta["server"] = json!(c);
-            }
+        if let Ok(Some(c)) = r.try_get::<Option<String>, _>("connector_name") {
+            meta["server"] = json!(c);
         }
 
         // Ensure defaults are present for legacy client expectation
@@ -586,6 +587,7 @@ impl Store {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_tool_meta(
         &self,
         name: &str,
@@ -645,7 +647,7 @@ impl Store {
     // ---- store (capability) management across all catalog tables -----------------
 
     pub async fn all_capabilities(&self) -> Result<Vec<Value>, sqlx::Error> {
-        let internal_caps = vec!["forget_end_user", "get_transits"];
+        let internal_caps = ["forget_end_user", "get_transits"];
         let rows = sqlx::query("SELECT * FROM capabilities")
             .fetch_all(&self.pool)
             .await?;
@@ -741,6 +743,7 @@ impl Store {
         Ok(false)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn set_store_meta(
         &self,
         name: &str,

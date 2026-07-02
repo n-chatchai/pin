@@ -85,7 +85,7 @@ pub fn enrich(mut entry: Value) -> Value {
             if let Some(entry_obj) = entry.as_object_mut() {
                 for (k, v) in base_obj {
                     if !entry_obj.contains_key(k)
-                        || entry_obj.get(k).map_or(true, |val| val.is_null())
+                        || entry_obj.get(k).is_none_or(|val| val.is_null())
                     {
                         entry_obj.insert(k.clone(), v.clone());
                     }

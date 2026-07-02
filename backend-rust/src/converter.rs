@@ -4,10 +4,9 @@ use serde_json::Value;
 
 pub fn convert_file(data: &[u8], filename: &str) -> Result<Value, String> {
     // Extract file extension
-    let ext = match filename.rfind('.') {
-        Some(idx) => Some(filename[idx..].to_lowercase()),
-        None => None,
-    };
+    let ext = filename
+        .rfind('.')
+        .map(|idx| filename[idx..].to_lowercase());
     let ext_str = ext.as_deref().unwrap_or("");
 
     Python::with_gil(|py| {
