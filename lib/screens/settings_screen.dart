@@ -129,52 +129,41 @@ class SettingsScreen extends StatelessWidget {
                 builder: (context, palette, _) => ListTile(
                   leading: const Icon(PhosphorIconsRegular.palette),
                   title: const Text('ธีมสี'),
-                  trailing: Text(palette.name,
-                      style: const TextStyle(color: PinPalette.ink2)),
+                  trailing: _valueCaret(palette.name),
                   onTap: () => showThemePicker(context),
                 ),
               ),
             ]),
             _section('การเฝ้าติดตาม'),
             _card([
-              SwitchListTile(
-                secondary: const Icon(PhosphorIconsRegular.sun),
+              // One row: description below, current time on the right. ปิ่น
+              // gathers watch findings into one calm briefing at this time
+              // (urgent ones still ping immediately).
+              ListTile(
+                leading: const Icon(PhosphorIconsRegular.sun),
                 title: const Text('สรุปการเฝ้าประจำวัน'),
-                subtitle: const Text('รวมเรื่องที่เฝ้าไว้มาบอกทีเดียวตอนเช้า '
-                    '(เรื่องด่วนปิ่นจะบอกทันที)'),
-                value: p.morningReminder,
-                onChanged: (v) async {
+                subtitle: const Text('รวมเรื่องที่เฝ้าไว้มาบอกทีเดียว '
+                    '(เรื่องด่วนบอกทันที)'),
+                trailing: _valueCaret(p.morningTime),
+                onTap: () async {
+                  final parts = p.morningTime.split(':');
+                  final t = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay(
+                      hour: int.tryParse(parts.first) ?? 8,
+                      minute:
+                          int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+                    ),
+                  );
+                  if (t == null) return;
+                  final hhmm =
+                      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
                   await PrefsController.instance
-                      .update(p.copyWith(morningReminder: v));
+                      .update(p.copyWith(morningTime: hhmm));
                   final rid = await MatrixService.instance.pinRoomId();
                   if (rid != null) await rescheduleDigestJob(rid);
                 },
               ),
-              if (p.morningReminder)
-                ListTile(
-                  leading: const Icon(PhosphorIconsRegular.clock),
-                  title: const Text('เวลาสรุป'),
-                  trailing: Text(p.morningTime,
-                      style: const TextStyle(color: PinPalette.ink2)),
-                  onTap: () async {
-                    final parts = p.morningTime.split(':');
-                    final t = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay(
-                        hour: int.tryParse(parts.first) ?? 8,
-                        minute:
-                            int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
-                      ),
-                    );
-                    if (t == null) return;
-                    final hhmm =
-                        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-                    await PrefsController.instance
-                        .update(p.copyWith(morningTime: hhmm));
-                    final rid = await MatrixService.instance.pinRoomId();
-                    if (rid != null) await rescheduleDigestJob(rid);
-                  },
-                ),
             ]),
             if (p.devUnlocked || _kDebugTools || kDebugMode) ...[
             _section('โมเดลเอไอ'),
@@ -289,29 +278,32 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// Trailing for an inline-value row (theme, digest time): the current value +
+  /// a caret, so a picker row reads as tappable just like a nav row.
+  Widget _valueCaret(String value) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value, style: const TextStyle(color: PinPalette.ink2)),
+          const SizedBox(width: 4),
+          const Icon(PhosphorIconsRegular.caretRight, size: 18),
+        ],
+      );
+
+  /// A navigation row: icon · title · description-below · caret. The secondary
+  /// line lives UNDER the title (not crammed right) so every nav row reads the
+  /// same and a long value can't squeeze the title.
   Widget _navRow(BuildContext context, IconData icon, String title,
           String value, VoidCallback onTap) =>
       ListTile(
         leading: Icon(icon),
         title: Text(title),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Bound + ellipsize: a long value (e.g. an OpenRouter model id) must
-            // not steal the title's width and wrap it one char per line.
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.42),
-              child: Text(value,
-                  style: const TextStyle(color: PinPalette.ink2),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right),
-            ),
-            const SizedBox(width: 4),
-            const Icon(PhosphorIconsRegular.caretRight, size: 18),
-          ],
-        ),
+        subtitle: value.isEmpty
+            ? null
+            : Text(value,
+                style: const TextStyle(color: PinPalette.ink2),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+        trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
         onTap: onTap,
       );
 
