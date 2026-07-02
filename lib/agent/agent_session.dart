@@ -87,7 +87,7 @@ class AgentSession {
 
   static String _two(int n) => n.toString().padLeft(2, '0');
 
-  String _system() {
+  String _system({bool agentic = false}) {
     final now = DateTime.now();
     const days = ['', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
     final dt =
@@ -110,19 +110,31 @@ class AgentSession {
         'including card titles and tables. If unclear, default to $langName. '
         'Keep proper nouns, code and URLs in their original language.\n'
         'เวลาปัจจุบันบนเครื่องผู้ใช้: $dt น. วัน${days[now.weekday]} '
-        '(เขตเวลา Asia/Bangkok). ใช้เวลานี้อ้างอิงเสมอเมื่อบอกเวลา.\n'
-        // One tool-call discipline rule instead of a paragraph per tool: when a
-        // request matches a tool, CALL it — never just acknowledge or promise.
-        'เมื่อคำขอตรงกับเครื่องมือที่มี ให้เรียกเครื่องมือนั้นทันที ห้ามแค่รับปาก/'
-        'พิมพ์ผลลัพธ์เป็นข้อความแทน (ถ้ายังไม่เรียก ถือว่ายังไม่ได้ทำ). โดยเฉพาะ: '
-        'วาด/แก้รูป (รวมสั่งอ้อม เช่น "ไม่ใช่ เอาผู้ชาย")→generate_image; '
-        'เตือน/นัดเวลา→schedule_reminder; "จำไว้"→remember_fact/save_knowledge; '
-        'งานที่ต้องติดตาม→add_task; ถ้ามีคำว่า "ตาม...", "เฝ้า...", หรือให้ติดตามเรื่องใดต่อเนื่อง '
-        '→ บังคับเรียก add_watch ทันที (ห้ามตอบรับปากเปล่าๆ เด็ดขาด); เลิกตาม→remove_watch; ถาม "ทำอะไรได้บ้าง"→list_capabilities. '
-        'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
-        '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
-        '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
-        'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
+        '(เขตเวลา Asia/Bangkok). ใช้เวลานี้อ้างอิงเสมอเมื่อบอกเวลา.\n';
+    // Agentic runs are background jobs (a watch/scheduled-job fired) — there is NO
+    // live user. The conversational tool-call discipline + proactive-offer policy
+    // must NOT apply, or the model "wakes up" and offers to watch/asks questions
+    // no one asked. Give it a report-only guard instead; the job prompt itself
+    // says what to do.
+    if (agentic) {
+      s += 'นี่คืองานเบื้องหลังที่ทำงานเอง — ไม่มีผู้ใช้กำลังสนทนาอยู่ตรงนี้. '
+          'ทำเฉพาะงานที่กำหนดให้แล้วรายงานผลสั้น ๆ อย่างเดียว. '
+          'ห้ามเสนอบริการ ชวน ถามคำถาม ทักทาย หรือชวนให้ตั้ง/เฝ้าเรื่องใด ๆ '
+          '(เช่น ห้ามพูดว่าจะเฝ้าเรื่องอื่นให้ไหม) — ไม่มีใครขอ.\n\n$persona';
+    } else {
+      // One tool-call discipline rule instead of a paragraph per tool: when a
+      // request matches a tool, CALL it — never just acknowledge or promise.
+      s += 'เมื่อคำขอตรงกับเครื่องมือที่มี ให้เรียกเครื่องมือนั้นทันที ห้ามแค่รับปาก/'
+          'พิมพ์ผลลัพธ์เป็นข้อความแทน (ถ้ายังไม่เรียก ถือว่ายังไม่ได้ทำ). โดยเฉพาะ: '
+          'วาด/แก้รูป (รวมสั่งอ้อม เช่น "ไม่ใช่ เอาผู้ชาย")→generate_image; '
+          'เตือน/นัดเวลา→schedule_reminder; "จำไว้"→remember_fact/save_knowledge; '
+          'งานที่ต้องติดตาม→add_task; ถ้ามีคำว่า "ตาม...", "เฝ้า...", หรือให้ติดตามเรื่องใดต่อเนื่อง '
+          '→ บังคับเรียก add_watch ทันที (ห้ามตอบรับปากเปล่าๆ เด็ดขาด); เลิกตาม→remove_watch; ถาม "ทำอะไรได้บ้าง"→list_capabilities. '
+          'ถ้าผู้ใช้ขอ "ต่อ/เชื่อม/เข้าถึง/ใช้" บริการหรือแอปภายนอกที่ไม่มีเครื่องมือ '
+          '(Gmail, LINE, Facebook, ปฏิทิน ฯลฯ) หรือถาม "ต่อ X ได้ไหม"→request_capability '
+          '(อย่าตอบ "ได้เลย/โอเค" ลอย ๆ) แล้วบอกตามตรงว่าตอนนี้ยังทำไม่ได้ '
+          'แต่บันทึกคำขอไว้ให้แล้ว.\n\n$persona';
+    }
     // The proactive watch-offer policy now lives in the admin-managed "watch"
     // skill (injected via _catalogSkills below) — toggleable, no rebuild.
     // Remembered facts about the user — always in context so ปิ่น uses them
@@ -131,26 +143,31 @@ class AgentSession {
       s += '\n\nสิ่งที่ผู้ใช้เคยบอกให้จำ (ใช้ประกอบการตอบเมื่อเกี่ยวข้อง '
           'โดยไม่ต้องถามซ้ำ):\n${_facts.map((f) => '- $f').join('\n')}';
     }
-    // Catalog skill instructions. Capabilities the user opted out of are already
-    // filtered upstream (CatalogClient.fetch), so _catalogSkills holds only the
-    // ones in effect for this user.
-    final blocks = <String>[
-      for (final e in _catalogSkills.entries) '${e.value['instructions']}',
-    ];
-    if (blocks.isNotEmpty) {
-      s += '\n\nความสามารถที่เปิดไว้:\n'
-          '${blocks.map((b) => '- $b').join('\n')}';
-    }
-    // Capabilities the user switched OFF. Removing the tool isn't enough — the
-    // model will otherwise fake the result itself (e.g. "ดูดวง" via render_html).
-    // Tell it explicitly to refuse, not improvise.
-    if (_optedOut.isNotEmpty) {
-      final names =
-          _optedOut.map(abilityLabel).where((s) => s.isNotEmpty).join(', ');
-      s += '\n\nความสามารถที่ผู้ใช้ปิดไว้: $names. '
-          'ห้ามทำสิ่งเหล่านี้เองเด็ดขาด — รวมถึงห้ามแต่งผลลัพธ์เป็นข้อความ ตาราง '
-          'การ์ด หรือ HTML. ถ้าผู้ใช้ขอ ให้บอกสั้น ๆ ว่าความสามารถนี้ถูกปิดอยู่ '
-          'เปิดใหม่ได้ที่หน้า "ความสามารถ".';
+    // Conversational skill instructions (incl. the proactive watch-offer) and the
+    // opted-out refusal list are for live chat only — skip them in agentic runs so
+    // no user-facing behavior leaks into a background job. Tools stay via _registry.
+    if (!agentic) {
+      // Catalog skill instructions. Capabilities the user opted out of are already
+      // filtered upstream (CatalogClient.fetch), so _catalogSkills holds only the
+      // ones in effect for this user.
+      final blocks = <String>[
+        for (final e in _catalogSkills.entries) '${e.value['instructions']}',
+      ];
+      if (blocks.isNotEmpty) {
+        s += '\n\nความสามารถที่เปิดไว้:\n'
+            '${blocks.map((b) => '- $b').join('\n')}';
+      }
+      // Capabilities the user switched OFF. Removing the tool isn't enough — the
+      // model will otherwise fake the result itself (e.g. "ดูดวง" via render_html).
+      // Tell it explicitly to refuse, not improvise.
+      if (_optedOut.isNotEmpty) {
+        final names =
+            _optedOut.map(abilityLabel).where((s) => s.isNotEmpty).join(', ');
+        s += '\n\nความสามารถที่ผู้ใช้ปิดไว้: $names. '
+            'ห้ามทำสิ่งเหล่านี้เองเด็ดขาด — รวมถึงห้ามแต่งผลลัพธ์เป็นข้อความ ตาราง '
+            'การ์ด หรือ HTML. ถ้าผู้ใช้ขอ ให้บอกสั้น ๆ ว่าความสามารถนี้ถูกปิดอยู่ '
+            'เปิดใหม่ได้ที่หน้า "ความสามารถ".';
+      }
     }
     return s;
   }
@@ -269,7 +286,8 @@ class AgentSession {
       {String? imagePath,
       bool persistUser = true,
       String? recordText,
-      String? imageRecordPath}) async {
+      String? imageRecordPath,
+      bool agentic = false}) async {
     // Refresh the catalog if it's stale, or if the user just changed which
     // capabilities are opted in (so an opt-out drops the tool this turn — not up
     // to 30s later), so a just-published/just-disabled capability takes effect
@@ -286,7 +304,7 @@ class AgentSession {
       // that branches direct→OpenRouter.
       proxy: devProxy(),
       tools: _registry(),
-      system: _system(),
+      system: _system(agentic: agentic),
     );
     String? b64;
     if (imagePath != null) {

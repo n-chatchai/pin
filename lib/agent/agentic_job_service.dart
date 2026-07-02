@@ -47,7 +47,8 @@ Future<void> runDueAgenticJobs(String rid, AgentSession session,
       final job = jobs.firstWhere((j) => '${j['id']}' == id);
       var foundNew = false; // did this run surface something? → drives backoff
       try {
-        final r = await session.send('${job['text'] ?? ''}', persistUser: false);
+        final r = await session.send('${job['text'] ?? ''}',
+            persistUser: false, agentic: true);
         // A watch job that finds nothing new returns an empty reply → stay
         // silent (don't post). Only ping when ปิ่น actually has something.
         final hasReply = (r.text?.trim().isNotEmpty ?? false) || r.flex != null;
