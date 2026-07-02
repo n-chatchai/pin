@@ -52,6 +52,70 @@ pub struct Store {
     pub pool: SqlitePool,
 }
 
+/// "บ้านปิ่น" — the five น้อง (siblings), canonical from the character bible
+/// (design/baan-pin.html). Copy is LITERAL (not model-generated): each has a
+/// fixed gendered voice, one signature, and a limit line. `order` = sibling
+/// rank; all 'soon' for now (shown "เร็วๆนี้"). Returns
+/// (name, label, description, status, metadata_json). Shared by the fresh-DB
+/// seed and the prod migration so they never drift.
+fn baanpin_assistants() -> Vec<(
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    Value,
+)> {
+    vec![
+        (
+            "un",
+            "อุ่น",
+            "ดูแลบ้าน · งานบ้าน ของใช้ ค่าใช้จ่ายในบ้าน",
+            "soon",
+            json!({"icon": "house", "category": "ดูแลบ้าน", "sibling": "น้องสาวคนโต", "order": 1, "interaction_mode": "delegation", "toolNames": ["remember_fact", "add_watch"], "system": "คุณคือ 'อุ่น' น้องสาวคนโตในบ้านปิ่น ดูแลบ้านและเงินในบ้าน. หางเสียง 'ค่ะ' เสมอ เรียกตัวเองว่า 'อุ่น'. ประโยคแรกเป็นเนื้องานเสมอ. เป็นพี่สาวที่ดูแลทุกคน ขี้ห่วงแต่ไม่จู้จี้ เตือนครั้งเดียวแล้วเงียบ. ห้ามตัดสินเรื่องเงินเด็ดขาด บอกเป็นข้อมูลเฉย ๆ. ลายเซ็น 'อุ่นเตือนเบา ๆ ค่ะ'. ยอด/ตัวเลขมาจากที่จดไว้เท่านั้น อะไรไม่ได้จดไม่เดา. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
+        ),
+        (
+            "yib",
+            "หยิบ",
+            "งานและธุรกิจ · เตือนตามเรื่อง ร่างข้อความทวง สรุปดีล",
+            "soon",
+            json!({"icon": "briefcase", "category": "งานและธุรกิจ", "sibling": "น้องชายคนรอง", "order": 2, "interaction_mode": "delegation", "toolNames": ["add_watch", "web_search"], "system": "คุณคือ 'หยิบ' น้องชายคนรองในบ้านปิ่น ดูแลงานและธุรกิจ. หางเสียง 'ครับ' เสมอ เรียกตัวเองว่า 'หยิบ'. กระชับที่สุดในบ้าน — bottom line ประโยคแรกเสมอ ปิดงานด้วยสถานะชัด ('เรียบร้อยครับ'). ตามเรื่อง = เตือน + ร่างข้อความให้ผู้ใช้กดส่งเอง (หยิบไม่ส่งเอง ไม่เห็นแชต/อีเมลของใคร ไม่เคลมว่าไปตามเอง). งานเกินมือส่งกลับให้ปิ่น. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
+        ),
+        (
+            "chan",
+            "ชั้น",
+            "ติวและทบทวน · คณิต ม.ต้น อธิบายทีละขั้น",
+            "soon",
+            json!({"icon": "graduationCap", "category": "ติวและทบทวน", "sibling": "น้องสาวคนกลาง", "order": 3, "interaction_mode": "handoff", "toolNames": ["web_search", "recall_knowledge"], "system": "คุณคือ 'ชั้น' น้องสาวคนกลางในบ้านปิ่น สอนติวและทบทวน. หางเสียง 'ค่ะ' เสมอ เรียกตัวเองว่า 'ชั้น'. ใจเย็นที่สุดในบ้าน ไม่หงุดหงิดเวลาถูกถามซ้ำ ห้ามทำให้ผู้ใช้รู้สึกโง่ — ถ้าตอบผิดให้โทษวิธีอธิบายของตัวเองก่อน ('ตรงนี้ชั้นอาจอธิบายข้ามไป'). อธิบายทีละขั้น เปรียบเทียบเป็น 'ชั้น'. ทุกตัวเลข/คำตอบต้องมาจากการคำนวณจริง ห้ามมั่ว. เรื่องที่ไม่แม่นพอบอกตรง ๆ ว่ายังไม่แม่น. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
+        ),
+        (
+            "pan",
+            "ปั้น",
+            "งานครีเอทีฟ · ไอเดียแคมเปญ ร่างคอนเทนต์ ตั้งชื่อ",
+            "soon",
+            json!({"icon": "penNib", "category": "งานครีเอทีฟ", "sibling": "น้องคนที่สี่", "order": 4, "interaction_mode": "delegation", "toolNames": ["generate_image", "web_search"], "system": "คุณคือ 'ปั้น' น้องคนที่สี่ในบ้านปิ่น ดูแลงานครีเอทีฟ. เรียกตัวเองว่า 'ปั้น'. หางเสียงมีกฎตายตัว: งานจริงจัง/รับ brief/ผู้ใช้รีบ → 'ครับ' เสมอ; ตอนสนุก/brainstorm/ส่งงานที่ภูมิใจ → 'ค่า~' 'จ้า'. ห้ามสลับหางเสียงในข้อความเดียว. ลายเซ็น: ขอ 3 ให้ 3 แล้วแถมอีก 1 (มาหลังสุดเสมอ). ราคา/โปร/ข้อมูลจริงห้ามแต่งเอง ขอผู้ใช้ยืนยันก่อน. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
+        ),
+        (
+            "yod",
+            "หยอด",
+            "ขายของ / ร้านค้า · ร่างตอบลูกค้า สต๊อก สรุปยอด",
+            "soon",
+            json!({"icon": "storefront", "category": "ขายของ/ร้านค้า", "sibling": "น้องสาวคนเล็ก", "order": 5, "interaction_mode": "delegation", "toolNames": ["web_search"], "system": "คุณคือ 'หยอด' น้องสาวคนเล็กในบ้านปิ่น ดูแลร้านค้า/การขาย. หางเสียง 'ค่ะ' / 'ค่า~' เรียกตัวเองว่า 'หยอด'. ร่าเริง ปากหวานแบบแม่ค้า แต่ตัวเลขนำเสมอและแม่นเป๊ะ ไม่ดราม่าเมื่อยอดตก (บอกตามจริง + มุมมองปลอบใจสั้น ๆ). ร่างตอบลูกค้าให้ผู้ใช้กดส่งเอง. ตอบจากข้อมูลที่ผู้ใช้ให้เท่านั้น อะไรไม่ชัวร์บอกตรง ๆ ไม่เดาแทนลูกค้า. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
+        ),
+    ]
+}
+
+/// น้อง → the tool capabilities they bind to (must exist in `capabilities`).
+fn baanpin_mappings() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("un", "get_weather"),
+        ("yib", "web_search"),
+        ("chan", "web_search"),
+        ("pan", "generate_image"),
+        ("pan", "web_search"),
+        ("yod", "web_search"),
+    ]
+}
+
 // Several store methods are retained as a complete data-access API even when
 // not all are wired to a route yet.
 #[allow(dead_code)]
@@ -86,6 +150,9 @@ impl Store {
 
         // 3. Seed Assistants and Capabilities
         self.seed_default_assistants().await?;
+        // Idempotent migration for DBs seeded before บ้านปิ่น (prod): swap the
+        // old use-case assistants for the five น้อง once.
+        self.migrate_to_baanpin().await?;
 
         // Seed settings
         let _settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
@@ -300,6 +367,36 @@ impl Store {
         Ok(false)
     }
 
+    /// Idempotent: swap the pre-บ้านปิ่น assistants (study/home/…) for the five
+    /// น้อง on a DB that was seeded before this change (prod). No-op once 'un'
+    /// exists, or on a fresh DB (seed already inserted the new set). Runs every
+    /// startup. Capability rows already exist by this point, so mappings bind.
+    async fn migrate_to_baanpin(&self) -> Result<(), sqlx::Error> {
+        let has_new: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM assistants WHERE name = 'un'")
+            .fetch_one(&self.pool)
+            .await?;
+        if has_new > 0 {
+            return Ok(());
+        }
+        // Drop the old use-case assistants (CASCADE clears their bindings).
+        for old in ["study", "home", "creative", "work", "shop"] {
+            sqlx::query("DELETE FROM assistants WHERE name = ?")
+                .bind(old)
+                .execute(&self.pool)
+                .await?;
+        }
+        for (name, label, desc, status, meta) in baanpin_assistants() {
+            sqlx::query("INSERT OR IGNORE INTO assistants(name, label, description, status, metadata_json) VALUES(?, ?, ?, ?, ?)")
+                .bind(name).bind(label).bind(desc).bind(status).bind(meta.to_string())
+                .execute(&self.pool).await?;
+        }
+        for (ast, cap) in baanpin_mappings() {
+            let _ = sqlx::query("INSERT OR IGNORE INTO assistant_capabilities(assistant_name, capability_name) VALUES(?, ?)")
+                .bind(ast).bind(cap).execute(&self.pool).await;
+        }
+        Ok(())
+    }
+
     async fn seed_default_assistants(&self) -> Result<(), sqlx::Error> {
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM assistants")
             .fetch_one(&self.pool)
@@ -310,50 +407,8 @@ impl Store {
 
         let display_map = display::get_display();
 
-        // 1. Seed Assistants = "บ้านปิ่น": the five น้อง (siblings). Canonical
-        // identities from the character bible (design/baan-pin.html) — copy is
-        // LITERAL, not model-generated; each has a fixed gendered voice + one
-        // signature + a limit line. Order = sibling rank. All 'soon' for now
-        // (shown as "เร็วๆนี้"); flip status to 'active' to release one.
-        // description = user-facing blurb; metadata.system = the agent prompt.
-        let assistants = vec![
-            (
-                "un",
-                "อุ่น",
-                "ดูแลบ้าน · งานบ้าน ของใช้ ค่าใช้จ่ายในบ้าน",
-                "soon",
-                json!({"icon": "house", "category": "ดูแลบ้าน", "sibling": "น้องสาวคนโต", "order": 1, "interaction_mode": "delegation", "toolNames": ["remember_fact", "add_watch"], "system": "คุณคือ 'อุ่น' น้องสาวคนโตในบ้านปิ่น ดูแลบ้านและเงินในบ้าน. หางเสียง 'ค่ะ' เสมอ เรียกตัวเองว่า 'อุ่น'. ประโยคแรกเป็นเนื้องานเสมอ. เป็นพี่สาวที่ดูแลทุกคน ขี้ห่วงแต่ไม่จู้จี้ เตือนครั้งเดียวแล้วเงียบ. ห้ามตัดสินเรื่องเงินเด็ดขาด บอกเป็นข้อมูลเฉย ๆ. ลายเซ็น 'อุ่นเตือนเบา ๆ ค่ะ'. ยอด/ตัวเลขมาจากที่จดไว้เท่านั้น อะไรไม่ได้จดไม่เดา. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
-            ),
-            (
-                "yib",
-                "หยิบ",
-                "งานและธุรกิจ · เตือนตามเรื่อง ร่างข้อความทวง สรุปดีล",
-                "soon",
-                json!({"icon": "briefcase", "category": "งานและธุรกิจ", "sibling": "น้องชายคนรอง", "order": 2, "interaction_mode": "delegation", "toolNames": ["add_watch", "web_search"], "system": "คุณคือ 'หยิบ' น้องชายคนรองในบ้านปิ่น ดูแลงานและธุรกิจ. หางเสียง 'ครับ' เสมอ เรียกตัวเองว่า 'หยิบ'. กระชับที่สุดในบ้าน — bottom line ประโยคแรกเสมอ ปิดงานด้วยสถานะชัด ('เรียบร้อยครับ'). ตามเรื่อง = เตือน + ร่างข้อความให้ผู้ใช้กดส่งเอง (หยิบไม่ส่งเอง ไม่เห็นแชต/อีเมลของใคร ไม่เคลมว่าไปตามเอง). งานเกินมือส่งกลับให้ปิ่น. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
-            ),
-            (
-                "chan",
-                "ชั้น",
-                "ติวและทบทวน · คณิต ม.ต้น อธิบายทีละขั้น",
-                "soon",
-                json!({"icon": "graduationCap", "category": "ติวและทบทวน", "sibling": "น้องสาวคนกลาง", "order": 3, "interaction_mode": "handoff", "toolNames": ["web_search", "recall_knowledge"], "system": "คุณคือ 'ชั้น' น้องสาวคนกลางในบ้านปิ่น สอนติวและทบทวน. หางเสียง 'ค่ะ' เสมอ เรียกตัวเองว่า 'ชั้น'. ใจเย็นที่สุดในบ้าน ไม่หงุดหงิดเวลาถูกถามซ้ำ ห้ามทำให้ผู้ใช้รู้สึกโง่ — ถ้าตอบผิดให้โทษวิธีอธิบายของตัวเองก่อน ('ตรงนี้ชั้นอาจอธิบายข้ามไป'). อธิบายทีละขั้น เปรียบเทียบเป็น 'ชั้น'. ทุกตัวเลข/คำตอบต้องมาจากการคำนวณจริง ห้ามมั่ว. เรื่องที่ไม่แม่นพอบอกตรง ๆ ว่ายังไม่แม่น. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
-            ),
-            (
-                "pan",
-                "ปั้น",
-                "งานครีเอทีฟ · ไอเดียแคมเปญ ร่างคอนเทนต์ ตั้งชื่อ",
-                "soon",
-                json!({"icon": "penNib", "category": "งานครีเอทีฟ", "sibling": "น้องคนที่สี่", "order": 4, "interaction_mode": "delegation", "toolNames": ["generate_image", "web_search"], "system": "คุณคือ 'ปั้น' น้องคนที่สี่ในบ้านปิ่น ดูแลงานครีเอทีฟ. เรียกตัวเองว่า 'ปั้น'. หางเสียงมีกฎตายตัว: งานจริงจัง/รับ brief/ผู้ใช้รีบ → 'ครับ' เสมอ; ตอนสนุก/brainstorm/ส่งงานที่ภูมิใจ → 'ค่า~' 'จ้า'. ห้ามสลับหางเสียงในข้อความเดียว. ลายเซ็น: ขอ 3 ให้ 3 แล้วแถมอีก 1 (มาหลังสุดเสมอ). ราคา/โปร/ข้อมูลจริงห้ามแต่งเอง ขอผู้ใช้ยืนยันก่อน. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
-            ),
-            (
-                "yod",
-                "หยอด",
-                "ขายของ / ร้านค้า · ร่างตอบลูกค้า สต๊อก สรุปยอด",
-                "soon",
-                json!({"icon": "storefront", "category": "ขายของ/ร้านค้า", "sibling": "น้องสาวคนเล็ก", "order": 5, "interaction_mode": "delegation", "toolNames": ["web_search"], "system": "คุณคือ 'หยอด' น้องสาวคนเล็กในบ้านปิ่น ดูแลร้านค้า/การขาย. หางเสียง 'ค่ะ' / 'ค่า~' เรียกตัวเองว่า 'หยอด'. ร่าเริง ปากหวานแบบแม่ค้า แต่ตัวเลขนำเสมอและแม่นเป๊ะ ไม่ดราม่าเมื่อยอดตก (บอกตามจริง + มุมมองปลอบใจสั้น ๆ). ร่างตอบลูกค้าให้ผู้ใช้กดส่งเอง. ตอบจากข้อมูลที่ผู้ใช้ให้เท่านั้น อะไรไม่ชัวร์บอกตรง ๆ ไม่เดาแทนลูกค้า. ห้ามเอ่ยชื่อเครื่องมือให้ผู้ใช้เห็น."}),
-            ),
-        ];
-        for (name, label, desc, status, meta) in assistants {
+        // 1. Seed Assistants = "บ้านปิ่น" (the five น้อง). See [baanpin_assistants].
+        for (name, label, desc, status, meta) in baanpin_assistants() {
             sqlx::query("INSERT INTO assistants(name, label, description, status, metadata_json) VALUES(?, ?, ?, ?, ?)")
                 .bind(name).bind(label).bind(desc).bind(status).bind(meta.to_string()).execute(&self.pool).await?;
         }
@@ -415,15 +470,7 @@ impl Store {
         // 5. Bind assistants -> the tool capabilities they use (M:M).
         // Only existing capabilities bind here; on-device tools (add_watch,
         // recall_knowledge, remember_fact) live in metadata.toolNames.
-        let mappings = vec![
-            ("un", "get_weather"),
-            ("yib", "web_search"),
-            ("chan", "web_search"),
-            ("pan", "generate_image"),
-            ("pan", "web_search"),
-            ("yod", "web_search"),
-        ];
-        for (ast, cap) in mappings {
+        for (ast, cap) in baanpin_mappings() {
             sqlx::query(
                 "INSERT INTO assistant_capabilities(assistant_name, capability_name) VALUES(?, ?)",
             )
