@@ -110,7 +110,7 @@ class SettingsScreen extends StatelessWidget {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _avatarStack(const ['อ', 'ห', 'ช', 'ป']),
+                    _nameBadges(const ['อุ่น', 'หยิบ', 'ชั้น', 'ปั้น', 'หยอด']),
                     const SizedBox(width: 6),
                     const Icon(PhosphorIconsRegular.caretRight, size: 18),
                   ],
@@ -322,32 +322,28 @@ class SettingsScreen extends StatelessWidget {
     return ok == true ? picked : null;
   }
 
-  /// Overlapping initials — the บ้านปิ่น siblings, hinting at the family.
-  Widget _avatarStack(List<String> initials) {
+  /// Small name pills — the บ้านปิ่น siblings, right-aligned in the row.
+  Widget _nameBadges(List<String> names) {
     final pal = ThemeController.instance.value;
-    return SizedBox(
-      width: 20.0 + (initials.length - 1) * 14,
-      height: 22,
-      child: Stack(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 190),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 4,
+        runSpacing: 4,
         children: [
-          for (var i = 0; i < initials.length; i++)
-            Positioned(
-              left: i * 14.0,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: pal.av,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                alignment: Alignment.center,
-                child: Text(initials[i],
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: pal.deep)),
+          for (final n in names)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: pal.av,
+                borderRadius: BorderRadius.circular(9),
               ),
+              child: Text(n,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: pal.deep)),
             ),
         ],
       ),

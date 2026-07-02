@@ -84,45 +84,18 @@ class _AbilitiesScreenState extends State<AbilitiesScreen> {
   /// ปิ่น introduces the house — sets the "you talk to ปิ่น, น้อง help behind
   /// the scenes" mental model (character bible).
   Widget _houseHello() {
-    final primary = Theme.of(context).colorScheme.primary;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: const Text('ป',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13)),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: PinPalette.line),
-              borderRadius:
-                  const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(13),
-                bottomLeft: Radius.circular(13),
-                bottomRight: Radius.circular(13),
-              ),
-            ),
-            child: const Text(
-              'นี่บ้านของปิ่นเองนะพี่ — น้อง ๆ ถนัดคนละเรื่อง พี่ไม่ต้องจำว่าใครทำอะไร '
-              'บอกปิ่นมาเหมือนเดิม เดี๋ยวปิ่นส่งต่อให้เอง',
-              style: TextStyle(
-                  fontSize: 12.5, height: 1.55, color: PinPalette.ink),
-            ),
-          ),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: PinPalette.line),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: const Text(
+        'นี่บ้านของปิ่นเองนะพี่ — น้อง ๆ ถนัดคนละเรื่อง พี่ไม่ต้องจำว่าใครทำอะไร '
+        'บอกปิ่นมาเหมือนเดิม เดี๋ยวปิ่นส่งต่อให้เอง',
+        style: TextStyle(fontSize: 12.5, height: 1.55, color: PinPalette.ink),
+      ),
     );
   }
 
